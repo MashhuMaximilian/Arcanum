@@ -23,6 +23,10 @@ import {
   getBuiltInSrdRaces,
   getBuiltInSrdRaceElements,
 } from "@/lib/builtins/races";
+import {
+  getBuiltInSrdCompanions,
+  getBuiltInSrdCompanionSubElements,
+} from "@/lib/builtins/srd-companions";
 import { listCachedElements } from "@/lib/content-sources/cache";
 import { getSourcePrecedenceScore } from "@/lib/content-sources/source-precedence";
 import type { ImportedElement } from "@/lib/content-sources/types";
@@ -538,6 +542,8 @@ export async function resolveBuilderCatalogs(initialSpellElements: BuiltInElemen
   const builtInBackgroundElements = [...getBuiltInSrdBackgroundElements()];
   const builtInFeatElements = [...getBuiltInSrdFeatElements()];
   const builtInSpellElements = [...initialSpellElements];
+  const builtInCompanionElements = getBuiltInSrdCompanions();
+  const builtInCompanionSubElements = getBuiltInSrdCompanionSubElements();
   const cachedImported = await listCachedElements();
   const importedElements = cachedImported
     .map((element) => toBuiltInElement(element))
@@ -561,11 +567,13 @@ export async function resolveBuilderCatalogs(initialSpellElements: BuiltInElemen
       ["Background", "Background Feature", "Background Variant"].includes(element.type),
     ),
   ]);
-  const companionElements = dedupeElements(
-    importedElements.filter((element) =>
+  const companionElements = dedupeElements([
+    ...builtInCompanionElements,
+    ...builtInCompanionSubElements,
+    ...importedElements.filter((element) =>
       ["Companion", "Companion Trait", "Companion Action", "Companion Reaction"].includes(element.type),
     ),
-  );
+  ]);
   const featElements = dedupeElements([
     ...builtInFeatElements,
     ...importedElements.filter((element) => ["Feat"].includes(element.type)),
@@ -600,9 +608,6 @@ export async function resolveBuilderCatalogs(initialSpellElements: BuiltInElemen
       ["Feat", "Feat Feature", "Ability Score Improvement"].includes(element.type),
     ),
     ...spellElements,
-    ...companionElements.filter((element) =>
-      ["Companion Trait", "Companion Action", "Companion Reaction"].includes(element.type),
-    ),
   ]);
 
   return {
