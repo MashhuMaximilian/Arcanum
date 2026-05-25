@@ -8,6 +8,7 @@ import type { ResolvedPdfCharacter } from "@/lib/pdf/types";
 import type { PdfRenderContext } from "@/lib/pdf/drawing";
 import { PAGE_SIZE } from "@/lib/pdf/front-page-layout";
 import { renderFrontPage } from "@/lib/pdf/front-page-renderer";
+import { renderInventoryPage, renderCompanionPage } from "@/lib/pdf/page2-renderer";
 import { renderStandardPage } from "@/lib/pdf/page-flow";
 
 const PDF_TEXT_FONT_FAMILY = "Noto Sans";
@@ -69,9 +70,17 @@ export async function generatePdfBytes(character: ResolvedPdfCharacter, assets: 
   };
 
   renderFrontPage(ctx, assets, character);
-  character.pagePlan
-    .filter((page) => page.kind !== "front")
-    .forEach((page) => renderStandardPage(ctx, assets, character, page));
+
+  // Render additional pages based on pagePlan
+  for (const page of character.pagePlan) {
+    if (page.kind === "inventory") {
+      renderInventoryPage(ctx, assets, character);
+    } else if (page.kind === "companion") {
+      renderCompanionPage(ctx, assets, character);
+    } else if (page.kind !== "front") {
+      renderStandardPage(ctx, assets, character, page);
+    }
+  }
 
   doc.end();
   return done;
