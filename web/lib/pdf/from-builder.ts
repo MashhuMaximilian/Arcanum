@@ -1754,8 +1754,45 @@ function buildFeatureCards(args: BuilderPdfSourceArgs) {
 function buildCompanionCards(args: BuilderPdfSourceArgs) {
   return uniqueById(
     args.selectedProgressionElements
-      .filter((element) => /companion/i.test(element.type) || /companion/i.test(element.name) || /companion/i.test(element.description))
-      .map((element) => toPdfCardFromElement(element, { kind: "feature", pageHint: "companion" })),
+      .filter(
+        (element) =>
+          element.type === "Companion" ||
+          /companion/i.test(element.type) ||
+          /companion/i.test(element.name) ||
+          /companion/i.test(element.description),
+      )
+      .map((element) => {
+        const setterMap = new Map(element.setters.map((s) => [s.name, s.value]));
+        const dedupedSupport = [...new Set((element.supports ?? []).map((s) => s.toLowerCase().trim()).filter(Boolean))];
+
+        // Encode setter values as tags so the PDF renderer can read them.
+        // Format: key:value (e.g. "str:14", "ac:13", "cr:1/4")
+        const tags: string[] = [
+          ...dedupedSupport,
+          setterMap.get("type") ? `type:${setterMap.get("type")}` : null,
+          setterMap.get("size") ? `size:${setterMap.get("size")}` : null,
+          setterMap.get("challenge") ? `cr:${setterMap.get("challenge")}` : null,
+          setterMap.get("ac") ? `ac:${setterMap.get("ac")}` : null,
+          setterMap.get("hp") ? `hp:${setterMap.get("hp")}` : null,
+          setterMap.get("speed") ? `speed:${setterMap.get("speed")}` : null,
+          setterMap.get("alignment") ? `alignment:${setterMap.get("alignment")}` : null,
+          setterMap.get("senses") ? `senses:${setterMap.get("senses")}` : null,
+          setterMap.get("languages") ? `languages:${setterMap.get("languages")}` : null,
+          setterMap.get("skills") ? `skills:${setterMap.get("skills")}` : null,
+          setterMap.get("strength") ? `str:${setterMap.get("strength")}` : null,
+          setterMap.get("dexterity") ? `dex:${setterMap.get("dexterity")}` : null,
+          setterMap.get("constitution") ? `con:${setterMap.get("constitution")}` : null,
+          setterMap.get("intelligence") ? `int:${setterMap.get("intelligence")}` : null,
+          setterMap.get("wisdom") ? `wis:${setterMap.get("wisdom")}` : null,
+          setterMap.get("charisma") ? `cha:${setterMap.get("charisma")}` : null,
+        ].filter(Boolean) as string[];
+
+        return toPdfCardFromElement(element, {
+          kind: "feature",
+          pageHint: "companion",
+          tags,
+        });
+      }),
   );
 }
 

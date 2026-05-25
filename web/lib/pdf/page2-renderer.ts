@@ -708,6 +708,50 @@ function renderCompanionSavesAndSkills(
   }
 }
 
+function renderCompanionSensesAndLanguages(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  senses: string,
+  languages: string,
+) {
+  const rect = PAGE2_COMPANION_REGIONS.sensesAndLangs;
+  drawSvg(ctx, assets.greyBackground, rect);
+
+  let y = rect.y + 4;
+  const maxX = rect.x + rect.width - 4;
+
+  if (senses) {
+    drawText(ctx, "SENSES", { x: rect.x + 4, y, width: 60, height: 8 }, {
+      font: "Helvetica-Bold",
+      size: TYPOGRAPHY.small.maxSize,
+      color: COLORS.textSecondary,
+    });
+    y += 7;
+    drawText(ctx, senses, { x: rect.x + 4, y, width: maxX - rect.x - 8, height: 20 }, {
+      font: "Helvetica",
+      size: TYPOGRAPHY.small.minSize,
+      color: COLORS.textPrimary,
+      lineBreak: true,
+    });
+    y += 14;
+  }
+
+  if (languages && languages.trim() !== "—" && languages.trim() !== "") {
+    drawText(ctx, "LANGUAGES", { x: rect.x + 4, y, width: 80, height: 8 }, {
+      font: "Helvetica-Bold",
+      size: TYPOGRAPHY.small.maxSize,
+      color: COLORS.textSecondary,
+    });
+    y += 7;
+    drawText(ctx, languages, { x: rect.x + 4, y, width: maxX - rect.x - 8, height: 12 }, {
+      font: "Helvetica",
+      size: TYPOGRAPHY.small.minSize,
+      color: COLORS.textPrimary,
+      lineBreak: true,
+    });
+  }
+}
+
 function renderCompanionTraitsAndActions(
   ctx: PdfRenderContext,
   _assets: PdfSvgAssetBundle,
@@ -766,30 +810,54 @@ export function renderCompanionPage(
     return;
   }
 
+  // Extract companion data from card tags
+  const tags = firstCompanion.tags ?? [];
+  const getTag = (prefix: string) => tags.find((t) => t.startsWith(prefix + ":"))?.replace(prefix + ":", "") ?? "";
+
   const companionName = firstCompanion.title;
-  const companionType = firstCompanion.sourceLabel ?? "Companion";
-  const crTag = firstCompanion.tags.find((t) => t.startsWith("cr:"));
-  const cr = crTag ? crTag.replace("cr:", "") : "—";
+  const companionType = getTag("type") || firstCompanion.sourceLabel || "Companion";
+  const cr = getTag("cr") || "—";
+  const ac = getTag("ac") || "—";
+  const hp = getTag("hp") || "—";
+  const speed = getTag("speed") || "30 ft.";
+  const senses = getTag("senses");
+  const languages = getTag("languages");
+
+  // Parse ability scores from tags
+  const abilityScores = {
+    str: parseInt(getTag("str")) || 10,
+    dex: parseInt(getTag("dex")) || 10,
+    con: parseInt(getTag("con")) || 10,
+    int: parseInt(getTag("int")) || 10,
+    wis: parseInt(getTag("wis")) || 10,
+    cha: parseInt(getTag("cha")) || 10,
+  };
+
+  // Parse saves and skills from tags (format: "save:STR" or "skill:Perception")
+  const saves = tags.filter((t) => t.startsWith("save:")).map((t) => t.replace("save:", ""));
+  const skillsRaw = getTag("skills");
+  const skills = skillsRaw ? skillsRaw.split(",").map((s) => s.trim()) : [];
 
   renderCompanionHeader(ctx, assets, companionName, companionType, cr);
   renderCompanionPortrait(ctx);
+  renderCompanionAbilityScores(ctx, assets, abilityScores);
 
-  const stats = character.stats;
-  const scoreMap: Record<string, number> = {};
-  stats.forEach((s) => {
-    scoreMap[s.id] = parseInt(s.value) ?? 10;
-  });
+  // Parse HP: format is "30 (3d8+6)" or just "30" — extract the base number
+  const hpMatch = hp.match(/^(\d+)/);
+  const hpBase = hpMatch ? parseInt(hpMatch[1]) : 30;
+  renderCompanionHPStrip(ctx, assets, hpBase, hpBase);
 
-  renderCompanionAbilityScores(ctx, assets, scoreMap);
-  renderCompanionHPStrip(ctx, assets, 30, 30);
+  // Calculate proficiency: companion uses ranger's proficiency bonus
+  const prof = Math.max(2, Math.floor((character.level - 1) / 4) + 2);
+  const dexMod = Math.floor((abilityScores.dex - 10) / 2);
+  renderCompanionStatsRow(ctx, assets, prof, dexMod, speed);
 
-  const prof = Math.max(1, Math.floor((character.level - 1) / 4) + 2);
-  const dexMod = Math.floor((scoreMap.dex ?? 10 - 10) / 2);
-  renderCompanionStatsRow(ctx, assets, prof, dexMod, "30 ft.");
-
-  const saves = firstCompanion.tags.filter((t) => t.startsWith("save:")).map((t) => t.replace("save:", ""));
-  const skills = firstCompanion.tags.filter((t) => t.startsWith("skill:")).map((t) => t.replace("skill:", ""));
   renderCompanionSavesAndSkills(ctx, assets, saves, skills);
+
+  // Render senses and languages if present
+  if (senses || languages) {
+    renderCompanionSensesAndLanguages(ctx, assets, senses, languages);
+  }
 
   renderCompanionTraitsAndActions(ctx, assets, companionCards);
 
