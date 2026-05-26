@@ -737,10 +737,9 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   }
 
   // ── MULTICLASS SPELLCASTING CARD ────────────────────────────────────────────
-  // Fixed 48px shell. Rows share height; drawCenteredTextInRect auto-fits font.
+  // Fixed 48px shell. No header row — data fills the shell directly.
   const numRows = spellSources.length;
-  const headerH = 10;
-  const rowH = Math.floor((48 - headerH - 2) / numRows); // rows fit inside 48px shell
+  const rowH = Math.floor((48 - 2) / numRows); // rows fill 48px shell with 1px gaps
   const dataH = rowH - 1;
   const cardW = hasClassResource ? 120 : 178;
   const spellBox = spellcastingRect({ x: 9, y: 1, width: cardW, height: 48 });
@@ -752,9 +751,9 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     : [spellBox.x + 4, spellBox.x + 52, spellBox.x + 112, spellBox.x + 150];
   const colW = hasClassResource ? [35, 36, 24, 22] : [48, 60, 38, 26];
 
-  // Data rows
+  // Data rows (no header row — just fill the shell)
   spellSources.forEach((src, idx) => {
-    const rowY = spellBox.y + headerH + 2 + idx * rowH;
+    const rowY = spellBox.y + 1 + idx * rowH;
     const vals = [src.label.toUpperCase().substring(0, 12), src.bonus, src.dc, src.ability];
     vals.forEach((val, ci) => {
       if (!val) return;
@@ -769,17 +768,22 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     }
   });
 
+  // "SPELLCASTING" label at bottom (small, masked into shell)
+  maskRect(ctx, { x: spellBox.x + 2, y: spellBox.y + 48 - 8, width: cardW - 4, height: 6 });
+  drawCenteredTextInRect(ctx, "SPELLCASTING", {
+    x: spellBox.x + 2, y: spellBox.y + 48 - 8, width: cardW - 4, height: 6,
+  }, { font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.5, color: "#000000" });
+
   // ── MULTICLASS CLASS RESOURCES CARD ─────────────────────────────────────
   if (hasClassResource) {
     const rNumRows = classResources.length;
-    const rHeaderH = 10;
-    const rRowH = Math.floor((48 - rHeaderH - 2) / rNumRows);
+    const rRowH = Math.floor((48 - 2) / rNumRows);
     const rDataH = rRowH - 1;
     const rBox = spellcastingRect({ x: 133, y: 1, width: 60, height: 48 });
     drawSvg(ctx, assets.proficiencyBox1, rBox);
 
     classResources.forEach((resource, idx) => {
-      const rowY = rBox.y + rHeaderH + 2 + idx * rRowH;
+      const rowY = rBox.y + 1 + idx * rRowH;
       drawCenteredTextInRect(ctx, resource.value, { x: rBox.x + 3, y: rowY, width: 18, height: rDataH }, {
         font: "Helvetica-Bold", maxSize: 8.0, minSize: 3.0, color: "#000000",
       });
@@ -790,6 +794,12 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
         strokeRule(ctx, rBox.x + 2, rowY + rDataH, 56, "#00000020");
       }
     });
+
+    // Small "CLASS RESOURCES" label at bottom
+    maskRect(ctx, { x: rBox.x + 2, y: rBox.y + 48 - 8, width: 56, height: 6 });
+    drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
+      x: rBox.x + 2, y: rBox.y + 48 - 8, width: 56, height: 6,
+    }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000" });
   }
 }
 
