@@ -560,14 +560,14 @@ function spellcastingRect(rect: PdfRect) {
 }
 
 function parseClassResource(resource: { label: string; value: string }) {
-  const [name, cadence] = resource.label
+  const parts = resource.label
     .split("\n")
     .map((part) => cleanText(part))
     .filter(Boolean);
-
   return {
-    name: name || "Class Resource",
-    cadence,
+    className: parts[0] ?? "",
+    name: parts[1] ?? "Class Resource",
+    cadence: parts[2] ?? "",
     value: resource.value,
   };
 }
@@ -642,7 +642,8 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     .map(parseClassResource)
     .filter((resource) => resource.value);
 
-  // Collect per-source spellcasting entries (one row per class/race/feat)
+  // Collect per-source spellcasting entries — one object per class/race/feat
+  // Labels arrive as "Wizard Bonus", "Wizard DC", "Wizard Ability" so strip the suffix to group
   const rawSpellStats = findStatsByIdPrefix(character, "spellcasting-source-");
   const spellSources = rawSpellStats.reduce<
     { bonus: string; dc: string; ability: string; label: string }[]
@@ -650,9 +651,11 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     const match = stat.id.match(/^(spellcasting-source-[^.]+)-(bonus|dc|ability)$/);
     if (!match) return acc;
     const [, , field] = match;
-    let entry = acc.find((e) => e.label === stat.label);
+    // Strip " Bonus" / " DC" / " Ability" suffix to get the class name
+    const classLabel = stat.label.replace(/ (Bonus|DC|Ability)$/, "");
+    let entry = acc.find((e) => e.label === classLabel);
     if (!entry) {
-      entry = { bonus: "", dc: "", ability: "", label: stat.label };
+      entry = { bonus: "", dc: "", ability: "", label: classLabel };
       acc.push(entry);
     }
     if (field === "bonus") entry.bonus = stat.value;
@@ -821,15 +824,35 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       x: rBox.x + 3, y: rLabelY, width: rContentW, height: rLabelH,
     }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000" });
 
-    // Data rows
+    // Data rows: VALUE | CLASS | RESOURCE NAME | CADENCE (4 columns in 60px)
+    const rv1 = rBox.x + 3;   // value
+    const rv2 = rBox.x + 16;  // class
+    const rv3 = rBox.x + 30;  // resource name
+    const rw1 = 13;  // value width
+    const rw2 = 14;  // class width
+    const rw3 = 24;  // resource name width
+
     classResources.forEach((resource, idx) => {
       const rowY = rDataY + idx * rRowH;
-      drawCenteredTextInRect(ctx, resource.value, { x: rBox.x + 3, y: rowY, width: 18, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 7.5, minSize: 3.0, color: "#000000",
+
+      // Parse meta: "ClassName\nResourceName\nCadence" or "ClassName\nResourceName"
+      const className = resource.className;
+      const resourceName = resource.name;
+      const cadence = resource.cadence;
+
+      // Value (e.g. "2d6" or "3")
+      drawCenteredTextInRect(ctx, resource.value, { x: rv1, y: rowY, width: rw1, height: rRowH - 1 }, {
+        font: "Helvetica-Bold", maxSize: 7.0, minSize: 3.0, color: "#000000",
       });
-      drawCenteredTextInRect(ctx, resource.name, { x: rBox.x + 21, y: rowY, width: 33, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 3.8, minSize: 2.2, color: "#000000",
+      // Class name (e.g. "Bard")
+      drawCenteredTextInRect(ctx, className, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
+        font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#555555",
       });
+      // Resource name (e.g. "Bardic Inspiration")
+      drawCenteredTextInRect(ctx, resourceName, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
+        font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000",
+      });
+
       if (idx < rNumRows - 1) {
         strokeRule(ctx, rBox.x + 3, rowY + rRowH - 1, rContentW, "#00000015");
       }
