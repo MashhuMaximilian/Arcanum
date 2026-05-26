@@ -218,7 +218,7 @@ const HEADER_FIELD_SLOTS = [
   { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 480.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.3, minSize: 2.8 },
 ] as const;
 
-const SPELLCASTING_REGION: PdfRect = { x: 394, y: 140, width: 196, height: 50 };
+const SPELLCASTING_REGION: PdfRect = { x: 400, y: 140, width: 196, height: 50 };
 const RESOURCE_ONLY_SLOTS = [
   { x: 10, y: 4, width: 82, height: 42 },
   { x: 104, y: 4, width: 82, height: 42 },
@@ -690,7 +690,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     return;
   }
 
-  const spellBox = spellcastingRect(hasClassResource ? { x: 4, y: 1, width: 126, height: 48 } : { x: 9, y: 1, width: 178, height: 48 });
+  const spellBox = spellcastingRect(hasClassResource ? { x: 9, y: 1, width: 120, height: 48 } : { x: 9, y: 1, width: 178, height: 48 });
   drawSvg(ctx, assets.proficiencyBox1, spellBox);
   const thirds = splitColumns(insetRect(spellBox, 9, 6), 3, 8);
   const labels = ["BONUS", "SAVE DC", "ABILITY"];

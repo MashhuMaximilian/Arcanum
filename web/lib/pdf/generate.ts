@@ -72,6 +72,13 @@ export async function generatePdfBytes(character: ResolvedPdfCharacter, assets: 
   renderFrontPage(ctx, assets, character);
 
   // Render additional pages based on pagePlan
+  console.log("[DEBUG] generatePdfBytes - pagePlan:", character.pagePlan.map((p) => p.kind));
+  console.log("[DEBUG] generatePdfBytes - companionCards count:", character.companionCards?.length ?? 0);
+  if (character.companionCards?.length) {
+    console.log("[DEBUG] generatePdfBytes - first companion:", character.companionCards[0].title, "tags:", character.companionCards[0].tags);
+  }
+  
+  console.log("[DEBUG] generatePdfBytes - character.companionCards full:", character.companionCards?.map((c) => ({ title: c.title, tags: c.tags })));
   for (const page of character.pagePlan) {
     if (page.kind === "inventory") {
       renderInventoryPage(ctx, assets, character);
