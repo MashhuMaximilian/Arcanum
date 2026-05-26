@@ -1,0 +1,184 @@
+version: 1
+plan:
+  name: aurora-resource-placement-fix
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+
+tasks:
+  - id: aurora-audit
+    title: "Audit Aurora XML placeholders — find missing resource handlers"
+    prompt: |
+      You are the Aurora Resource Auditor for the Arcanum DnD PDF project.
+
+      ## YOUR MISSION
+      Audit the Aurora XML placeholder patterns in aurora-elements/ to identify which ones will show up as raw `{{placeholder}}` text in the PDF (because they're not handled by resolveSheetExpression) vs which ones are already covered by stat rules.
+
+      ## CONTEXT
+      - Main code: /Users/max/dev/Arcanum/web/lib/pdf/from-builder.ts (resolveSheetExpression around line 842)
+      - Aurora XML: /Users/max/dev/Arcanum/aurora-elements/
+      - DnD reference: /Users/max/dev/Arcanum/DnD-Books/5e/Books/
+      - Existing audit: /Users/max/dev/Arcanum/planning/AURORA_PLACEHOLDER_AUDIT.md
+      - Placeholder list: /tmp/aurora_placeholders.txt (660 unique patterns)
+
+      ## STEP 1 — Read existing audit
+      Read /Users/max/dev/Arcanum/planning/AURORA_PLACEHOLDER_AUDIT.md first.
+
+      ## STEP 2 — Audit Priority 1 patterns (these need explicit handlers)
+      For EACH of these patterns, do the following:
+      1. Find which XML files use it (grep -r "pattern" aurora-elements/)
+      2. Read the XML context to understand which feature/class it's in
+      3. Check the DnD 5e book for the correct resolution formula
+      4. Determine: is this in CORE content or UA/optional?
+
+      Patterns to audit:
+      - `{{ki:points}}` — Monk resource pool
+      - `{{superiority dice:amount}}` / `{{superiority dice:size}}` / `{{superiority dice:dc}}` — Battle Master Fighter
+      - `{{stunning strike:dc}}` — Monk
+      - `{{indomitable:usage}}` — Fighter
+      - `{{lay on hands:hp pool}}` — Paladin
+      - `{{druid wildshape:hours}}` — Druid Circle of the Moon
+      - `{{wild surge:dc}}` — Wild Magic Sorcerer
+      - `{{channel arcana:count}}` — Paladin Oath of the Ancients
+      - `{{sorcery-points}}` — Sorcerer
+
+      ## STEP 3 — Check stat rules coverage
+      For EACH Priority 1 pattern: grep aurora-elements/ for `<stat rule=` definitions that handle the pattern. Many patterns are already handled through resolveSheetStatKey. If a stat rule exists, the pattern is already handled — note it as "covered via stat rules."
+
+      ## STEP 4 — Find raw placeholders in CORE content
+      Search aurora-elements/core/ specifically for any raw `{{...}}` patterns in feature descriptions. These are the ones that WILL show up as raw text in the PDF.
+
+      ## STEP 5 — Verify resolveSheetExpression implementation
+      Read the current resolveSheetExpression function. Check if these patterns have handlers already:
+      - ki (baseToken === "ki")
+      - indomitable
+      - lay on hands
+      - druid wildshape
+      - wild surge
+      - channel arcana
+      - superiority dice
+
+      ## STEP 6 — Write report
+      Write your findings to /Users/max/dev/Arcanum/planning/AURORA_AUDITOR_REPORT.md
+
+      Format:
+
+      ### Priority 1 — Needs explicit handler in resolveSheetExpression
+      [pattern | XML file | Feature | DnD 5e formula | existing handler? yes/no]
+
+      ### Already covered via stat rules (no code change needed)
+      [pattern | stat rule location]
+
+      ### Raw placeholders in CORE content
+      [pattern | file | feature]
+
+      ### Priority 2 patterns — verify via stat rules
+      [pattern | verdict: stat-rule / needs-handler / not-in-core-content]
+
+      ### Summary of handlers needed
+      [List of specific code additions to resolveSheetExpression]
+
+      IMPORTANT: Do actual grep/grep and file reads. Verify every pattern. Don't guess.
+    assigned_to: dnd-expert
+    verified_by: general
+    verify_prompt: |
+      Verify the auditor's findings by re-running key greps:
+      1. `grep -r "ki:points" aurora-elements/core/` — confirm file locations
+      2. `grep -r "superiority dice" aurora-elements/core/` — confirm Battle Master usage
+      3. Check if any Priority 1 patterns have stat rules: `grep -r "indomitable" aurora-elements/core/`
+      4. Read /Users/max/dev/Arcanum/web/lib/pdf/from-builder.ts around line 842-950 — confirm which handlers already exist
+      5. Cross-check the auditor's DnD 5e formulas against PHB/XGtE for: Ki (equal to Monk level), Superiority dice (d8, 4+modifier), Lay on Hands (5×Paladin level)
+
+      Report discrepancies as "VERIFIER FOUND ISSUE" with your corrected findings.
+    timeout_ms: 2400000
+
+  - id: implement-handlers
+    title: "Implement missing resource handlers in resolveSheetExpression"
+    prompt: |
+      You are implementing missing Aurora XML placeholder resolution handlers in the Arcanum DnD PDF project.
+
+      ## CONTEXT
+      - File to modify: /Users/max/dev/Arcanum/web/lib/pdf/from-builder.ts
+      - Target function: resolveSheetExpression (around line 842)
+      - Also check: normalizeFeatureActionHint in front-page-renderer.ts (around line 1539)
+      - Audit report: /Users/max/dev/Arcanum/planning/AURORA_PLACEHOLDER_AUDIT.md
+      - Check first: /Users/max/dev/Arcanum/planning/AURORA_AUDITOR_REPORT.md (may have been created by aurora-audit task)
+
+      ## IMPLEMENTATION TASKS
+
+      ### Task A — Ki points handler
+      Add handler for `{{ki:points}}` in resolveSheetExpression:
+      - Pattern: baseToken === "ki" && scaleToken === "points"
+      - Formula: return monk class level from context.classLevels
+      - If no monk level, return 0
+
+      ### Task B — Superiority dice handlers
+      Add handlers for:
+      - `{{superiority dice:size}}` → always returns 8 (d8 dice)
+      - `{{superiority dice:amount}}` → formula: 4 + floor((fighterLevel - 3) / 2), min 4. Use fighter level from context.classLevels.
+      - `{{superiority dice:dc}}` → 8 + proficiencyBonus + max(strMod, dexMod)
+
+      ### Task C — Stunning Strike DC
+      Add handler for `{{stunning strike:dc}}`:
+      - Formula: 8 + proficiencyBonus + wisdomModifier
+      - Uses same formula as ki:dc — check if you can reuse it
+
+      ### Task D — Indomitable
+      Add handler for `{{indomitable:usage}}`:
+      - Fighter level >= 17: 4 uses
+      - Fighter level >= 13: 3 uses
+      - Fighter level >= 9: 2 uses
+      - Otherwise: 1 use
+
+      ### Task E — Lay on Hands
+      Add handler for `{{lay on hands:hp pool}}`:
+      - Formula: paladinLevel * 5
+
+      ### Task F — Wild Shape hours (Circle of the Moon)
+      Add handler for `{{druid wildshape:hours}}`:
+      - Check if this is specifically Circle of the Moon. If so: 2 × druidLevel
+      - Note in comments if this is Moon circle only
+
+      ### Task G — Wild Magic Surge DC
+      Add handler for `{{wild surge:dc}}`:
+      - Formula: 5 + proficiencyBonus (wild magic check DC)
+
+      ### Task H — Channel Arcana
+      Verify `{{channel arcana:count}}` — likely uses same Channel Divinity count as regular CD. Check if existing channel divinity handler covers this. If not, add it.
+
+      ## IMPLEMENTATION RULES
+      - Follow existing code style in resolveSheetExpression
+      - Put handlers in the correct section (after existing class resource handlers, before the level expression section)
+      - Add comments explaining the DnD 5e source
+      - Do NOT change existing working handlers (Bardic Inspiration, Rage, Channel Divinity, Ki DC)
+      - Build and verify: run `cd /Users/max/dev/Arcanum/web && npx tsc --noEmit` after changes
+      - DO NOT create git branches or commit — just implement and verify the code compiles
+      - Write to /Users/max/dev/Arcanum/planning/HANDLERS_IMPLEMENTED.md documenting what you added
+
+      ## VERIFICATION
+      After implementing all handlers:
+      1. Run `npx tsc --noEmit` and fix any TypeScript errors
+      2. Read the modified section of from-builder.ts and confirm all handlers are in place
+      3. List any handlers you couldn't implement and why
+    assigned_to: general
+    depends_on: [aurora-audit]
+    verified_by: dnd-expert
+    verify_prompt: |
+      Verify the implementation by:
+      1. Reading the modified section of /Users/max/dev/Arcanum/web/lib/pdf/from-builder.ts around the resolveSheetExpression function
+      2. Confirm each handler was added correctly:
+         - ki:points → returns context.classLevels.get("monk")
+         - superiority dice:size → returns 8
+         - superiority dice:amount → formula: 4 + floor((level-3)/2)
+         - superiority dice:dc → 8 + PB + maxMod
+         - stunning strike:dc → 8 + PB + Wis
+         - indomitable:usage → level-based tiers
+         - lay on hands:hp pool → paladinLevel * 5
+         - druid wildshape:hours → moon circle formula
+         - wild surge:dc → 5 + PB
+      3. Run `npx tsc --noEmit` in /Users/max/dev/Arcanum/web/ — must compile clean
+      4. Check that existing handlers (bardic-inspiration, barbarian rage, channel divinity) are UNCHANGED
+
+      Report any issues found.
+    timeout_ms: 1800000

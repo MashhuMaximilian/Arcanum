@@ -2533,6 +2533,8 @@ export function BuilderEditor({
 
     setIsExportingPdf(true);
     try {
+      console.log("[DEBUG] handleExportPdf - BEFORE fetch, pdfCharacter.companionCards:", pdfCharacter.companionCards?.map((c) => ({ title: c.title, tags: c.tags })));
+      console.log("[DEBUG] handleExportPdf - JSON.stringify check:", JSON.stringify(pdfCharacter.companionCards?.[0]));
       const response = await fetch("/pdf-export", {
         method: "POST",
         headers: {

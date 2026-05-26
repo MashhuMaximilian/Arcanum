@@ -48,6 +48,7 @@ export function CharacterList() {
     try {
       const catalogs = await resolveBuilderCatalogs(getBuiltInSrdSpells());
       const pdfCharacter = buildPdfCharacterFromDraft({ ...catalogs, draft });
+      console.log("[DEBUG] character-list - pdfCharacter.companionCards:", pdfCharacter.companionCards?.map((c) => ({ title: c.title, tags: c.tags })));
       const response = await fetch("/pdf-export", {
         method: "POST",
         headers: {
