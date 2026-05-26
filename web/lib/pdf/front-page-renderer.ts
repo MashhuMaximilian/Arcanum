@@ -699,23 +699,23 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     return;
   }
 
-  // Multiclass: one native-shell SPELLCASTING card with CLASS | BONUS | SAVE DC | ABILITY columns
+  // Multiclass: native-shell SPELLCASTING card with CLASS | BONUS | SAVE DC | ABILITY inside shell frame
   // Single-class: use existing stacked card layout
   if (hasSpellcasting && spellSourceRows.length > 1) {
-    const rowH = 13;
-    const topLabelH = 9;
-    const bottomLabelH = 8;
-    const headerH = 11;
-    const innerPad = 4;
+    const rowH = 12;
+    const topLabelH = 7;
+    const bottomLabelH = 7;
+    const headerH = 9;
+    const innerPad = 2;
     const tableBox = spellcastingRect({
       x: 9, y: 1,
       width: 178,
-      height: innerPad + topLabelH + 2 + headerH + 2 + spellSourceRows.length * rowH + 2 + bottomLabelH + innerPad,
+      height: innerPad + topLabelH + 1 + headerH + 1 + spellSourceRows.length * rowH + 1 + bottomLabelH + innerPad,
     });
 
-    // Draw shell border first (transparent interior)
+    // Draw shell border (proficiencyBox1 SVG has black border, white interior path)
     drawSvg(ctx, assets.proficiencyBox1, tableBox);
-    // Fill interior white so nothing shows through
+    // Fill interior white so content is opaque
     maskRect(ctx, { x: tableBox.x + 2, y: tableBox.y + 2, width: tableBox.width - 4, height: tableBox.height - 4 }, "#ffffff");
 
     // Column layout
@@ -723,37 +723,25 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     const colW = [50, 40, 46, 40];
     const contentLeft = tableBox.x + 4;
     const contentRight = tableBox.x + tableBox.width - 4;
-    const innerTop = tableBox.y + innerPad;
-    const labelY = innerTop + 2;
-    const headerY = labelY + topLabelH + 2;
-    const dataStartY = headerY + headerH + 2;
+    const labelY = tableBox.y + innerPad + 1;
+    const headerY = labelY + topLabelH + 1;
+    const dataStartY = headerY + headerH + 1;
     const bottomLabelY = tableBox.y + tableBox.height - innerPad - bottomLabelH;
 
-    // "SPELLCASTING" top label inside card
+    // "SPELLCASTING" top label inside card (small, subtle)
     drawCenteredTextInRect(ctx, "SPELLCASTING", {
       x: contentLeft, y: labelY, width: contentRight - contentLeft, height: topLabelH,
-    }, { font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.5, color: "#555555" });
+    }, { font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#222222" });
 
-    // Column headers inside card
+    // Column headers (small, subtle)
     const headerLabels = ["CLASS", "BONUS", "SAVE DC", "ABILITY"];
     headerLabels.forEach((label, i) => {
       drawCenteredTextInRect(ctx, label, { x: colX[i], y: headerY, width: colW[i], height: headerH }, {
-        font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#555555",
+        font: "Helvetica-Bold", maxSize: 3.8, minSize: 2.5, color: "#333333",
       });
     });
 
-    // Thin horizontal rule under header (within interior)
-    strokeRule(ctx, contentLeft, headerY + headerH, contentRight - contentLeft, "#00000022");
-
-    // Thin vertical column dividers: start below header rule, end above bottom label
-    ctx.doc.save();
-    ctx.doc.strokeColor("#00000018").lineWidth(0.3);
-    colX.slice(1).forEach((x) => {
-      ctx.doc.moveTo(x, headerY + headerH + 1).lineTo(x, bottomLabelY - 1).stroke();
-    });
-    ctx.doc.restore();
-
-    // Data rows (one per spellcasting source)
+    // Very light row separators only (no horizontal rule under header)
     spellSourceRows.forEach((row, idx) => {
       if (!row.bonus && !row.dc && !row.ability) return;
       const rowY = dataStartY + idx * rowH;
@@ -761,86 +749,78 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       vals.forEach((val, i) => {
         if (!val) return;
         drawCenteredTextInRect(ctx, val, { x: colX[i], y: rowY, width: colW[i], height: rowH - 1 }, {
-          font: "Helvetica-Bold", maxSize: i === 0 ? 6.0 : 9.0, minSize: 4.0, color: "#000000",
+          font: "Helvetica-Bold", maxSize: i === 0 ? 6.0 : 8.5, minSize: 4.0, color: "#000000",
         });
       });
-      // Thin row separator (between data rows, not after last)
+      // Thin separator below each data row (except last)
       if (idx < spellSourceRows.length - 1) {
-        strokeRule(ctx, contentLeft, rowY + rowH - 1, contentRight - contentLeft, "#00000018");
+        strokeRule(ctx, contentLeft, rowY + rowH - 1, contentRight - contentLeft, "#00000015");
       }
     });
 
-    // "SPELLCASTING" bottom label inside card
+    // "SPELLCASTING" bottom label
     drawCenteredTextInRect(ctx, "SPELLCASTING", {
       x: contentLeft, y: bottomLabelY, width: contentRight - contentLeft, height: bottomLabelH,
-    }, { font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#555555" });
+    }, { font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#222222" });
 
     if (hasClassResource) {
       // Native-shell CLASS RESOURCES card
-      const rRowH = 13;
-      const rTopLabelH = 9;
-      const rBottomLabelH = 8;
-      const rInnerPad = 3;
+      const rRowH = 12;
+      const rTopLabelH = 7;
+      const rBottomLabelH = 7;
+      const rHeaderH = 9;
+      const rInnerPad = 2;
       const rContentLeft = 135;
       const rContentRight = 191;
-      const rInnerTop = 1 + rInnerPad;
-      const rLabelY = rInnerTop + 2;
-      const rHeaderY = rLabelY + rTopLabelH + 2;
-      const rDataStartY = rHeaderY + 11 + 2;
-      const rBottomLabelY = 1 + rInnerPad + rTopLabelH + 2 + 11 + 2 + classResources.length * rRowH + 2;
 
       const resourceBox = spellcastingRect({
         x: 133, y: 1,
         width: 60,
-        height: rInnerPad + rTopLabelH + 2 + 11 + 2 + classResources.length * rRowH + 2 + rBottomLabelH + rInnerPad,
+        height: rInnerPad + rTopLabelH + 1 + rHeaderH + 1 + classResources.length * rRowH + 1 + rBottomLabelH + rInnerPad,
       });
 
       // Draw shell border, fill interior white
       drawSvg(ctx, assets.proficiencyBox1, resourceBox);
       maskRect(ctx, { x: resourceBox.x + 2, y: resourceBox.y + 2, width: resourceBox.width - 4, height: resourceBox.height - 4 }, "#ffffff");
 
+      const rLabelY = resourceBox.y + rInnerPad + 1;
+      const rHeaderY = rLabelY + rTopLabelH + 1;
+      const rDataStartY = rHeaderY + rHeaderH + 1;
+      const rBottomLabelY = resourceBox.y + resourceBox.height - rInnerPad - rBottomLabelH;
+
       // "CLASS RESOURCES" top label
       drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
         x: rContentLeft, y: rLabelY, width: rContentRight - rContentLeft, height: rTopLabelH,
-      }, { font: "Helvetica-Bold", maxSize: 3.8, minSize: 2.8, color: "#555555" });
+      }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.5, color: "#222222" });
 
       // Column headers
       const rColX = [rContentLeft, rContentLeft + 18];
       const rColW = [18, 38];
       ["VALUE", "RESOURCE"].forEach((label, i) => {
-        drawCenteredTextInRect(ctx, label, { x: rColX[i], y: rHeaderY, width: rColW[i], height: 11 }, {
-          font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.8, color: "#555555",
+        drawCenteredTextInRect(ctx, label, { x: rColX[i], y: rHeaderY, width: rColW[i], height: rHeaderH }, {
+          font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.5, color: "#333333",
         });
       });
 
-      // Horizontal rule under header
-      strokeRule(ctx, rContentLeft, rHeaderY + 11, rContentRight - rContentLeft, "#00000022");
-
-      // Vertical divider (starts below header rule, ends above bottom label)
-      ctx.doc.save();
-      ctx.doc.strokeColor("#00000018").lineWidth(0.3);
-      ctx.doc.moveTo(rColX[1], rHeaderY + 12).lineTo(rColX[1], rBottomLabelY - 1).stroke();
-      ctx.doc.restore();
-
-      // Data rows
+      // Data rows with thin separators
       classResources.forEach((resource, idx) => {
         const rowY = rDataStartY + idx * rRowH;
         const vals = [resource.value, resource.name];
         vals.forEach((val, i) => {
           if (!val) return;
           drawCenteredTextInRect(ctx, val, { x: rColX[i], y: rowY, width: rColW[i], height: rRowH - 1 }, {
-            font: "Helvetica-Bold", maxSize: i === 0 ? 7.5 : 5.5, minSize: 3.5, color: "#000000",
+            font: "Helvetica-Bold", maxSize: i === 0 ? 7.0 : 5.0, minSize: 3.5, color: "#000000",
           });
         });
         if (idx < classResources.length - 1) {
-          strokeRule(ctx, rContentLeft, rowY + rRowH - 1, rContentRight - rContentLeft, "#00000018");
+          strokeRule(ctx, rContentLeft, rowY + rRowH - 1, rContentRight - rContentLeft, "#00000015");
         }
       });
 
       // "CLASS RESOURCES" bottom label
       drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
         x: rContentLeft, y: rBottomLabelY, width: rContentRight - rContentLeft, height: rBottomLabelH,
-      }, { font: "Helvetica-Bold", maxSize: 3.8, minSize: 2.8, color: "#555555" });
+      }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.5, color: "#222222" });
     }
     return;
   }
