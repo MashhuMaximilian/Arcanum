@@ -78,11 +78,6 @@ function fillRect(ctx: PdfRenderContext, rect: PdfRect, color: string) {
   shapeDoc.rect(rect.x, rect.y, rect.width, rect.height).fill(color);
 }
 
-function strokeRect(ctx: PdfRenderContext, rect: PdfRect, color: string, width: number) {
-  const shapeDoc = ctx.doc as unknown as { rect: (x: number, y: number, w: number, h: number) => { fill: (c?: string) => void; stroke: (c?: string, w?: number) => void } };
-  shapeDoc.rect(rect.x, rect.y, rect.width, rect.height).stroke(color, width);
-}
-
 // ============================================================
 // RENDER INVENTORY PAGE
 // ============================================================
@@ -603,62 +598,28 @@ function renderCompanionStatsRow(
   assets: PdfSvgAssetBundle,
   prof: number,
   init: number,
-  hitDice: string,
+  speed: string,
 ) {
-  // Renders a stacked row: [ PROF | INIT | HIT DICE ] in statsRow region (138×108)
   const rect = PAGE2_COMPANION_REGIONS.statsRow;
-  const cellW = rect.width; // 84 total
-  const cellH = 30; // each stat gets 30px height
+  drawSvg(ctx, assets.statBlock, rect);
 
-  // PROF
-  drawSvg(ctx, assets.bonusBox, { x: rect.x, y: rect.y, width: cellW, height: cellH });
-  drawText(ctx, "PROF", { x: rect.x + 2, y: rect.y + 3, width: cellW - 4, height: 10 }, {
-    font: "Helvetica-Bold",
-    size: 4,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
-  drawText(ctx, `+${prof}`, { x: rect.x + 2, y: rect.y + 13, width: cellW - 4, height: 14 }, {
-    font: "Helvetica-Bold",
-    size: 10,
-    color: COLORS.textPrimary,
-    align: "center",
-    lineBreak: false,
-  });
+  const labels = [
+    { label: "PROF", value: `+${prof}`, x: rect.x + 10 },
+    { label: "INIT", value: String(init), x: rect.x + 55 },
+    { label: "SPEED", value: speed, x: rect.x + 100 },
+  ];
 
-  // INIT
-  drawSvg(ctx, assets.bonusBox, { x: rect.x, y: rect.y + cellH, width: cellW, height: cellH });
-  drawText(ctx, "INIT", { x: rect.x + 2, y: rect.y + cellH + 3, width: cellW - 4, height: 10 }, {
-    font: "Helvetica-Bold",
-    size: 4,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
-  drawText(ctx, String(init), { x: rect.x + 2, y: rect.y + cellH + 13, width: cellW - 4, height: 14 }, {
-    font: "Helvetica-Bold",
-    size: 10,
-    color: COLORS.textPrimary,
-    align: "center",
-    lineBreak: false,
-  });
-
-  // HIT DICE
-  drawSvg(ctx, assets.bonusBox, { x: rect.x, y: rect.y + cellH * 2, width: cellW, height: cellH });
-  drawText(ctx, "HIT DICE", { x: rect.x + 2, y: rect.y + cellH * 2 + 3, width: cellW - 4, height: 10 }, {
-    font: "Helvetica-Bold",
-    size: 4,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
-  drawText(ctx, hitDice || "—", { x: rect.x + 2, y: rect.y + cellH * 2 + 13, width: cellW - 4, height: 14 }, {
-    font: "Helvetica-Bold",
-    size: 10,
-    color: COLORS.textPrimary,
-    align: "center",
-    lineBreak: false,
+  labels.forEach(({ label, value, x }) => {
+    drawText(ctx, label, { x, y: rect.y + 6, width: 45, height: 10 }, {
+      font: "Helvetica-Bold",
+      size: TYPOGRAPHY.small.maxSize,
+      color: COLORS.textSecondary,
+    });
+    drawText(ctx, value, { x, y: rect.y + 18, width: 45, height: 14 }, {
+      font: "Helvetica-Bold",
+      size: TYPOGRAPHY.body.maxSize,
+      color: COLORS.textPrimary,
+    });
   });
 }
 
@@ -699,112 +660,6 @@ function renderCompanionAbilityScores(
       color: COLORS.textPrimary,
     });
   });
-}
-
-function renderCompanionACStrip(
-  ctx: PdfRenderContext,
-  assets: PdfSvgAssetBundle,
-  ac: string,
-) {
-  // AC spans the full height of statsRow + hpStrip combined (230×168)
-  const rect = PAGE2_COMPANION_REGIONS.acStrip;
-  drawSvg(ctx, assets.ac, rect);
-
-  drawText(ctx, "AC", { x: rect.x + 4, y: rect.y + rect.height / 2 - 20, width: rect.width - 8, height: 14 }, {
-    font: "Helvetica-Bold",
-    size: 5,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
-  drawText(ctx, String(ac), { x: rect.x + 4, y: rect.y + rect.height / 2 - 6, width: rect.width - 8, height: 28 }, {
-    font: "Helvetica-Bold",
-    size: 26,
-    color: COLORS.textPrimary,
-    align: "center",
-    lineBreak: false,
-  });
-}
-
-function renderCompanionSpeedsRow(
-  ctx: PdfRenderContext,
-  assets: PdfSvgAssetBundle,
-  speed: string,
-  senses: string,
-) {
-  // Bottom full-width row: Speeds + Passive Perception + Darkvision
-  const rect = PAGE2_COMPANION_REGIONS.speedsRow;
-  drawSvg(ctx, assets.passivesAndSpeeds || assets.greyBackground, rect);
-
-  const totalW = rect.width;
-  const statW = Math.floor(totalW / 4); // 4 equal cells
-
-  // Speed cell (walk only shown, extract first number)
-  const speedVal = speed ? speed.match(/\d+/)?.[0] || "30" : "30";
-  const speedUnit = speed ? speed.match(/ft\.?/)?.[0] || "ft." : "ft.";
-  fillRect(ctx, { x: rect.x + 2, y: rect.y + 2, width: statW - 4, height: rect.height - 4 }, "#f1f1f1");
-  strokeRect(ctx, { x: rect.x + 2, y: rect.y + 2, width: statW - 4, height: rect.height - 4 }, COLORS.border, 0.4);
-  drawText(ctx, "SPEED", { x: rect.x + 4, y: rect.y + 5, width: statW - 8, height: 8 }, {
-    font: "Helvetica-Bold",
-    size: 4,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
-  drawText(ctx, `${speedVal}`, { x: rect.x + 4, y: rect.y + 14, width: statW - 8, height: 16 }, {
-    font: "Helvetica-Bold",
-    size: 12,
-    color: COLORS.textPrimary,
-    align: "center",
-    lineBreak: false,
-  });
-  drawText(ctx, speedUnit, { x: rect.x + 4, y: rect.y + 30, width: statW - 8, height: 8 }, {
-    font: "Helvetica",
-    size: 4,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
-
-  // Passive Perception cell
-  const passive = senses ? senses.match(/passive\s*Perception\s*(\d+)/i)?.[1] || "—" : "—";
-  fillRect(ctx, { x: rect.x + statW + 2, y: rect.y + 2, width: statW - 4, height: rect.height - 4 }, "#f1f1f1");
-  strokeRect(ctx, { x: rect.x + statW + 2, y: rect.y + 2, width: statW - 4, height: rect.height - 4 }, COLORS.border, 0.4);
-  drawText(ctx, "PASSIVE", { x: rect.x + statW + 4, y: rect.y + 5, width: statW - 8, height: 8 }, {
-    font: "Helvetica-Bold",
-    size: 4,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
-  drawCenteredTextInRect(ctx, passive, { x: rect.x + statW, y: rect.y + 14, width: statW, height: 20 }, {
-    font: "Helvetica-Bold",
-    maxSize: 12,
-    minSize: 7,
-    color: COLORS.textPrimary,
-  });
-
-  // Darkvision cell
-  const darkvision = senses ? senses.match(/darkvision\s*(\d+)\s*ft/i)?.[1] || "—" : "—";
-  fillRect(ctx, { x: rect.x + statW * 2 + 2, y: rect.y + 2, width: statW - 4, height: rect.height - 4 }, "#f1f1f1");
-  strokeRect(ctx, { x: rect.x + statW * 2 + 2, y: rect.y + 2, width: statW - 4, height: rect.height - 4 }, COLORS.border, 0.4);
-  drawText(ctx, "DARKVISION", { x: rect.x + statW * 2 + 4, y: rect.y + 5, width: statW - 8, height: 8 }, {
-    font: "Helvetica-Bold",
-    size: 4,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
-  drawCenteredTextInRect(ctx, darkvision, { x: rect.x + statW * 2, y: rect.y + 14, width: statW, height: 20 }, {
-    font: "Helvetica-Bold",
-    maxSize: 12,
-    minSize: 7,
-    color: COLORS.textPrimary,
-  });
-
-  // Empty 4th cell (reserved for future use)
-  fillRect(ctx, { x: rect.x + statW * 3 + 2, y: rect.y + 2, width: statW - 4, height: rect.height - 4 }, "#f1f1f1");
-  strokeRect(ctx, { x: rect.x + statW * 3 + 2, y: rect.y + 2, width: statW - 4, height: rect.height - 4 }, COLORS.border, 0.4);
 }
 
 function renderCompanionSavesAndSkills(
@@ -995,12 +850,8 @@ export function renderCompanionPage(
   // Calculate proficiency: companion uses ranger's proficiency bonus
   const prof = Math.max(2, Math.floor((character.level - 1) / 4) + 2);
   const dexMod = Math.floor((abilityScores.dex - 10) / 2);
-  const level = parseInt(getTag("level")) || 1;
-  const hitDice = getTag("hit_dice") || `${level}d8`;
-  renderCompanionStatsRow(ctx, assets, prof, dexMod, hitDice);
-  renderCompanionHPStrip(ctx, assets, hpBase, hpBase);
-  renderCompanionACStrip(ctx, assets, ac);
-  renderCompanionSpeedsRow(ctx, assets, speed, senses);
+  renderCompanionStatsRow(ctx, assets, prof, dexMod, speed);
+
   renderCompanionSavesAndSkills(ctx, assets, saves, skills);
 
   // Render senses and languages if present

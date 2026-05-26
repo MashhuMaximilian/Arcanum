@@ -5,7 +5,6 @@ import type {
 import type { BuiltInBackgroundRecord } from "@/lib/builtins/backgrounds";
 import type { BuiltInClassRecord } from "@/lib/builtins/classes";
 import type { BuiltInRaceRecord } from "@/lib/builtins/races";
-import { getBuiltInSrdCompanionSubElements } from "@/lib/builtins/srd-companions";
 import type {
   AbilityKey,
   CharacterDraft,
@@ -41,7 +40,6 @@ import {
 } from "@/lib/pdf";
 import type {
   PdfPage1SpellSummary,
-  PdfSpellcastingSourceEntry,
   PdfSpellListEntry,
   PdfSpellSlots,
   PdfSpellSlotLevel,
@@ -1348,12 +1346,12 @@ function getClassResourcePriority(label: string) {
 
 function getClassResources(args: BuilderPdfSourceArgs) {
   const featureNames = new Set(args.selectedClassFeatureElements.map((feature) => feature.name.toLowerCase()));
-  const resources: Array<{ ownerLabel: string; label: string; value: string; cadence?: string }> = [];
-  const pushResource = (ownerLabel: string, label: string, value: string, cadence?: string) => {
-    if (!value || resources.some((resource) => resource.ownerLabel === ownerLabel && resource.label === label)) {
+  const resources: Array<{ label: string; value: string; cadence?: string }> = [];
+  const pushResource = (label: string, value: string, cadence?: string) => {
+    if (!value || resources.some((resource) => resource.label === label)) {
       return;
     }
-    resources.push({ ownerLabel, label, value, cadence });
+    resources.push({ label, value, cadence });
   };
 
   for (let index = 0; index < args.classRecordsByEntry.length; index += 1) {
@@ -1368,69 +1366,69 @@ function getClassResources(args: BuilderPdfSourceArgs) {
     if (/bard/i.test(className) && featureNames.has("bardic inspiration")) {
       const uses = Math.max(1, getAbilityModifier(args.effectiveAbilities.charisma));
       const die = getBardicInspirationDie(entry.level);
-      pushResource(className, "Bardic Inspiration", `${uses} d${die}`, entry.level >= 5 ? "SR" : "LR");
+      pushResource("Bardic Inspiration", `${uses} d${die}`, entry.level >= 5 ? "SR" : "LR");
     }
 
     if (/fighter/i.test(className) && (featureNames.has("combat superiority") || featureNames.has("superiority dice"))) {
-      pushResource(className, "Superiority Dice", getSuperiorityDiceSummary(entry.level), "SR");
+      pushResource("Superiority Dice", getSuperiorityDiceSummary(entry.level), "SR");
     }
 
     if (/druid/i.test(className) && featureNames.has("wild shape")) {
-      pushResource(className, "Wild Shape", `${Math.max(2, Math.floor(entry.level / 2))} uses`, "SR");
+      pushResource("Wild Shape", `${Math.max(2, Math.floor(entry.level / 2))} uses`, "SR");
     }
 
     if (/druid/i.test(className) && featureNames.has("starry form")) {
-      pushResource(className, "Starry Form", "Uses Wild Shape", "SR");
+      pushResource("Starry Form", "Uses Wild Shape", "SR");
     }
 
     if (/monk/i.test(className) && featureNames.has("ki")) {
-      pushResource(className, "Ki Points", `${entry.level}`);
+      pushResource("Ki Points", `${entry.level}`);
     }
 
     if (/paladin/i.test(className) && featureNames.has("lay on hands")) {
-      pushResource(className, "Lay on Hands", `${entry.level * 5}`);
+      pushResource("Lay on Hands", `${entry.level * 5}`);
     }
 
     if (/cleric|paladin/i.test(className) && featureNames.has("channel divinity")) {
-      pushResource(className, "Channel Divinity", getChannelDivinityUses(entry.level), "SR");
+      pushResource("Channel Divinity", getChannelDivinityUses(entry.level), "SR");
     }
 
     if (/fighter/i.test(className) && featureNames.has("action surge")) {
-      pushResource(className, "Action Surge", "1 use", "SR");
+      pushResource("Action Surge", "1 use", "SR");
     }
 
     if (/fighter/i.test(className) && featureNames.has("second wind")) {
-      pushResource(className, "Second Wind", "1 use", "SR");
+      pushResource("Second Wind", "1 use", "SR");
     }
 
     if (/barbarian/i.test(className) && featureNames.has("rage")) {
-      pushResource(className, "Rage", getBarbarianRageUses(entry.level));
+      pushResource("Rage", getBarbarianRageUses(entry.level));
     }
 
     if (/wizard/i.test(className) && featureNames.has("arcane recovery")) {
-      pushResource(className, "Arcane Recovery", "1 use", "LR");
+      pushResource("Arcane Recovery", "1 use", "LR");
     }
 
     if (/warlock/i.test(className) && featureNames.has("pact magic")) {
       const slotLevel = entry.level >= 18 ? 5 : entry.level >= 15 ? 4 : entry.level >= 9 ? 3 : entry.level >= 5 ? 2 : 1;
-      pushResource(className, "Pact Magic", `${slotLevel}th level`, "LR");
+      pushResource("Pact Magic", `${slotLevel}th level`, "LR");
     }
 
     if (/artificer/i.test(className) && featureNames.has("infuse item")) {
-      pushResource(className, "Infusions", `${entry.level}`, "LR");
+      pushResource("Infusions", `${entry.level}`, "LR");
     }
 
     if (/sorcerer/i.test(className) && (featureNames.has("font of magic") || featureNames.has("sorcery points"))) {
-      pushResource(className, "Sorcery Points", `${entry.level}`, "LR");
+      pushResource("Sorcery Points", `${entry.level}`, "LR");
     }
 
     if (/blood.?hunter/i.test(className) && featureNames.has("blood curses")) {
       const pb = Math.ceil(args.draft.level / 4) + 1;
-      pushResource(className, "Blood Curses", `${pb} uses`, "LR");
+      pushResource("Blood Curses", `${pb} uses`, "LR");
     }
 
     if (/weaveshaper/i.test(className) && featureNames.has("weave strings")) {
-      pushResource(className, "Weave Strings", `${3 + entry.level} strings`, "SR");
+      pushResource("Weave Strings", `${3 + entry.level} strings`, "SR");
     }
   }
 
@@ -1670,26 +1668,6 @@ function buildStatCards(args: BuilderPdfSourceArgs) {
     { id: "spellcasting-bonus", label: "Spellcasting Bonus", value: spellcastingAbility ? `${spellcastingBonus >= 0 ? "+" : ""}${spellcastingBonus}` : "" },
     { id: "spell-save-dc", label: spellcastingAbility ? "Save DC" : "Ki Save DC", value: spellcastingAbility ? `${spellSaveDc}` : kiSaveDc },
     { id: "spellcasting-ability", label: "Spellcasting Ability", value: spellcastingAbilityLabel },
-    // Per-source spellcasting stats (one set per spellcasting class/race/feat)
-    ...args.spellGroups
-      .filter((group) => group.spellcastingAbility)
-      .map((group) => {
-        const ability = group.spellcastingAbility ?? "";
-        const abilityLower = ability.toLowerCase() as AbilityKey;
-        const abilityScore = Number.isFinite(args.effectiveAbilities[abilityLower])
-          ? args.effectiveAbilities[abilityLower]
-          : 10;
-        const abilityMod = getAbilityModifier(abilityScore);
-        const bonus = `${abilityMod + proficiencyBonus >= 0 ? "+" : ""}${abilityMod + proficiencyBonus}`;
-        const dc = 8 + proficiencyBonus + abilityMod;
-        const sourceId = group.id.replace(/:/g, "-").toLowerCase();
-        return [
-          { id: `spellcasting-source-${sourceId}-bonus`, label: `${group.ownerLabel} Bonus`, value: bonus },
-          { id: `spellcasting-source-${sourceId}-dc`, label: `${group.ownerLabel} DC`, value: `${dc}` },
-          { id: `spellcasting-source-${sourceId}-ability`, label: `${group.ownerLabel} Ability`, value: ABILITY_LABELS[abilityLower] ?? ability.toUpperCase() },
-        ];
-      })
-      .flat(),
     { id: "hp", label: "HP", value: vitals.value },
     { id: "ac", label: "AC", value: `${acData.value}` },
     { id: "defenses", label: "Defenses", value: defenses.join("\n") },
@@ -1699,9 +1677,7 @@ function buildStatCards(args: BuilderPdfSourceArgs) {
       id: `class-resource-${index + 1}`,
       label: "Class Resource",
       value: resource.value,
-      meta: resource.cadence
-        ? `${resource.ownerLabel}\n${resource.label}\n${resource.cadence}`
-        : `${resource.ownerLabel}\n${resource.label}`,
+      meta: resource.cadence ? `${resource.label}\n${resource.cadence}` : resource.label,
     })),
   ];
 }
@@ -1776,91 +1752,46 @@ function buildFeatureCards(args: BuilderPdfSourceArgs) {
 }
 
 function buildCompanionCards(args: BuilderPdfSourceArgs) {
-  const companionSubElements = getBuiltInSrdCompanionSubElements();
-  const companionSubElementsById = new Map(companionSubElements.map((element) => [element.id, element] as const));
-  const isTemporaryFormOrSummon = (element: BuiltInElement) =>
-    /\bwild shape\b|\bconjure\b|\bsummon\b/i.test(`${element.name} ${element.description ?? ""} ${element.type}`);
-  const isExplicitCompanionElement = (element: BuiltInElement) => {
-    if (isTemporaryFormOrSummon(element)) {
-      return false;
-    }
-
-    return (
-      element.type === "Companion" ||
-      element.setters.some((setter) => setter.name === "challenge" || setter.name === "traits" || setter.name === "actions") ||
-      element.rules.some((rule) => rule.kind === "stat" && rule.name.startsWith("companion:"))
-    );
-  };
-
-  const companionElements = args.selectedProgressionElements.filter(isExplicitCompanionElement);
-
   return uniqueById(
-    companionElements
-      .flatMap((element) => {
-        // Try to get setter data from element.setters first
+    args.selectedProgressionElements
+      .filter(
+        (element) =>
+          element.type === "Companion" ||
+          /companion/i.test(element.type) ||
+          /companion/i.test(element.name) ||
+          /companion/i.test(element.description),
+      )
+      .map((element) => {
         const setterMap = new Map(element.setters.map((s) => [s.name, s.value]));
-
-        // If setters are empty, try to derive from element.rules (companion:xxx rules)
-        const rulesSetters: Record<string, string> = {};
-        element.rules?.forEach((rule) => {
-          if (rule.kind === "stat") {
-            // Rules like "companion:ac" → extract value
-            const match = rule.name.match(/^companion:(\w+)$/);
-            if (match) {
-              rulesSetters[match[1]] = rule.value;
-            }
-          }
-        });
-
         const dedupedSupport = [...new Set((element.supports ?? []).map((s) => s.toLowerCase().trim()).filter(Boolean))];
 
         // Encode setter values as tags so the PDF renderer can read them.
         // Format: key:value (e.g. "str:14", "ac:13", "cr:1/4")
-        // Try setterMap first, fall back to rulesSetters for companion:xxx rules
-        const getSetter = (key: string) => setterMap.get(key) ?? rulesSetters[key] ?? "";
-        
         const tags: string[] = [
           ...dedupedSupport,
-          getSetter("type") ? `type:${getSetter("type")}` : null,
-          getSetter("size") ? `size:${getSetter("size")}` : null,
-          getSetter("challenge") ? `cr:${getSetter("challenge")}` : null,
-          getSetter("ac") ? `ac:${getSetter("ac")}` : null,
-          getSetter("hp") ? `hp:${getSetter("hp")}` : null,
-          getSetter("speed") ? `speed:${getSetter("speed")}` : null,
-          getSetter("alignment") ? `alignment:${getSetter("alignment")}` : null,
-          getSetter("senses") ? `senses:${getSetter("senses")}` : null,
-          getSetter("languages") ? `languages:${getSetter("languages")}` : null,
-          getSetter("skills") ? `skills:${getSetter("skills")}` : null,
-          getSetter("strength") ? `str:${getSetter("strength")}` : null,
-          getSetter("dexterity") ? `dex:${getSetter("dexterity")}` : null,
-          getSetter("constitution") ? `con:${getSetter("constitution")}` : null,
-          getSetter("intelligence") ? `int:${getSetter("intelligence")}` : null,
-          getSetter("wisdom") ? `wis:${getSetter("wisdom")}` : null,
-          getSetter("charisma") ? `cha:${getSetter("charisma")}` : null,
+          setterMap.get("type") ? `type:${setterMap.get("type")}` : null,
+          setterMap.get("size") ? `size:${setterMap.get("size")}` : null,
+          setterMap.get("challenge") ? `cr:${setterMap.get("challenge")}` : null,
+          setterMap.get("ac") ? `ac:${setterMap.get("ac")}` : null,
+          setterMap.get("hp") ? `hp:${setterMap.get("hp")}` : null,
+          setterMap.get("speed") ? `speed:${setterMap.get("speed")}` : null,
+          setterMap.get("alignment") ? `alignment:${setterMap.get("alignment")}` : null,
+          setterMap.get("senses") ? `senses:${setterMap.get("senses")}` : null,
+          setterMap.get("languages") ? `languages:${setterMap.get("languages")}` : null,
+          setterMap.get("skills") ? `skills:${setterMap.get("skills")}` : null,
+          setterMap.get("strength") ? `str:${setterMap.get("strength")}` : null,
+          setterMap.get("dexterity") ? `dex:${setterMap.get("dexterity")}` : null,
+          setterMap.get("constitution") ? `con:${setterMap.get("constitution")}` : null,
+          setterMap.get("intelligence") ? `int:${setterMap.get("intelligence")}` : null,
+          setterMap.get("wisdom") ? `wis:${setterMap.get("wisdom")}` : null,
+          setterMap.get("charisma") ? `cha:${setterMap.get("charisma")}` : null,
         ].filter(Boolean) as string[];
 
-        const rootCard = toPdfCardFromElement(element, {
+        return toPdfCardFromElement(element, {
           kind: "feature",
           pageHint: "companion",
           tags,
         });
-
-        const detailIds = [
-          ...splitFreeTextList(getSetter("traits")),
-          ...splitFreeTextList(getSetter("actions")),
-          ...splitFreeTextList(getSetter("reactions")),
-        ];
-        const detailCards = detailIds
-          .map((id) => companionSubElementsById.get(id))
-          .filter((entry): entry is BuiltInElement => Boolean(entry))
-          .map((entry) =>
-            toPdfCardFromElement(entry, {
-              kind: "feature",
-              pageHint: "companion",
-            }),
-          );
-
-        return [rootCard, ...detailCards];
       }),
   );
 }
@@ -2014,49 +1945,6 @@ function buildSpellSlots(args: BuilderPdfSourceArgs): PdfSpellSlots | undefined 
     return undefined;
   }
 
-  const proficiencyBonus = getProficiencyBonus(args.draft.level);
-
-  // Build per-source spellcasting entries (one per spellcasting class/race/feat)
-  const sources: PdfSpellcastingSourceEntry[] = casterGroups.map((group) => {
-    const ability = group.spellcastingAbility ?? "";
-    const abilityLower = ability.toLowerCase() as AbilityKey;
-    const abilityScore = Number.isFinite(args.effectiveAbilities[abilityLower])
-      ? args.effectiveAbilities[abilityLower]
-      : 10;
-    const abilityMod = getAbilityModifier(abilityScore);
-    const dc = 8 + proficiencyBonus + abilityMod;
-    const bonus = `${abilityMod + proficiencyBonus >= 0 ? "+" : ""}${abilityMod + proficiencyBonus}`;
-
-    // Determine if this is a Pact Magic source
-    const isPact = /warlock|pact/i.test(group.id) || /warlock/i.test(group.ownerLabel);
-    const kind: PdfSpellcastingSourceEntry["kind"] =
-      group.kind === "prepared" || group.kind === "known" || group.kind === "spellbook"
-        ? group.kind
-        : group.kind === "granted"
-          ? "granted"
-          : isPact
-            ? "pact"
-            : "granted";
-
-    const recovery: PdfSpellcastingSourceEntry["recovery"] = isPact
-      ? "short-rest"
-      : group.ownerType === "race" || group.ownerType === "subrace" || group.ownerType === "feat"
-        ? "at-will"
-        : "long-rest";
-
-    return {
-      id: group.id.replace(/:/g, "-").toLowerCase(),
-      ownerLabel: group.ownerLabel,
-      ownerType: group.ownerType,
-      ability,
-      abilityLabel: ABILITY_LABELS[abilityLower] ?? ability.toUpperCase(),
-      dc,
-      bonus,
-      kind,
-      recovery,
-    };
-  });
-
   const standardCasterLevel = standardCasterEntries.reduce(
     (total, entry) => total + getStandardCasterContribution(entry.normalizedClassName, entry.level),
     0,
@@ -2080,7 +1968,7 @@ function buildSpellSlots(args: BuilderPdfSourceArgs): PdfSpellSlots | undefined 
     pactSlotEntries = explicitSlots.length ? explicitSlots : getWarlockPactSlotsForLevel(warlockEntry.level);
   }
 
-  if (!standardSlotEntries.length && !pactSlotEntries.length && !sources.length) {
+  if (!standardSlotEntries.length && !pactSlotEntries.length) {
     return undefined;
   }
 
@@ -2093,7 +1981,6 @@ function buildSpellSlots(args: BuilderPdfSourceArgs): PdfSpellSlots | undefined 
     slots,
     standardSlots: standardSlotEntries.length ? toPdfSpellSlotLevels(standardSlotEntries) : undefined,
     pactSlots: pactSlotEntries.length ? toPdfSpellSlotLevels(pactSlotEntries) : undefined,
-    sources,
     isFullCaster:
       standardCasterEntries.length > 0 &&
       standardCasterEntries.every((entry) => isFullCasterClassName(entry.normalizedClassName)),
@@ -2338,7 +2225,6 @@ export function buildPdfCharacterFromDraft(args: BuilderPdfDraftCatalogs & { dra
     ...directProgressionElements,
     ...selectedProgressionGrantElements,
   ]);
-
   const racialBonuses = draft.useTashasCustomizedOrigin
     ? emptyAbilityMap()
     : getStatBonuses(

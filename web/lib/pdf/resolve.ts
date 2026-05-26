@@ -276,7 +276,7 @@ export function toPdfCardFromElement(
     detail,
     sourceLabel: overrides?.sourceLabel ?? element.source,
     sourceAction: overrides?.sourceAction ?? element.sheet?.action,
-    tags: overrides?.tags ?? normalizeTags([element.type, ...(element.supports ?? [])]),
+    tags: normalizeTags([element.type, ...(element.supports ?? [])]),
     priority: overrides?.priority ?? getCardPriority(kind, contentKind, pageHint),
     pageHint,
     widthHint: overrides?.widthHint ?? inferWidthHint(kind, detail),
@@ -389,14 +389,12 @@ function toPdfAppendixEntryFromCard(card: PdfPageCard): PdfAppendixEntry {
   };
 }
 
-function normalizeCard(card: PdfPageCard, options?: { preserveRawTags?: boolean }) {
+function normalizeCard(card: PdfPageCard) {
   return {
     ...card,
     summary: normalizeText(card.summary),
     detail: card.detail ? normalizeText(card.detail) : undefined,
-    // Companion cards use a special "key:value" tag format that must NOT be normalized
-    // (normalizeTags strips colons, which would destroy the data)
-    tags: options?.preserveRawTags ? card.tags : normalizeTags(card.tags),
+    tags: normalizeTags(card.tags),
     priority: Number.isFinite(card.priority) ? Math.floor(card.priority) : 100,
   };
 }
@@ -787,7 +785,7 @@ export function buildFrontPageComposition(source: PdfResolveSource): PdfFrontPag
   const normalizedAttackRows = uniqueById((source.attackRows ?? []).map(normalizeAttackRow));
   const normalizedProficiencyGroups = normalizeProficiencyGroups(source.proficiencyGroups);
 
-  const featureCards = uniqueById((source.featureCards ?? []).map((c) => normalizeCard(c))).sort((left, right) => {
+  const featureCards = uniqueById((source.featureCards ?? []).map(normalizeCard)).sort((left, right) => {
     if (left.priority !== right.priority) {
       return left.priority - right.priority;
     }
@@ -841,7 +839,7 @@ export function buildFrontPageComposition(source: PdfResolveSource): PdfFrontPag
 }
 
 function buildPageCards(cards: PdfPageCard[], capacity: number) {
-  const normalized = uniqueById(cards.map((c) => normalizeCard(c))).sort((left, right) => {
+  const normalized = uniqueById(cards.map(normalizeCard)).sort((left, right) => {
     if (left.priority !== right.priority) {
       return left.priority - right.priority;
     }
@@ -859,12 +857,12 @@ function buildPageCards(cards: PdfPageCard[], capacity: number) {
 }
 
 export function resolvePdfCharacter(source: PdfResolveSource): ResolvedPdfCharacter {
-  const featureCards = uniqueById((source.featureCards ?? []).map((c) => normalizeCard(c)));
-  const companionCards = uniqueById((source.companionCards ?? []).map((c) => normalizeCard(c, { preserveRawTags: true })));
-  const inventoryCards = uniqueById((source.inventoryCards ?? []).map((c) => normalizeCard(c)));
-  const spellCards = uniqueById((source.spellCards ?? []).map((c) => normalizeCard(c)));
+  const featureCards = uniqueById((source.featureCards ?? []).map(normalizeCard));
+  const companionCards = uniqueById((source.companionCards ?? []).map(normalizeCard));
+  const inventoryCards = uniqueById((source.inventoryCards ?? []).map(normalizeCard));
+  const spellCards = uniqueById((source.spellCards ?? []).map(normalizeCard));
   const backstoryCards = uniqueById([
-    ...(source.backstoryCards ?? []).map((c) => normalizeCard(c)),
+    ...(source.backstoryCards ?? []).map(normalizeCard),
     ...backstoryToCards(source.backstory),
   ]);
   const appendixEntries = uniqueById([
@@ -897,7 +895,6 @@ export function resolvePdfCharacter(source: PdfResolveSource): ResolvedPdfCharac
       uniqueStrings(source.draft.classEntries.map((entry) => entry.classId).filter(Boolean)).join(" / "),
     subclassLabel: normalizeText(source.identity?.subclassLabel || ""),
     backgroundLabel: normalizeText(source.identity?.backgroundLabel || source.draft.backgroundId || ""),
-    spellSlots: source.spellSlots,
     alignment: normalizeText((source.backstory ?? source.draft.backstory).alignment || ""),
     deity: normalizeText((source.backstory ?? source.draft.backstory).deity || ""),
     stats: frontPage.stats,
@@ -936,18 +933,8 @@ export function buildPdfPagePlan(character: ResolvedPdfCharacter): PdfPagePlan[]
 
   if (character.companionCards.length) {
     pageNumber += 1;
-    // Companion cards are already normalized with preserveRawTags, don't re-normalize via buildPageCards
-    const companionChunks = (() => {
-      const chunks: PdfPageCard[][] = [];
-      let cursor = 0;
-      while (cursor < character.companionCards.length) {
-        chunks.push(character.companionCards.slice(cursor, cursor + INVENTORY_PAGE_CAPACITY));
-        cursor += INVENTORY_PAGE_CAPACITY;
-      }
-      return chunks;
-    })();
     pages.push(
-      buildPage("companion", pageNumber, "Companion", companionChunks.map((cards, index) =>
+      buildPage("companion", pageNumber, "Companion", buildPageCards(character.companionCards, INVENTORY_PAGE_CAPACITY).map((cards, index) =>
         buildSection(`companion-${index + 1}`, "Companion cards", cards, "Companion traits, actions, and reactions."),
       ), ["Companion page appears before inventory when a companion exists."]),
     );
