@@ -633,11 +633,23 @@ function drawShellMetricCard(
 }
 
 function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter) {
-  const stats = [
-    statValue(character, "spellcasting bonus"),
-    statValue(character, "save dc"),
-    statValue(character, "spellcasting ability"),
-  ];
+  // Collect all per-source spellcasting entries (one row per spellcasting class/race/feat)
+  const spellSourcesByKey = findStatsByIdPrefix(character, "spellcasting-source-").reduce<
+    Record<string, { bonus: string; dc: string; ability: string; label: string }>
+  >((acc, stat) => {
+    const match = stat.id.match(/^(spellcasting-source-[^.]+)-(bonus|dc|ability)$/);
+    if (!match) return acc;
+    const [, sourceKey, field] = match;
+    if (!acc[sourceKey]) {
+      acc[sourceKey] = { bonus: "", dc: "", ability: "", label: stat.label.replace(/ (Bonus|DC|Ability)$/, "") };
+    }
+    if (field === "bonus") acc[sourceKey].bonus = stat.value;
+    else if (field === "dc") acc[sourceKey].dc = stat.value;
+    else if (field === "ability") acc[sourceKey].ability = stat.value;
+    return acc;
+  }, {});
+  const spellSourceRows = Object.values(spellSourcesByKey);
+
   const kiSaveDc = statValue(character, "ki save dc");
   const classResources = findStatsByIdPrefix(character, "class-resource-")
     .map((resource) => ({
@@ -646,9 +658,10 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     }))
     .map(parseClassResource)
     .filter((resource) => resource.value);
-  const hasSpellcasting = stats.some(Boolean);
   const hasKiDc = Boolean(kiSaveDc);
   const hasClassResource = classResources.length > 0;
+  // hasSpellcasting is true when at least one source row has all three fields
+  const hasSpellcasting = spellSourceRows.some((row) => row.bonus && row.dc && row.ability);
 
   if (!hasSpellcasting && !hasKiDc && !hasClassResource) {
     return;
@@ -690,35 +703,65 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     return;
   }
 
-  const spellBox = spellcastingRect(hasClassResource ? { x: 9, y: 1, width: 120, height: 48 } : { x: 9, y: 1, width: 178, height: 48 });
-  drawSvg(ctx, assets.proficiencyBox1, spellBox);
-  const thirds = splitColumns(insetRect(spellBox, 9, 6), 3, 8);
-  const labels = ["BONUS", "SAVE DC", "ABILITY"];
+  // Render one row per spellcasting source (class/race/feat)
+  // Each source row: source-label header + BONUS | SAVE DC | ABILITY columns
+  const rowHeight = hasClassResource ? 40 : 48;
+  let yOffset = 1;
 
-  stats.forEach((value, index) => {
-    if (!value) {
-      return;
+  spellSourceRows.forEach((row, rowIndex) => {
+    if (!row.bonus && !row.dc && !row.ability) return;
+
+    const isFirst = rowIndex === 0;
+    const isLast = rowIndex === spellSourceRows.length - 1;
+    const boxHeight = isFirst && isLast ? 48 : rowHeight;
+    const effectiveHeight = isLast && isFirst ? 48 : boxHeight;
+
+    const spellBox = spellcastingRect(
+      hasClassResource
+        ? { x: 9, y: yOffset, width: 120, height: effectiveHeight }
+        : { x: 9, y: yOffset, width: 178, height: effectiveHeight }
+    );
+    drawSvg(ctx, assets.proficiencyBox1, spellBox);
+    const thirds = splitColumns(insetRect(spellBox, 9, 6), 3, 8);
+    const labels = ["BONUS", "SAVE DC", "ABILITY"];
+    const values = [row.bonus, row.dc, row.ability];
+
+    values.forEach((value, index) => {
+      if (!value) return;
+      drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.12, width: 0.94, height: 0.42 }), {
+        font: "Helvetica-Bold",
+        maxSize: index === 1 ? 11.2 : 14.5,
+        minSize: 6,
+        color: "#000000",
+      });
+      drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.66, width: 0.96, height: 0.20 }), {
+        font: "Helvetica-Bold",
+        maxSize: index === 1 ? 4.2 : 4.7,
+        minSize: 2.8,
+        color: "#000000",
+      });
+    });
+
+    // Source label below the three columns
+    if (spellSourceRows.length > 1) {
+      maskRect(ctx, rectFromFractions(spellBox, { x: 0.18, y: 0.84, width: 0.64, height: 0.12 }));
+      drawCenteredTextInRect(ctx, row.label.toUpperCase(), rectFromFractions(spellBox, { x: 0.14, y: 0.80, width: 0.72, height: 0.13 }), {
+        font: "Helvetica-Bold",
+        maxSize: 4.8,
+        minSize: 3.2,
+        color: "#000000",
+      });
+    } else {
+      maskRect(ctx, rectFromFractions(spellBox, { x: 0.18, y: 0.84, width: 0.64, height: 0.12 }));
+      drawCenteredTextInRect(ctx, "SPELLCASTING", rectFromFractions(spellBox, { x: 0.14, y: 0.80, width: 0.72, height: 0.13 }), {
+        font: "Helvetica-Bold",
+        maxSize: 4.8,
+        minSize: 3.2,
+        color: "#000000",
+      });
     }
-    drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.12, width: 0.94, height: 0.42 }), {
-      font: "Helvetica-Bold",
-      maxSize: index === 1 ? 11.2 : 14.5,
-      minSize: 6,
-      color: "#000000",
-    });
-    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.66, width: 0.96, height: 0.20 }), {
-      font: "Helvetica-Bold",
-      maxSize: index === 1 ? 4.2 : 4.7,
-      minSize: 2.8,
-      color: "#000000",
-    });
-  });
 
-  maskRect(ctx, rectFromFractions(spellBox, { x: 0.18, y: 0.84, width: 0.64, height: 0.12 }));
-  drawCenteredTextInRect(ctx, "SPELLCASTING", rectFromFractions(spellBox, { x: 0.14, y: 0.80, width: 0.72, height: 0.13 }), {
-    font: "Helvetica-Bold",
-    maxSize: 4.8,
-    minSize: 3.2,
-    color: "#000000",
+    yOffset += rowHeight;
   });
 
   if (hasClassResource) {
