@@ -21,6 +21,13 @@ const PDF_EXPORT_ASSET_KEYS = [
   "line",
   "skillLine",
   "statBlock",
+  "hitDie",
+  "bonusBox",
+  "ac",
+  "hp",
+  "passiveBox",
+  "skillBlock",
+  "abilityPanel",
 ] as const satisfies Array<keyof typeof PDF_EXPORT_SVG_ASSET_PATHS>;
 
 function sanitizeFileName(value: string) {

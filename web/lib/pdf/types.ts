@@ -121,11 +121,24 @@ export type PdfPage1SpellSummary = {
   spellcastingAbility?: string;
 };
 
+export type PdfSpellcastingSourceEntry = {
+  id: string; // stable key for stat lookup, e.g. "cleric" or "warlock-pact"
+  ownerLabel: string; // human-readable class/race name, e.g. "Cleric" or "Warlock"
+  ownerType: "race" | "subrace" | "class" | "subclass" | "feat";
+  ability: string; // lowercase ability key e.g. "wis", "int", "cha"
+  abilityLabel: string; // capitalized short label e.g. "WIS", "INT", "CHA"
+  dc: number; // spell save DC for this source
+  bonus: string; // spell attack bonus, e.g. "+5"
+  kind: "prepared" | "known" | "spellbook" | "pact" | "innate" | "granted";
+  recovery: "long-rest" | "short-rest" | "at-will" | "slots";
+};
+
 export type PdfSpellSlots = {
   maxLevel: number; // highest spell level the character can cast (derived from character level for full casters)
   slots: PdfSpellSlotLevel[]; // slot counts per level (excludes cantrips — they have unlimited)
   standardSlots?: PdfSpellSlotLevel[];
   pactSlots?: PdfSpellSlotLevel[];
+  sources: PdfSpellcastingSourceEntry[]; // one entry per spellcasting class/race/feat
   isFullCaster: boolean;
   isHalfCaster: boolean;
   isWarlock: boolean;
@@ -244,4 +257,5 @@ export type ResolvedPdfCharacter = {
   backstory?: CharacterBackstory;
   source: CharacterDraft;
   pagePlan: PdfPagePlan[];
+  spellSlots?: PdfSpellSlots; // direct access for renderer convenience
 };
