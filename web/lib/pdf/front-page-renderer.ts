@@ -633,28 +633,6 @@ function drawShellMetricCard(
 }
 
 function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter) {
-  // Collect per-source spellcasting stats (one entry per spellcasting class/race/feat)
-  const spellSources = findStatsByIdPrefix(character, "spellcasting-source-").reduce<
-    { bonus: string; dc: string; ability: string; label: string }[]
-  >((acc, stat) => {
-    const match = stat.id.match(/^(spellcasting-source-[^.]+)-(bonus|dc|ability)$/);
-    if (!match) return acc;
-    const [, sourceKey, field] = match;
-    const existing = acc.find((s) => s.label === stat.label);
-    if (existing) {
-      if (field === "bonus") existing.bonus = stat.value;
-      else if (field === "dc") existing.dc = stat.value;
-      else if (field === "ability") existing.ability = stat.value;
-    } else {
-      const entry = { bonus: "", dc: "", ability: "", label: stat.label };
-      if (field === "bonus") entry.bonus = stat.value;
-      else if (field === "dc") entry.dc = stat.value;
-      else if (field === "ability") entry.ability = stat.value;
-      acc.push(entry);
-    }
-    return acc;
-  }, []);
-
   const kiSaveDc = statValue(character, "ki save dc");
   const classResources = findStatsByIdPrefix(character, "class-resource-")
     .map((resource) => ({
@@ -663,9 +641,31 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     }))
     .map(parseClassResource)
     .filter((resource) => resource.value);
+
+  // Collect per-source spellcasting entries (one per spellcasting class/race/feat)
+  const rawSpellStats = findStatsByIdPrefix(character, "spellcasting-source-");
+  const spellSources = rawSpellStats.reduce<
+    { bonus: string; dc: string; ability: string; label: string }[]
+  >((acc, stat) => {
+    const match = stat.id.match(/^(spellcasting-source-[^.]+)-(bonus|dc|ability)$/);
+    if (!match) return acc;
+    const [, sourceKey, field] = match;
+    const label = stat.label;
+    let entry = acc.find((e) => e.label === label);
+    if (!entry) {
+      entry = { bonus: "", dc: "", ability: "", label };
+      acc.push(entry);
+    }
+    if (field === "bonus") entry.bonus = stat.value;
+    else if (field === "dc") entry.dc = stat.value;
+    else if (field === "ability") entry.ability = stat.value;
+    return acc;
+  }, []);
+
   const hasSpellcasting = spellSources.length > 0;
   const hasKiDc = Boolean(kiSaveDc);
   const hasClassResource = classResources.length > 0;
+  const isMulticlass = spellSources.length > 1;
 
   if (!hasSpellcasting && !hasKiDc && !hasClassResource) {
     return;
@@ -673,10 +673,10 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
 
   maskRect(ctx, SPELLCASTING_REGION);
 
+  // ── Ki-only or no-spellcasting paths (unchanged from 9c4c3bc) ────────────
   if (!hasSpellcasting && hasKiDc) {
     const kiBox = spellcastingRect(hasClassResource ? RESOURCE_ONLY_SLOTS[0] : { x: 40, y: 4, width: 116, height: 42 });
     drawShellMetricCard(ctx, assets, kiBox, { value: kiSaveDc, label: "Ki Save DC", labelFont: "Helvetica" });
-
     if (hasClassResource) {
       const resource = classResources[0];
       drawShellMetricCard(ctx, assets, spellcastingRect(RESOURCE_ONLY_SLOTS[1]), {
@@ -707,136 +707,105 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     return;
   }
 
-  // ─── MULTICLASS SPELLCASTING CARD ───────────────────────────────────────
-  if (spellSources.length > 1) {
-    const rowH = 12;
-    const labelH = 8;
-    const headerH = 9;
-    const spellCardH = 1 + labelH + 1 + headerH + 1 + spellSources.length * rowH + 1 + labelH + 1;
-    const spellBox = spellcastingRect({ x: 9, y: 1, width: hasClassResource ? 120 : 178, height: spellCardH });
+  // ── SINGLE-CLASS SPELLCASTING (unchanged) ─────────────────────────────────
+  if (!isMulticlass) {
+    const src = spellSources[0];
+    const spellBox = spellcastingRect(hasClassResource ? { x: 9, y: 1, width: 120, height: 48 } : { x: 9, y: 1, width: 178, height: 48 });
     drawSvg(ctx, assets.proficiencyBox1, spellBox);
-    maskRect(ctx, { x: spellBox.x + 2, y: spellBox.y + 2, width: spellBox.width - 4, height: spellBox.height - 4 }, "#ffffff");
+    const thirds = splitColumns(insetRect(spellBox, 9, 6), 3, 8);
+    const labels = ["BONUS", "SAVE DC", "ABILITY"];
+    const singleStats = [src?.bonus, src?.dc, src?.ability];
 
-    const colX = [spellBox.x + 4, spellBox.x + 44, spellBox.x + 76, spellBox.x + 112];
-    const colW = [40, 32, 36, hasClassResource ? 6 : 62];
-    const contentW = spellBox.width - 8;
-    const col2W = hasClassResource ? 32 : 62;
-    const col3W = hasClassResource ? 36 : 62;
-
-    const labelY = spellBox.y + 1;
-    const headerY = labelY + labelH + 1;
-    const dataY = headerY + headerH + 1;
-    const bottomLabelY = spellBox.y + spellBox.height - labelH - 1;
-
-    // "SPELLCASTING" top label
-    drawCenteredTextInRect(ctx, "SPELLCASTING", {
-      x: spellBox.x + 4, y: labelY, width: contentW, height: labelH,
-    }, { font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#000000" });
-
-    // Column headers: CLASS | BONUS | SAVE DC | ABILITY
-    ["CLASS", "BONUS", "SAVE DC", "ABILITY"].forEach((lbl, i) => {
-      const w = i === 2 ? col3W : i === 1 ? col2W : colW[i];
-      drawCenteredTextInRect(ctx, lbl, { x: colX[i], y: headerY, width: w, height: headerH }, {
-        font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000",
+    singleStats.forEach((value, index) => {
+      if (!value) return;
+      drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.12, width: 0.94, height: 0.42 }), {
+        font: "Helvetica-Bold",
+        maxSize: index === 1 ? 11.2 : 14.5,
+        minSize: 6, color: "#000000",
+      });
+      drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.66, width: 0.96, height: 0.20 }), {
+        font: "Helvetica-Bold",
+        maxSize: index === 1 ? 4.2 : 4.7,
+        minSize: 2.8, color: "#000000",
       });
     });
 
-    // Row separators (thin)
-    spellSources.forEach((src, idx) => {
-      const rowY = dataY + idx * rowH;
-      const vals = [src.label.substring(0, 12).toUpperCase(), src.bonus, src.dc, src.ability];
-      vals.forEach((val, i) => {
-        if (!val) return;
-        const w = i === 2 ? col3W : i === 1 ? col2W : colW[i];
-        drawCenteredTextInRect(ctx, val, { x: colX[i], y: rowY, width: w, height: rowH - 1 }, {
-          font: "Helvetica-Bold",
-          maxSize: i === 0 ? 5.5 : i === 1 ? 8.0 : 8.5,
-          minSize: 3.0, color: "#000000",
-        });
-      });
-      if (idx < spellSources.length - 1) {
-        strokeRule(ctx, spellBox.x + 4, rowY + rowH - 1, contentW, "#00000018");
-      }
+    maskRect(ctx, rectFromFractions(spellBox, { x: 0.18, y: 0.84, width: 0.64, height: 0.12 }));
+    drawCenteredTextInRect(ctx, "SPELLCASTING", rectFromFractions(spellBox, { x: 0.14, y: 0.80, width: 0.72, height: 0.13 }), {
+      font: "Helvetica-Bold", maxSize: 4.8, minSize: 3.2, color: "#000000",
     });
 
-    // "SPELLCASTING" bottom label
-    drawCenteredTextInRect(ctx, "SPELLCASTING", {
-      x: spellBox.x + 4, y: bottomLabelY, width: contentW, height: labelH,
-    }, { font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#000000" });
-
-    // ─── MULTICLASS CLASS RESOURCES CARD ─────────────────────────────────
     if (hasClassResource) {
-      const rRowH = 12;
-      const rLabelH = 8;
-      const rCardH = 1 + rLabelH + 1 + rRowH * classResources.length + 1 + rLabelH + 1;
-      const resourceBox = spellcastingRect({ x: 133, y: 1, width: 60, height: rCardH });
-      drawSvg(ctx, assets.proficiencyBox1, resourceBox);
-      maskRect(ctx, { x: resourceBox.x + 2, y: resourceBox.y + 2, width: resourceBox.width - 4, height: resourceBox.height - 4 }, "#ffffff");
-
-      const rContentW = resourceBox.width - 4;
-      const rLabelY = resourceBox.y + 1;
-      const dataY2 = rLabelY + rLabelH + 1;
-      const bottomLabelY2 = resourceBox.y + resourceBox.height - rLabelH - 1;
-
-      drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
-        x: resourceBox.x + 2, y: rLabelY, width: rContentW, height: rLabelH,
-      }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000" });
-
-      classResources.forEach((resource, idx) => {
-        const rowY = dataY2 + idx * rRowH;
-        drawCenteredTextInRect(ctx, resource.value, { x: resourceBox.x + 2, y: rowY, width: 20, height: rRowH - 1 }, {
-          font: "Helvetica-Bold", maxSize: 8.0, minSize: 4.0, color: "#000000",
-        });
-        drawCenteredTextInRect(ctx, resource.name, { x: resourceBox.x + 22, y: rowY, width: 34, height: rRowH - 1 }, {
-          font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#000000",
-        });
-        if (idx < classResources.length - 1) {
-          strokeRule(ctx, resourceBox.x + 2, rowY + rRowH - 1, rContentW, "#00000018");
-        }
+      const primaryResource = classResources[0];
+      drawShellMetricCard(ctx, assets, spellcastingRect({ x: 133, y: 1, width: 60, height: 48 }), {
+        value: primaryResource.value,
+        label: primaryResource.name,
+        cadence: primaryResource.cadence,
       });
-
-      drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
-        x: resourceBox.x + 2, y: bottomLabelY2, width: rContentW, height: rLabelH,
-      }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000" });
     }
     return;
   }
 
-  // ─── SINGLE-CLASS SPELLCASTING CARD (original layout, larger text) ───
-  const isSingleClassWithResource = hasClassResource;
-  const spellBoxSingle = spellcastingRect(isSingleClassWithResource ? { x: 9, y: 1, width: 120, height: 48 } : { x: 9, y: 1, width: 178, height: 48 });
-  drawSvg(ctx, assets.proficiencyBox1, spellBoxSingle);
-  const thirds = splitColumns(insetRect(spellBoxSingle, 9, 6), 3, 8);
-  const labels = ["BONUS", "SAVE DC", "ABILITY"];
-  const src = spellSources[0];
-  const singleStats = [src?.bonus, src?.dc, src?.ability];
+  // ── MULTICLASS SPELLCASTING CARD ──────────────────────────────────────────
+  // Fixed card width (same as single-class); height auto-expands with rows.
+  // Font sizes scale down when more rows are present, always fitting in the shell.
+  const cardWidth = hasClassResource ? 120 : 178;
+  const numRows = spellSources.length;
+  const rowH = Math.min(12, Math.floor((48 - 2) / numRows)); // rows share the fixed 48px shell height
+  const dataH = rowH - 1;
+  const innerH = 2 + rowH * numRows + 2; // fits within the fixed 48px shell
+  const colX = hasClassResource
+    ? [SPELLCASTING_REGION.x + 2, SPELLCASTING_REGION.x + 36, SPELLCASTING_REGION.x + 68, SPELLCASTING_REGION.x + 94]
+    : [SPELLCASTING_REGION.x + 2, SPELLCASTING_REGION.x + 48, SPELLCASTING_REGION.x + 106, SPELLCASTING_REGION.x + 148];
+  const colW = hasClassResource ? [34, 32, 26, 26] : [46, 58, 42, 28];
 
-  singleStats.forEach((value, index) => {
-    if (!value) return;
-    drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.12, width: 0.94, height: 0.42 }), {
-      font: "Helvetica-Bold",
-      maxSize: index === 1 ? 11.2 : 14.5,
-      minSize: 6, color: "#000000",
+  const spellBox = spellcastingRect({ x: 9, y: 1, width: cardWidth, height: 48 });
+  drawSvg(ctx, assets.proficiencyBox1, spellBox);
+
+  // Data rows
+  spellSources.forEach((src, idx) => {
+    const rowY = spellBox.y + 2 + idx * rowH;
+    const vals = [src.label.toUpperCase().substring(0, 10), src.bonus, src.dc, src.ability];
+    vals.forEach((val, ci) => {
+      if (!val) return;
+      drawCenteredTextInRect(ctx, val, { x: colX[ci], y: rowY, width: colW[ci], height: dataH }, {
+        font: "Helvetica-Bold",
+        maxSize: ci === 0 ? 4.5 : ci === 1 ? 8.5 : ci === 2 ? 8.0 : 7.5,
+        minSize: 3.0, color: "#000000",
+      });
     });
-    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.66, width: 0.96, height: 0.20 }), {
-      font: "Helvetica-Bold",
-      maxSize: index === 1 ? 4.2 : 4.7,
-      minSize: 2.8, color: "#000000",
-    });
+    if (idx < numRows - 1) {
+      strokeRule(ctx, spellBox.x + 2, rowY + rowH - 1, cardWidth - 4, "#00000015");
+    }
   });
 
-  maskRect(ctx, rectFromFractions(spellBoxSingle, { x: 0.18, y: 0.84, width: 0.64, height: 0.12 }));
-  drawCenteredTextInRect(ctx, "SPELLCASTING", rectFromFractions(spellBoxSingle, { x: 0.14, y: 0.80, width: 0.72, height: 0.13 }), {
-    font: "Helvetica-Bold", maxSize: 4.8, minSize: 3.2, color: "#000000",
-  });
+  // Mask top/bottom (no labels for multiclass — just data rows filling shell)
+  maskRect(ctx, { x: spellBox.x + 2, y: spellBox.y + 1, width: cardWidth - 4, height: 6 });
+  maskRect(ctx, { x: spellBox.x + 2, y: spellBox.y + 48 - 7, width: cardWidth - 4, height: 6 });
 
+  // ── MULTICLASS CLASS RESOURCES CARD ──────────────────────────────────────
   if (hasClassResource) {
-    const primaryResource = classResources[0];
-    drawShellMetricCard(ctx, assets, spellcastingRect({ x: 133, y: 1, width: 60, height: 48 }), {
-      value: primaryResource.value,
-      label: primaryResource.name,
-      cadence: primaryResource.cadence,
+    const rCardWidth = 60;
+    const rRowH = Math.min(12, Math.floor((48 - 2) / classResources.length));
+    const rDataH = rRowH - 1;
+    const rBox = spellcastingRect({ x: 133, y: 1, width: rCardWidth, height: 48 });
+    drawSvg(ctx, assets.proficiencyBox1, rBox);
+
+    classResources.forEach((resource, idx) => {
+      const rowY = rBox.y + 2 + idx * rRowH;
+      drawCenteredTextInRect(ctx, resource.value, { x: rBox.x + 2, y: rowY, width: 18, height: rDataH }, {
+        font: "Helvetica-Bold", maxSize: 8.5, minSize: 4.0, color: "#000000",
+      });
+      drawCenteredTextInRect(ctx, resource.name, { x: rBox.x + 20, y: rowY, width: 38, height: rDataH }, {
+        font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.5, color: "#000000",
+      });
+      if (idx < classResources.length - 1) {
+        strokeRule(ctx, rBox.x + 2, rowY + rRowH - 1, rCardWidth - 4, "#00000015");
+      }
     });
+
+    maskRect(ctx, { x: rBox.x + 2, y: rBox.y + 1, width: rCardWidth - 4, height: 6 });
+    maskRect(ctx, { x: rBox.x + 2, y: rBox.y + 48 - 7, width: rCardWidth - 4, height: 6 });
   }
 }
 
