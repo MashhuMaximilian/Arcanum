@@ -765,11 +765,14 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   });
 
   if (hasClassResource) {
-    const primaryResource = classResources[0];
-    drawShellMetricCard(ctx, assets, spellcastingRect({ x: 133, y: 1, width: 60, height: 48 }), {
-      value: primaryResource.value,
-      label: primaryResource.name,
-      cadence: primaryResource.cadence,
+    // Draw class resource(s) aligned with the first spellcasting row, stacked below if multiple
+    const resourceY = 1 + spellSourceRows.length * (hasClassResource ? 40 : 48);
+    classResources.forEach((resource, idx) => {
+      drawShellMetricCard(ctx, assets, spellcastingRect({ x: 133, y: resourceY + idx * 52, width: 60, height: 48 }), {
+        value: resource.value,
+        label: resource.name,
+        cadence: resource.cadence,
+      });
     });
   }
 }
