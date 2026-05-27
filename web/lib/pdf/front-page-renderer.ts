@@ -740,33 +740,32 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   }
 
   // ── MULTICLASS SPELLCASTING CARD ────────────────────────────────────────────
-  // Reference-style card: white interior, thin gray border, column headers + rule + rows
+  // Clean card: transparent interior, column headers, one row per class, small uniform text
   const numRows = spellSources.length;
-  const headerH = 9;
-  const labelH = 7;
+  const headerH = 8;
+  const labelH = 6;
   const rowH = 10;
-  const cardW = hasClassResource ? 118 : 176;
-  const cardH = 1 + labelH + 2 + headerH + 1 + numRows * rowH + 1 + labelH + 1;
+  const cardW = hasClassResource ? 116 : 176;
+  const cardH = labelH + 1 + headerH + 1 + numRows * rowH + 2;
   const spellBox = spellcastingRect({ x: 9, y: 1, width: cardW, height: cardH });
 
-  // Card background: white interior with existing shell SVG
+  // Transparent interior — just the shell border, no white fill
   drawSvg(ctx, assets.proficiencyBox1, spellBox);
-  maskRect(ctx, { x: spellBox.x + 2, y: spellBox.y + 2, width: cardW - 4, height: cardH - 4 }, "#ffffff");
 
-  // Column headers: CLASS | BONUS | SAVE DC | ABILITY
+  // Column layout
   const colX = hasClassResource
-    ? [spellBox.x + 3, spellBox.x + 36, spellBox.x + 68, spellBox.x + 94]
+    ? [spellBox.x + 3, spellBox.x + 34, spellBox.x + 66, spellBox.x + 92]
     : [spellBox.x + 4, spellBox.x + 50, spellBox.x + 108, spellBox.x + 148];
-  const colW = hasClassResource ? [33, 32, 26, 22] : [46, 58, 40, 26];
-  const labelY = spellBox.y + 1;
-  const headerY = labelY + labelH + 2;
+  const colW = hasClassResource ? [31, 32, 26, 22] : [46, 58, 40, 26];
+  const labelY = spellBox.y;
+  const headerY = labelY + labelH + 1;
   const dataY = headerY + headerH + 1;
   const contentW = spellBox.width - 6;
 
-  // "SPELLCASTING" top label
+  // "SPELLCASTING" title — small, shifted down with padding
   drawCenteredTextInRect(ctx, "SPELLCASTING", {
     x: spellBox.x + 3, y: labelY, width: contentW, height: labelH,
-  }, { font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.5, color: "#000000" });
+  }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000" });
 
   // Column header labels
   const headerLabels = ["CLASS", "BONUS", "SAVE DC", "ABILITY"];
@@ -777,17 +776,17 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   });
 
   // Thin rule under column headers
-  strokeRule(ctx, spellBox.x + 3, headerY + headerH, contentW, "#00000030");
+  strokeRule(ctx, spellBox.x + 3, headerY + headerH, contentW, "#00000025");
 
-  // Data rows
+  // Data rows — one per class, small uniform text (maxSize 4.5)
   spellSources.forEach((src, idx) => {
     const rowY = dataY + idx * rowH;
-    const vals = [src.label.toUpperCase().substring(0, 12), src.bonus, src.dc, src.ability];
+    const vals = [src.label.toUpperCase().substring(0, 10), src.bonus, src.dc, src.ability];
     vals.forEach((val, ci) => {
       if (!val) return;
       drawCenteredTextInRect(ctx, val, { x: colX[ci], y: rowY, width: colW[ci], height: rowH - 1 }, {
         font: "Helvetica-Bold",
-        maxSize: ci === 0 ? 4.5 : ci === 1 ? 8.0 : ci === 2 ? 7.5 : 7.0,
+        maxSize: ci === 0 ? 4.5 : 4.5,
         minSize: 2.5, color: "#000000",
       });
     });
@@ -796,72 +795,41 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     }
   });
 
-  // "SPELLCASTING" bottom label
-  const bottomLabelY = spellBox.y + spellBox.height - labelH - 1;
-  drawCenteredTextInRect(ctx, "SPELLCASTING", {
-    x: spellBox.x + 3, y: bottomLabelY, width: contentW, height: labelH,
-  }, { font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.5, color: "#000000" });
-
   // ── MULTICLASS CLASS RESOURCES CARD ─────────────────────────────────────
   if (hasClassResource) {
     const rNumRows = classResources.length;
-    const rLabelH = 7;
+    const rLabelH = 6;
     const rRowH = 10;
-    const rCardH = 1 + rLabelH + 2 + rNumRows * rRowH + 1 + rLabelH + 1;
+    const rCardH = rLabelH + 1 + rNumRows * rRowH + 2;
     const rBox = spellcastingRect({ x: 133, y: 1, width: 60, height: rCardH });
 
-    // Card background: white interior with existing shell SVG
+    // Transparent interior — just the shell border
     drawSvg(ctx, assets.proficiencyBox1, rBox);
-    maskRect(ctx, { x: rBox.x + 2, y: rBox.y + 2, width: 56, height: rCardH - 4 }, "#ffffff");
 
     const rContentW = 54;
-    const rLabelY = rBox.y + 1;
-    const rDataY = rLabelY + rLabelH + 2;
-    const rBottomLabelY = rBox.y + rCardH - rLabelH - 1;
+    const rLabelY = rBox.y;
+    const rDataY = rLabelY + rLabelH + 1;
 
-    // "CLASS RESOURCES" top label
+    // "CLASS RESOURCES" title — small, shifted down with padding
     drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
       x: rBox.x + 3, y: rLabelY, width: rContentW, height: rLabelH,
     }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000" });
 
-    // Data rows: VALUE | CLASS | RESOURCE NAME | CADENCE (4 columns in 60px)
-    const rv1 = rBox.x + 3;   // value
-    const rv2 = rBox.x + 16;  // class
-    const rv3 = rBox.x + 30;  // resource name
-    const rw1 = 13;  // value width
-    const rw2 = 14;  // class width
-    const rw3 = 24;  // resource name width
-
+    // Data rows: VALUE | RESOURCE (no class column — removed)
     classResources.forEach((resource, idx) => {
       const rowY = rDataY + idx * rRowH;
-
-      // Parse meta: "ClassName\nResourceName\nCadence" or "ClassName\nResourceName"
-      const className = resource.className;
-      const resourceName = resource.name;
-      const cadence = resource.cadence;
-
       // Value (e.g. "2d6" or "3")
-      drawCenteredTextInRect(ctx, resource.value, { x: rv1, y: rowY, width: rw1, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 7.0, minSize: 3.0, color: "#000000",
-      });
-      // Class name (e.g. "Bard")
-      drawCenteredTextInRect(ctx, className, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#555555",
+      drawCenteredTextInRect(ctx, resource.value, { x: rBox.x + 3, y: rowY, width: 16, height: rRowH - 1 }, {
+        font: "Helvetica-Bold", maxSize: 4.5, minSize: 2.5, color: "#000000",
       });
       // Resource name (e.g. "Bardic Inspiration")
-      drawCenteredTextInRect(ctx, resourceName, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
+      drawCenteredTextInRect(ctx, resource.name, { x: rBox.x + 19, y: rowY, width: 35, height: rRowH - 1 }, {
         font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000",
       });
-
       if (idx < rNumRows - 1) {
         strokeRule(ctx, rBox.x + 3, rowY + rRowH - 1, rContentW, "#00000015");
       }
     });
-
-    // "CLASS RESOURCES" bottom label
-    drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
-      x: rBox.x + 3, y: rBottomLabelY, width: rContentW, height: rLabelH,
-    }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.2, color: "#000000" });
   }
 }
 
