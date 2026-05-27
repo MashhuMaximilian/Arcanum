@@ -1346,14 +1346,147 @@ function getClassResourcePriority(label: string) {
   return 999;
 }
 
+function normalizeClassResourceText(value: string) {
+  return (value ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\t/g, " ")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n\s+/g, "\n")
+    .replace(/\s{2,}/g, " ")
+    .replace(/[.]+$/g, "")
+    .trim();
+}
+
+function normalizeClassResourceCadence(value?: string) {
+  const cleaned = normalizeClassResourceText(value ?? "");
+  if (!cleaned) {
+    return undefined;
+  }
+  if (/^(lr|long rest)$/i.test(cleaned)) {
+    return "long rest";
+  }
+  if (/^(sr|short rest)$/i.test(cleaned)) {
+    return "short rest";
+  }
+  if (/^(per )?day|daily$/i.test(cleaned)) {
+    return "per day";
+  }
+  if (/^at dawn$/i.test(cleaned)) {
+    return "at dawn";
+  }
+  if (/^at dusk$/i.test(cleaned)) {
+    return "at dusk";
+  }
+  return cleaned.toLowerCase();
+}
+
+function formatClassResourceValue(value: string) {
+  const cleaned = normalizeClassResourceText(value);
+  if (!cleaned) {
+    return "";
+  }
+  if (/^\d+$/i.test(cleaned)) {
+    return cleaned === "1" ? "1 use" : `${cleaned} uses`;
+  }
+  const diceMatch = cleaned.match(/^(\d+)\s*d\s*(\d+)$/i) ?? cleaned.match(/^(\d+)d(\d+)$/i);
+  if (diceMatch) {
+    return `${diceMatch[1]} d${diceMatch[2]}`;
+  }
+  if (/^(proficiency bonus|pb)$/i.test(cleaned)) {
+    return "PB";
+  }
+  return cleaned;
+}
+
+function parseClassResourceUsage(usage: string) {
+  const cleaned = normalizeClassResourceText(usage);
+  if (!cleaned) {
+    return null;
+  }
+
+  if (/^(action|bonus action|reaction|free action|unlimited)$/i.test(cleaned)) {
+    return null;
+  }
+  if (/^\d+\s*\/\s*turn$/i.test(cleaned) || /^per turn$/i.test(cleaned)) {
+    return null;
+  }
+  if (/^(ki|channel divinity|wild shape|sorcery points|pact magic)$/i.test(cleaned)) {
+    return null;
+  }
+
+  const slashMatch = cleaned.match(/^(.+?)\s*\/\s*(short rest|long rest|day)$/i);
+  if (slashMatch) {
+    return {
+      value: formatClassResourceValue(slashMatch[1]),
+      cadence: normalizeClassResourceCadence(slashMatch[2]),
+    };
+  }
+
+  const perMatch = cleaned.match(/^(.+?)\s+(?:per|each)\s+(short rest|long rest|day)$/i);
+  if (perMatch) {
+    return {
+      value: formatClassResourceValue(perMatch[1]),
+      cadence: normalizeClassResourceCadence(perMatch[2]),
+    };
+  }
+
+  const dawnMatch = cleaned.match(/^(.+?)\s+(at dawn|at dusk)$/i);
+  if (dawnMatch) {
+    return {
+      value: formatClassResourceValue(dawnMatch[1]),
+      cadence: normalizeClassResourceCadence(dawnMatch[2]),
+    };
+  }
+
+  return null;
+}
+
+function resolveClassFeatureOwnerLabel(args: BuilderPdfSourceArgs, element: BuiltInElement) {
+  for (let index = 0; index < args.draft.classEntries.length; index += 1) {
+    const entry = args.draft.classEntries[index];
+    const record = args.classRecordsByEntry[index];
+    if (!record || entry.level <= 0) {
+      continue;
+    }
+
+    const selectedSubclass =
+      record.subclassSteps
+        .flatMap((step) => step.options)
+        .find((option) => option.archetype.id === entry.subclassId) ?? null;
+    const belongsToClass =
+      record.class.id === element.id ||
+      record.features.some((feature) => feature.id === element.id) ||
+      selectedSubclass?.archetype.id === element.id ||
+      selectedSubclass?.features.some((feature) => feature.id === element.id);
+
+    if (belongsToClass) {
+      return record.class.name;
+    }
+  }
+
+  return args.draft.classEntries.length === 1
+    ? resolveClassName(args.classRecordsByEntry[0], args.draft.classEntries[0])
+    : "";
+}
+
 function getClassResources(args: BuilderPdfSourceArgs) {
   const featureNames = new Set(args.selectedClassFeatureElements.map((feature) => feature.name.toLowerCase()));
   const resources: Array<{ ownerLabel: string; label: string; value: string; cadence?: string }> = [];
   const pushResource = (ownerLabel: string, label: string, value: string, cadence?: string) => {
-    if (!value || resources.some((resource) => resource.ownerLabel === ownerLabel && resource.label === label)) {
+    const cleanedOwnerLabel = normalizeClassResourceText(ownerLabel);
+    const cleanedLabel = normalizeClassResourceText(label);
+    const cleanedValue = normalizeClassResourceText(value);
+    if (!cleanedOwnerLabel || !cleanedLabel || !cleanedValue
+      || resources.some((resource) => resource.ownerLabel === cleanedOwnerLabel && resource.label === cleanedLabel)) {
       return;
     }
-    resources.push({ ownerLabel, label, value, cadence });
+    resources.push({
+      ownerLabel: cleanedOwnerLabel,
+      label: cleanedLabel,
+      value: cleanedValue,
+      cadence: normalizeClassResourceCadence(cadence),
+    });
   };
 
   for (let index = 0; index < args.classRecordsByEntry.length; index += 1) {
@@ -1433,6 +1566,23 @@ function getClassResources(args: BuilderPdfSourceArgs) {
       pushResource(className, "Weave Strings", `${3 + entry.level} strings`, "SR");
     }
   }
+
+  uniqueById(args.selectedClassFeatureElements).forEach((feature) => {
+    if (!feature.sheet?.usage || feature.sheet.display === false) {
+      return;
+    }
+    const ownerLabel = resolveClassFeatureOwnerLabel(args, feature);
+    if (!ownerLabel) {
+      return;
+    }
+    const context = buildSheetResolverContext(args, feature);
+    const resolvedUsage = fillSheetPlaceholders(feature.sheet.usage, args, context);
+    const parsedUsage = parseClassResourceUsage(resolvedUsage);
+    if (!parsedUsage?.value) {
+      return;
+    }
+    pushResource(ownerLabel, feature.name, parsedUsage.value, parsedUsage.cadence);
+  });
 
   return resources.sort((left, right) => {
     const priorityDelta = getClassResourcePriority(left.label) - getClassResourcePriority(right.label);
