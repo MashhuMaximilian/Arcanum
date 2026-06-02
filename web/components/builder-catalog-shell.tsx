@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { BuiltInBackgroundRecord } from "@/lib/builtins/backgrounds";
 import type { BuiltInClassRecord } from "@/lib/builtins/classes";
@@ -30,6 +30,8 @@ export function BuilderCatalogShell({
   initialSpells = [],
 }: BuilderCatalogShellProps) {
   const [isHydratingCatalogs, setIsHydratingCatalogs] = useState(true);
+  // Track current builder step so we can fetch only what each step needs
+  const [currentStep, setCurrentStep] = useState<string>("foundation");
   const [catalogs, setCatalogs] = useState({
     backgrounds: initialBackgrounds,
     classes: initialClasses,
@@ -39,17 +41,26 @@ export function BuilderCatalogShell({
     spells: initialSpells,
   });
 
+  // Callback for BuilderEditor to report step changes
+  const handleStepChange = useCallback((step: string) => {
+    setCurrentStep(step);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
-    async function hydrateCatalogs() {
+    async function hydrateCatalogs(step: string) {
       try {
-        const response = await fetch("/api/srd-catalogs");
+        // Append ?step= to fetch only the groups the current step needs
+        const url = step && step !== "foundation"
+          ? `/api/srd-catalogs?step=${encodeURIComponent(step)}`
+          : "/api/srd-catalogs";
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`Failed to fetch SRD catalogs: ${response.status}`);
         }
         const data = await response.json();
-        const resolved = await resolveBuilderCatalogs(data.spells);
+        const resolved = await resolveBuilderCatalogs(data.spells ?? []);
 
         if (!cancelled) {
           setCatalogs(resolved);
@@ -63,12 +74,52 @@ export function BuilderCatalogShell({
       }
     }
 
-    void hydrateCatalogs();
+    // Initial fetch — foundation gets everything, others get targeted data
+    void hydrateCatalogs(currentStep);
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-fetch when step changes (after initial hydration)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refetchForStep(step: string) {
+      // foundation/preview steps don't need SRD data
+      if (step === "foundation" || step === "review") {
+        setIsHydratingCatalogs(false);
+        return;
+      }
+
+      setIsHydratingCatalogs(true);
+      try {
+        const url = `/api/srd-catalogs?step=${encodeURIComponent(step)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch SRD catalogs for step ${step}: ${response.status}`);
+        }
+        const data = await response.json();
+        const resolved = await resolveBuilderCatalogs(data.spells ?? []);
+
+        if (!cancelled) {
+          setCatalogs(resolved);
+          setIsHydratingCatalogs(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsHydratingCatalogs(false);
+        }
+      }
+    }
+
+    void refetchForStep(currentStep);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStep]);
 
   if (isHydratingCatalogs) {
     return (
@@ -91,6 +142,7 @@ export function BuilderCatalogShell({
       classes={catalogs.classes}
       feats={catalogs.feats}
       initialDraft={initialDraft}
+      onStepChange={handleStepChange}
       progressionElements={catalogs.progressionElements}
       races={catalogs.races}
       spells={catalogs.spells}

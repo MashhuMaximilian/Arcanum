@@ -74,6 +74,7 @@ type BuilderEditorProps = {
   classes: BuiltInClassRecord[];
   feats: BuiltInElement[];
   initialDraft?: CharacterDraft;
+  onStepChange?: (step: string) => void;
   progressionElements: BuiltInElement[];
   races: BuiltInRaceRecord[];
   spells: BuiltInElement[];
@@ -1128,6 +1129,7 @@ export function BuilderEditor({
   classes,
   feats,
   initialDraft,
+  onStepChange,
   progressionElements,
   races,
   spells,
@@ -1147,6 +1149,12 @@ export function BuilderEditor({
   const [currentStep, setCurrentStep] = useState("foundation");
   const [showNavigationWarnings, setShowNavigationWarnings] = useState(false);
   const [activeClassEntryIndex, setActiveClassEntryIndex] = useState(0);
+
+  // Notify parent (BuilderCatalogShell) of step changes for targeted catalog fetching
+  useEffect(() => {
+    onStepChange?.(currentStep);
+  }, [currentStep, onStepChange]);
+
   const primaryClassEntry = useMemo(() => getPrimaryClassEntry(draft), [draft]);
   const totalCharacterLevel = useMemo(() => getTotalCharacterLevel(draft), [draft]);
   const primaryClassLevel = primaryClassEntry?.level ?? draft.level;
