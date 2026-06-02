@@ -8,15 +8,23 @@ import { getBuiltInSrdCompanions, getBuiltInSrdCompanionSubElements } from "@/li
 import { getBuiltInSrdSpells } from "@/lib/builtins/spells";
 
 // Builder step IDs that map to which catalog groups they need.
-// Steps not listed (foundation, progression, equipment, backstory, review) need no SRD data.
+// Steps that need no SRD data are listed with an empty array so the route
+// returns an empty payload (not the full 4MB).
+// `foundation` is intentionally NOT in the map: it's the initial mount state
+// before the active step is known, and consumers expect the full payload then.
+// (See BuilderCatalogShell — it skips ?step= for the initial foundation mount.)
 const STEP_GROUPS: Record<string, string[]> = {
-  race:      ["races", "progressionElements"],
-  subrace:   ["races", "progressionElements"],
-  class:     ["classes", "progressionElements"],
-  subclass:  ["classes", "progressionElements"],
+  race:       ["races", "progressionElements"],
+  subrace:    ["races", "progressionElements"],
+  class:      ["classes", "progressionElements"],
+  subclass:   ["classes", "progressionElements"],
   background: ["backgrounds", "progressionElements"],
-  feats:     ["feats"],
+  progression: [],
+  feats:      ["feats"],
+  equipment:  [],
+  backstory:  [],
   spellcasting: ["spells"],
+  review:     [],
 };
 
 function buildResponse(step?: string): Record<string, unknown> {
@@ -42,14 +50,17 @@ function buildResponse(step?: string): Record<string, unknown> {
 
   const all = { backgrounds, classes, feats, progressionElements, races, spells };
 
-  // Unknown or missing step → return everything (backward compat)
+  // Unknown or missing step → return everything (backward compat with
+  // any consumer that hasn't been updated to send a step).
   if (!step || !STEP_GROUPS[step]) {
     return all;
   }
 
   const groups = STEP_GROUPS[step];
   if (groups.length === 0) {
-    return {};
+    // Step is in the map but needs no SRD data → return an empty payload.
+    // Use the same shape (all keys present) so consumers don't break.
+    return { backgrounds: [], classes: [], feats: [], progressionElements: [], races: [], spells: [] };
   }
 
   const result: Record<string, unknown> = {};
