@@ -11,23 +11,23 @@ import { resolveBuilderCatalogs } from "@/lib/content-sources/catalog-resolver";
 import type { CharacterDraft } from "@/lib/characters/types";
 
 type BuilderCatalogShellProps = {
-  initialBackgrounds: BuiltInBackgroundRecord[];
-  initialClasses: BuiltInClassRecord[];
+  initialBackgrounds?: BuiltInBackgroundRecord[];
+  initialClasses?: BuiltInClassRecord[];
   initialDraft?: CharacterDraft;
-  initialFeats: BuiltInElement[];
+  initialFeats?: BuiltInElement[];
   initialProgressionElements?: readonly BuiltInElement[];
-  initialRaces: BuiltInRaceRecord[];
-  initialSpells: BuiltInElement[];
+  initialRaces?: BuiltInRaceRecord[];
+  initialSpells?: BuiltInElement[];
 };
 
 export function BuilderCatalogShell({
-  initialBackgrounds,
-  initialClasses,
+  initialBackgrounds = [],
+  initialClasses = [],
   initialDraft,
-  initialFeats,
+  initialFeats = [],
   initialProgressionElements = [],
-  initialRaces,
-  initialSpells,
+  initialRaces = [],
+  initialSpells = [],
 }: BuilderCatalogShellProps) {
   const [isHydratingCatalogs, setIsHydratingCatalogs] = useState(true);
   const [catalogs, setCatalogs] = useState({
@@ -44,7 +44,12 @@ export function BuilderCatalogShell({
 
     async function hydrateCatalogs() {
       try {
-        const resolved = await resolveBuilderCatalogs(initialSpells);
+        const response = await fetch("/api/srd-catalogs");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch SRD catalogs: ${response.status}`);
+        }
+        const data = await response.json();
+        const resolved = await resolveBuilderCatalogs(data.spells);
 
         if (!cancelled) {
           setCatalogs(resolved);
@@ -63,7 +68,7 @@ export function BuilderCatalogShell({
     return () => {
       cancelled = true;
     };
-  }, [initialSpells]);
+  }, []);
 
   if (isHydratingCatalogs) {
     return (
