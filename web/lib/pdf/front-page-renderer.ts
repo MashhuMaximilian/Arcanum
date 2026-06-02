@@ -490,13 +490,30 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     color: "#000000",
   });
 
-  const classLevel = [
-    character.level ? `Lvl ${character.level}` : "",
-    character.subclassLabel,
-    character.classLabel || "Character",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const classLevel = (() => {
+    const totalLevel = character.level;
+    const classes = (character.classLabel || "").split("/").map((s) => s.trim()).filter(Boolean);
+    const subclasses = (character.subclassLabel || "")
+      .split("/")
+      .map((s) => s.trim());
+    const entryLevels = character.source?.classEntries?.map((entry) => entry.level) ?? [];
+    if (classes.length > 1 || (entryLevels.length > 0 && entryLevels.some((l) => l > 0 && l < totalLevel))) {
+      // Multiclass path
+      const parts: string[] = [];
+      for (let i = 0; i < classes.length; i++) {
+        const lvl = entryLevels[i] ?? totalLevel;
+        const sub = subclasses[i] ?? "";
+        const seg = [lvl, sub, classes[i]].filter(Boolean).join(" ");
+        parts.push(seg);
+      }
+      return `(Lvl ${totalLevel}) | ${parts.join(" / ")}`;
+    }
+    // Single-class path
+    const single = classes[0] || character.classLabel || "Character";
+    const sub = subclasses[0] || "";
+    const seg = [sub, single].filter(Boolean).join(" ");
+    return `(Lvl ${totalLevel}) | ${seg}`.trim();
+  })();
   const raceLine = [character.raceLabel, character.subraceLabel].filter(Boolean).join(" / ");
   const values = {
     race: raceLine,

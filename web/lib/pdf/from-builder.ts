@@ -1847,7 +1847,7 @@ function buildStatCards(args: BuilderPdfSourceArgs) {
     { id: "hit-dice", label: "Hit Dice", value: deriveHitDiceSummary({ draft: args.draft, classRecordsByEntry: args.classRecordsByEntry }) },
     ...classResources.map((resource, index) => ({
       id: `class-resource-${index + 1}`,
-      label: "Class Resource",
+      label: resource.label,
       value: resource.value,
       meta: resource.cadence
         ? `${resource.ownerLabel}\n${resource.label}\n${resource.cadence}`
