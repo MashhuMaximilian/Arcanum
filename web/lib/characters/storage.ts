@@ -6,6 +6,10 @@ function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
+/**
+ * List character drafts from localStorage.
+ * Validates each row individually - bad rows are skipped, not fatal.
+ */
 export function listCharacterDrafts(): CharacterDraft[] {
   if (!canUseStorage()) {
     return [];
@@ -18,16 +22,32 @@ export function listCharacterDrafts(): CharacterDraft[] {
   }
 
   try {
-    const parsed = JSON.parse(raw) as CharacterDraft[];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
     const drafts: CharacterDraft[] = [];
     for (const draft of parsed) {
+      // Skip entries missing essential fields BEFORE calling normalize
+      // The normalize function creates new IDs for orphan entries - we don't want that
+      if (!draft || !draft.id || !draft.name) {
+        console.warn("[storage] skipping incomplete draft:", draft?.id || draft?.name || "unknown");
+        continue;
+      }
+      if (typeof draft.updatedAt !== "string") {
+        console.warn("[storage] skipping draft with invalid updatedAt:", draft.id);
+        continue;
+      }
+
       try {
-        drafts.push(normalizeCharacterDraft(draft));
+        const normalized = normalizeCharacterDraft(draft);
+        drafts.push(normalized);
       } catch (err) {
-        // Skip malformed draft, log for debugging
         console.warn("[storage] skipping invalid draft:", draft.id, err);
       }
     }
+
     return drafts.sort((a, b) => {
       const aTime = a?.updatedAt ?? "";
       const bTime = b?.updatedAt ?? "";
