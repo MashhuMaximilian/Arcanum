@@ -19,9 +19,20 @@ export function listCharacterDrafts(): CharacterDraft[] {
 
   try {
     const parsed = JSON.parse(raw) as CharacterDraft[];
-    return parsed
-      .map((draft) => normalizeCharacterDraft(draft))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const drafts: CharacterDraft[] = [];
+    for (const draft of parsed) {
+      try {
+        drafts.push(normalizeCharacterDraft(draft));
+      } catch (err) {
+        // Skip malformed draft, log for debugging
+        console.warn("[storage] skipping invalid draft:", draft.id, err);
+      }
+    }
+    return drafts.sort((a, b) => {
+      const aTime = a?.updatedAt ?? "";
+      const bTime = b?.updatedAt ?? "";
+      return bTime.localeCompare(aTime);
+    });
   } catch {
     return [];
   }

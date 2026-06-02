@@ -27,29 +27,44 @@ async function getAuthedSupabase() {
 }
 
 export async function listRemoteCharacterDrafts(): Promise<CharacterDraft[]> {
-  const auth = await getAuthedSupabase();
+  try {
+    const auth = await getAuthedSupabase();
 
-  if (!auth) {
+    if (!auth) {
+      return [];
+    }
+
+    const { supabase } = auth;
+
+    const { data, error } = await supabase
+      .from("characters")
+      .select("id,name,payload,updated_at")
+      .order("updated_at", { ascending: false });
+
+    if (error || !data) {
+      console.warn("[repository] listRemoteCharacterDrafts returned error:", error);
+      return [];
+    }
+
+    return (data as CharacterRecord[]).map((row) => {
+      try {
+        const normalized = normalizeCharacterDraft(row.payload);
+        return {
+          ...normalized,
+          id: row.id,
+          name: row.name,
+          updatedAt: row.updated_at,
+        };
+      } catch (err) {
+        console.error("[repository] failed to normalize row", row.id, err);
+        return null;
+      }
+    }).filter((draft) => draft !== null) as CharacterDraft[];
+  } catch (err) {
+    // Fall back to local storage on any network/auth error (one attempt, no retry)
+    console.warn("[repository] remote fetch failed, falling back to local:", err);
     return [];
   }
-
-  const { supabase } = auth;
-
-  const { data, error } = await supabase
-    .from("characters")
-    .select("id,name,payload,updated_at")
-    .order("updated_at", { ascending: false });
-
-  if (error || !data) {
-    return [];
-  }
-
-  return (data as CharacterRecord[]).map((row) => ({
-    ...normalizeCharacterDraft(row.payload),
-    id: row.id,
-    name: row.name,
-    updatedAt: row.updated_at,
-  }));
 }
 
 export async function getRemoteCharacterDraft(id: string): Promise<CharacterDraft | null> {
