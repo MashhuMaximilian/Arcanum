@@ -631,8 +631,8 @@ function drawShellMetricCard(
   if (cadence) {
     drawCenteredTextInRect(ctx, cadence, rectFromFractions(box, { x: 0.10, y: 0.48, width: 0.80, height: 0.14 }), {
       font: "Helvetica-Bold",
-      maxSize: box.width > 100 ? 4.2 : 3.2,
-      minSize: 2.0,
+      maxSize: box.width > 100 ? 6.0 : 5.0,
+      minSize: 3.0,
       color: "#000000",
     });
   }
@@ -914,7 +914,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     // "CLASS RESOURCES" top label
     drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
       x: rBox.x + 3, y: rLabelY, width: rContentW, height: rLabelH,
-    }, { font: "Helvetica-Bold", maxSize: 3.0, minSize: 1.8, color: "#000000" });
+    }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.4, color: "#000000" });
 
     // Column headers: VALUE | RESOURCE NAME | RECHARGE
     const resourceRuleX = rBox.x + 8;
@@ -932,7 +932,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     const rColW = [rw1, rw2, rw3];
     rHeaderLabels.forEach((lbl, i) => {
       drawCenteredTextInRect(ctx, lbl, { x: rColX[i], y: rHeaderY, width: rColW[i], height: headerH }, {
-        font: "Helvetica-Bold", maxSize: 2.7, minSize: 1.8, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 3.0, minSize: 2.4, color: "#000000",
       });
     });
 
@@ -945,15 +945,15 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
 
       // Value (e.g. "2d6" or "3")
       drawCenteredTextInRect(ctx, resource.value, { x: rv1, y: rowY, width: rw1, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000",
       });
       // Resource name (e.g. "Arcane Recovery", "Sorcery Points")
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 2.9, minSize: 1.6, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#000000",
       });
       // Recharge (e.g. "long rest", "short rest", "at dawn", "per day")
       drawCenteredTextInRect(ctx, resource.cadence, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 2.6, minSize: 1.5, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000",
       });
 
       if (idx < rNumRows - 1) {
