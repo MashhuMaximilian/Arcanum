@@ -1308,44 +1308,6 @@ function getSuperiorityDiceSummary(level: number) {
   return `${count} d${die}`;
 }
 
-function getClassResourcePriority(label: string) {
-  const normalized = label.toLowerCase();
-  if (normalized === "superiority dice") {
-    return 15;
-  }
-  if (normalized === "starry form") {
-    return 25;
-  }
-  if (normalized === "bardic inspiration") {
-    return 10;
-  }
-  if (normalized === "wild shape") {
-    return 20;
-  }
-  if (normalized === "ki points") {
-    return 30;
-  }
-  if (normalized === "sorcery points") {
-    return 40;
-  }
-  if (normalized === "lay on hands") {
-    return 50;
-  }
-  if (normalized === "channel divinity") {
-    return 60;
-  }
-  if (normalized === "action surge") {
-    return 70;
-  }
-  if (normalized === "second wind") {
-    return 80;
-  }
-  if (normalized === "rage") {
-    return 90;
-  }
-  return 999;
-}
-
 function normalizeClassResourceText(value: string) {
   return (value ?? "")
     .replace(/\r\n/g, "\n")
@@ -1574,13 +1536,30 @@ function getClassResources(args: BuilderPdfSourceArgs) {
     }
   }
 
-  return resources.sort((left, right) => {
-    const priorityDelta = getClassResourcePriority(left.label) - getClassResourcePriority(right.label);
-    if (priorityDelta !== 0) {
-      return priorityDelta;
+  return sortClassResourcesBySpellGroupOrder(resources, args);
+}
+
+function sortClassResourcesBySpellGroupOrder(
+  resources: Array<{ ownerLabel: string; [k: string]: any }>,
+  args: BuilderPdfSourceArgs,
+) {
+  const spellOrder = args.spellGroups
+    .filter((group) => group.spellcastingAbility)
+    .map((group) => normalizeClassOwnerKey(group.ownerLabel));
+  const spellOrderIndex = new Map<string, number>();
+  spellOrder.forEach((key, idx) => spellOrderIndex.set(key, idx));
+  return [...resources].sort((left, right) => {
+    const leftIdx = spellOrderIndex.get(normalizeClassOwnerKey(left.ownerLabel)) ?? Number.MAX_SAFE_INTEGER;
+    const rightIdx = spellOrderIndex.get(normalizeClassOwnerKey(right.ownerLabel)) ?? Number.MAX_SAFE_INTEGER;
+    if (leftIdx !== rightIdx) {
+      return leftIdx - rightIdx;
     }
     return left.label.localeCompare(right.label);
   });
+}
+
+function normalizeClassOwnerKey(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function getClassLabel(classRecordsByEntry: Array<BuiltInClassRecord | null>, draft: CharacterDraft) {
