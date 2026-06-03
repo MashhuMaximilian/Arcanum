@@ -972,7 +972,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
         font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#000000",
       });
-      // Recharge (e.g. "long rest", "short rest", "at dawn", "per day")
+      // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day")
       drawCenteredTextInRect(ctx, resource.cadence, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
         font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000",
       });
