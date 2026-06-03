@@ -5,6 +5,7 @@ import {
   drawFittedText,
   drawSvg,
   drawText,
+  drawWrappedClassName,
   fillCircle,
   fitTextSize,
   insetRect,
@@ -890,7 +891,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   // Data rows
   spellSources.forEach((src, idx) => {
     const rowY = dataY + idx * rowH;
-    const vals = [src.label.toUpperCase().substring(0, 8), src.bonus, src.dc, src.ability];
+    const vals = [src.label.toUpperCase(), src.bonus, src.dc, src.ability];
     vals.forEach((val, ci) => {
       if (!val) return;
       const colOpts = {
@@ -899,11 +900,20 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
         minSize: 2.0, color: "#000000",
       };
       if (ci === 0) {
-        // Left-align class name while preserving vertical centering.
-        drawCenteredTextInRect(ctx, val, { x: colX[ci] + 1, y: rowY, width: colW[ci] - 1, height: rowH - 1 }, {
-          ...colOpts,
-          align: "left",
-        });
+        // Class name cell: single-word names fit on one line (font shrinks to fit),
+        // multi-word names wrap to one word per line.
+        const cellRect = { x: colX[ci] + 1, y: rowY, width: colW[ci] - 1, height: rowH - 1 };
+        if (/\s/.test(val)) {
+          const words = val.split(/\s+/).filter(Boolean);
+          drawWrappedClassName(ctx, words, cellRect, { ...colOpts, align: "left" });
+        } else {
+          drawCenteredTextInRect(ctx, val, cellRect, {
+            ...colOpts,
+            align: "left",
+            lineBreak: false,
+            ellipsis: false,
+          });
+        }
       } else {
         drawCenteredTextInRect(ctx, val, { x: colX[ci], y: rowY, width: colW[ci], height: rowH - 1 }, colOpts);
       }

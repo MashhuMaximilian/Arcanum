@@ -215,3 +215,68 @@ export function strokeRule(ctx: PdfRenderContext, x: number, y: number, width: n
     .stroke();
   ctx.doc.restore();
 }
+
+/**
+ * Render a multi-word label inside a cell, one word per line, centered vertically
+ * and using a font size that fits all words within the cell height. Each word
+ * is drawn independently (no character-level wrapping), so single words never
+ * break in the middle.
+ */
+export function drawWrappedClassName(
+  ctx: PdfRenderContext,
+  words: string[],
+  rect: PdfRect,
+  options: PdfTextOptions & { maxSize: number; minSize: number },
+) {
+  if (words.length === 0) return;
+  const font = options.font || "Helvetica-Bold";
+  const align = options.align || "center";
+  const color = options.color || "#000000";
+
+  // Find the largest font size that fits all words in one line within rect.width
+  // and all lines within rect.height.
+  let size = options.minSize;
+  const sizes: number[] = [];
+  for (const word of words) {
+    sizes.push(size);
+  }
+  for (let s = options.maxSize; s >= options.minSize; s -= 0.25) {
+    ctx.doc.save();
+    ctx.doc.font(resolveFont(ctx, font));
+    ctx.doc.fontSize(s);
+    let allFit = true;
+    const lineH = ctx.doc.heightOfString(words[0]!, { width: rect.width, align });
+    for (const word of words) {
+      const w = ctx.doc.widthOfString(word);
+      if (w > rect.width) {
+        allFit = false;
+        break;
+      }
+    }
+    if (allFit && lineH * words.length <= rect.height) {
+      size = s;
+      ctx.doc.restore();
+      break;
+    }
+    ctx.doc.restore();
+  }
+
+  ctx.doc.save();
+  ctx.doc.font(resolveFont(ctx, font));
+  ctx.doc.fontSize(size);
+  ctx.doc.fillColor(color);
+  const lineH = ctx.doc.heightOfString(words[0]!, { width: rect.width, align });
+  const totalH = lineH * words.length;
+  const startY = rect.y + Math.max(0, (rect.height - totalH) / 2);
+  words.forEach((word, i) => {
+    const yPos = startY + i * lineH;
+    const xPos =
+      align === "left"
+        ? rect.x
+        : align === "right"
+        ? rect.x + rect.width - ctx.doc.widthOfString(word)
+        : rect.x + (rect.width - ctx.doc.widthOfString(word)) / 2;
+    ctx.doc.text(word, xPos, yPos, { lineBreak: false, width: rect.width, align });
+  });
+  ctx.doc.restore();
+}
