@@ -1364,21 +1364,28 @@ function normalizeClassResourceCadence(value?: string) {
     return undefined;
   }
   if (/^(lr|long rest)$/i.test(cleaned)) {
-    return "long rest";
+    return "Long Rest";
   }
   if (/^(sr|short rest)$/i.test(cleaned)) {
-    return "short rest";
+    return "Short Rest";
   }
-  if (/^(per )?day|daily$/i.test(cleaned)) {
-    return "per day";
+  if (/^(per )?day|daily$|^1\s*\/\s*day$|^1\s*per\s*day$/i.test(cleaned)) {
+    return "Per Day";
+  }
+  if (/^at will$|unlimited/i.test(cleaned)) {
+    return "At Will";
   }
   if (/^at dawn$/i.test(cleaned)) {
-    return "at dawn";
+    return "At Dawn";
   }
   if (/^at dusk$/i.test(cleaned)) {
-    return "at dusk";
+    return "At Dusk";
   }
-  return cleaned.toLowerCase();
+  // Capitalize words for any other custom cadence value
+  return cleaned
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }
 
 function formatClassResourceValue(value: string) {
@@ -1501,69 +1508,69 @@ function getClassResources(args: BuilderPdfSourceArgs) {
     if (/bard/i.test(className) && featureNames.has("bardic inspiration")) {
       const uses = Math.max(1, getAbilityModifier(args.effectiveAbilities.charisma));
       const die = getBardicInspirationDie(entry.level);
-      pushResource(className, "Bardic Inspiration", `${uses} d${die}`, entry.level >= 5 ? "SR" : "LR");
+      pushResource(className, "Bardic Inspiration", `${uses} d${die}`, entry.level >= 5 ? "Short Rest" : "Long Rest");
     }
 
     if (/fighter/i.test(className) && (featureNames.has("combat superiority") || featureNames.has("superiority dice"))) {
-      pushResource(className, "Superiority Dice", getSuperiorityDiceSummary(entry.level), "SR");
+      pushResource(className, "Superiority Dice", getSuperiorityDiceSummary(entry.level), "Short Rest");
     }
 
     if (/druid/i.test(className) && featureNames.has("wild shape")) {
-      pushResource(className, "Wild Shape", `${Math.max(2, Math.floor(entry.level / 2))} uses`, "SR");
+      pushResource(className, "Wild Shape", `${Math.max(2, Math.floor(entry.level / 2))} uses`, "Short Rest");
     }
 
     if (/druid/i.test(className) && featureNames.has("starry form")) {
-      pushResource(className, "Starry Form", "Uses Wild Shape", "SR");
+      pushResource(className, "Starry Form", "Uses Wild Shape", "Short Rest");
     }
 
     if (/monk/i.test(className) && featureNames.has("ki")) {
-      pushResource(className, "Ki Points", `${entry.level}`);
+      pushResource(className, "Ki Points", `${entry.level}`, "Short Rest");
     }
 
     if (/paladin/i.test(className) && featureNames.has("lay on hands")) {
-      pushResource(className, "Lay on Hands", `${entry.level * 5}`);
+      pushResource(className, "Lay on Hands", `${entry.level * 5}`, "Long Rest");
     }
 
     if (/cleric|paladin/i.test(className) && featureNames.has("channel divinity")) {
-      pushResource(className, "Channel Divinity", getChannelDivinityUses(entry.level), "SR");
+      pushResource(className, "Channel Divinity", getChannelDivinityUses(entry.level), "Short Rest");
     }
 
     if (/fighter/i.test(className) && featureNames.has("action surge")) {
-      pushResource(className, "Action Surge", "1 use", "SR");
+      pushResource(className, "Action Surge", "1 use", "Short Rest");
     }
 
     if (/fighter/i.test(className) && featureNames.has("second wind")) {
-      pushResource(className, "Second Wind", "1 use", "SR");
+      pushResource(className, "Second Wind", "1 use", "Short Rest");
     }
 
     if (/barbarian/i.test(className) && featureNames.has("rage")) {
-      pushResource(className, "Rage", getBarbarianRageUses(entry.level));
+      pushResource(className, "Rage", getBarbarianRageUses(entry.level), "Long Rest");
     }
 
     if (/wizard/i.test(className) && featureNames.has("arcane recovery")) {
-      pushResource(className, "Arcane Recovery", "1 use", "LR");
+      pushResource(className, "Arcane Recovery", "1 use", "Long Rest");
     }
 
     if (/warlock/i.test(className) && featureNames.has("pact magic")) {
       const slotLevel = entry.level >= 18 ? 5 : entry.level >= 15 ? 4 : entry.level >= 9 ? 3 : entry.level >= 5 ? 2 : 1;
-      pushResource(className, "Pact Magic", `${slotLevel}th level`, "LR");
+      pushResource(className, "Pact Magic", `${slotLevel}th level`, "Short Rest");
     }
 
     if (/artificer/i.test(className) && featureNames.has("infuse item")) {
-      pushResource(className, "Infusions", `${entry.level}`, "LR");
+      pushResource(className, "Infusions", `${entry.level}`, "Long Rest");
     }
 
     if (/sorcerer/i.test(className) && (featureNames.has("font of magic") || featureNames.has("sorcery points"))) {
-      pushResource(className, "Sorcery Points", `${entry.level}`, "LR");
+      pushResource(className, "Sorcery Points", `${entry.level}`, "Long Rest");
     }
 
     if (/blood.?hunter/i.test(className) && featureNames.has("blood curses")) {
       const pb = Math.ceil(args.draft.level / 4) + 1;
-      pushResource(className, "Blood Curses", `${pb} uses`, "LR");
+      pushResource(className, "Blood Curses", `${pb} uses`, "Long Rest");
     }
 
     if (/weaveshaper/i.test(className) && featureNames.has("weave strings")) {
-      pushResource(className, "Weave Strings", `${3 + entry.level} strings`, "SR");
+      pushResource(className, "Weave Strings", `${3 + entry.level} strings`, "Short Rest");
     }
   }
 

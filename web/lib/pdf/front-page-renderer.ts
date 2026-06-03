@@ -595,17 +595,32 @@ function formatResourceCadence(value: string, cadence?: string) {
     return undefined;
   }
 
-  const uses = cleanText(value).match(/^(\d+)/)?.[1];
+  // Returns JUST the clean label, capitalized. No "per" prefix, no leading count.
+  // Examples: "Long Rest", "Short Rest", "Per Day", "At Will".
   const cadenceMap: Record<string, string> = {
-    lr: "per long rest",
-    long: "per long rest",
-    "long rest": "per long rest",
-    sr: "per short rest",
-    short: "per short rest",
-    "short rest": "per short rest",
+    lr: "Long Rest",
+    long: "Long Rest",
+    "long rest": "Long Rest",
+    sr: "Short Rest",
+    short: "Short Rest",
+    "short rest": "Short Rest",
+    "per day": "Per Day",
+    day: "Per Day",
+    daily: "Per Day",
+    "1/day": "Per Day",
+    "at will": "At Will",
+    unlimited: "At Will",
+    "at dawn": "At Dawn",
+    "at dusk": "At Dusk",
   };
-  const normalized = cadenceMap[cleanedCadence.toLowerCase()] ?? cleanedCadence;
-  return uses ? `${uses} ${normalized}` : normalized;
+  return cadenceMap[cleanedCadence.toLowerCase()] ?? capitalizeWords(cleanedCadence);
+}
+
+function capitalizeWords(value: string): string {
+  return value
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }
 
 function drawShellMetricCard(
@@ -658,21 +673,27 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       return "";
     }
     if (/^(lr|long rest)$/i.test(cleaned)) {
-      return "long rest";
+      return "Long Rest";
     }
     if (/^(sr|short rest)$/i.test(cleaned)) {
-      return "short rest";
+      return "Short Rest";
     }
-    if (/^(per )?day|daily$/i.test(cleaned)) {
-      return "per day";
+    if (/^(per )?day|daily$|^1\s*\/\s*day$/i.test(cleaned)) {
+      return "Per Day";
+    }
+    if (/^at will$|unlimited/i.test(cleaned)) {
+      return "At Will";
     }
     if (/^at dawn$/i.test(cleaned)) {
-      return "at dawn";
+      return "At Dawn";
     }
     if (/^at dusk$/i.test(cleaned)) {
-      return "at dusk";
+      return "At Dusk";
     }
-    return cleaned.toLowerCase();
+    return cleaned
+      .split(/\s+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
   }
 
   function escapeRegExp(value: string) {
