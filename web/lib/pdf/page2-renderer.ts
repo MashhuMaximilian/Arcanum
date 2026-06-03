@@ -655,7 +655,7 @@ function renderCompanionStatsRow(
   });
   drawText(ctx, hitDice || "—", { x: rect.x + 2, y: rect.y + cellH * 2 + 9, width: cellW - 4, height: 19 }, {
     font: "Helvetica-Bold",
-    size: 6.5,
+    size: 5,
     color: COLORS.textPrimary,
     align: "center",
     lineBreak: true,
