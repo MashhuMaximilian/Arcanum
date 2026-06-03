@@ -1574,23 +1574,6 @@ function getClassResources(args: BuilderPdfSourceArgs) {
     }
   }
 
-  uniqueById(args.selectedClassFeatureElements).forEach((feature) => {
-    if (!feature.sheet?.usage || feature.sheet.display === false) {
-      return;
-    }
-    const ownerLabel = resolveClassFeatureOwnerLabel(args, feature);
-    if (!ownerLabel) {
-      return;
-    }
-    const context = buildSheetResolverContext(args, feature);
-    const resolvedUsage = fillSheetPlaceholders(feature.sheet.usage, args, context);
-    const parsedUsage = parseClassResourceUsage(resolvedUsage);
-    if (!parsedUsage?.value) {
-      return;
-    }
-    pushResource(ownerLabel, feature.name, parsedUsage.value, parsedUsage.cadence);
-  });
-
   return resources.sort((left, right) => {
     const priorityDelta = getClassResourcePriority(left.label) - getClassResourcePriority(right.label);
     if (priorityDelta !== 0) {
