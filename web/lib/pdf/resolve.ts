@@ -779,7 +779,11 @@ export function buildFrontPageComposition(source: PdfResolveSource): PdfFrontPag
     ...stat,
     label: normalizeText(stat.label),
     value: normalizeText(stat.value),
-    meta: stat.meta ? normalizeText(stat.meta) : undefined,
+    // Preserve newlines in meta: class-resource stats use `\n` as a structured
+    // separator (ownerLabel\nlabel\ncadence) that the renderer splits on.
+    // Running normalizeText here would collapse the newlines and the renderer
+    // would read an empty cadence, blanking the Recharge column.
+    meta: stat.meta,
   })));
 
   const normalizedAbilityRows = uniqueById((source.abilityRows ?? []).map(normalizeAbilityRow)).sort((left, right) => left.label.localeCompare(right.label));
