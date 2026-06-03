@@ -210,7 +210,7 @@ const PASSIVE_BOXES = [
 
 const HEADER_FIELD_SLOTS = [
   { key: "race", label: "RACE", labelRect: { x: 242, y: 27.2, width: 83, height: 5.0 }, valueRect: { x: 242, y: 33.3, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 5.0, minSize: 3.0 },
-  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 5.0, minSize: 3.0 },
+  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 3.5, minSize: 2.5 },
   { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 27.2, width: 44, height: 5.0 }, valueRect: { x: 480.5, y: 33.3, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 4.3, minSize: 2.8 },
   { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 242, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.4, minSize: 2.9 },
   { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 321.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.1, minSize: 2.8 },
