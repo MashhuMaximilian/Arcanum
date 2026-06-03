@@ -646,19 +646,19 @@ function renderCompanionStatsRow(
 
   // HIT DICE
   drawSvg(ctx, assets.bonusBox, { x: rect.x, y: rect.y + cellH * 2, width: cellW, height: cellH });
-  drawText(ctx, "HIT DICE", { x: rect.x + 2, y: rect.y + cellH * 2 + 3, width: cellW - 4, height: 10 }, {
+  drawText(ctx, "HIT DICE", { x: rect.x + 2, y: rect.y + cellH * 2 + 3, width: cellW - 4, height: 6 }, {
     font: "Helvetica-Bold",
     size: 4,
     color: COLORS.textSecondary,
     align: "center",
     lineBreak: false,
   });
-  drawText(ctx, hitDice || "—", { x: rect.x + 2, y: rect.y + cellH * 2 + 13, width: cellW - 4, height: 14 }, {
+  drawText(ctx, hitDice || "—", { x: rect.x + 2, y: rect.y + cellH * 2 + 9, width: cellW - 4, height: 19 }, {
     font: "Helvetica-Bold",
-    size: 10,
+    size: 6.5,
     color: COLORS.textPrimary,
     align: "center",
-    lineBreak: false,
+    lineBreak: true,
   });
 }
 
