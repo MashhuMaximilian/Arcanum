@@ -1467,17 +1467,17 @@ function getClassResources(args: BuilderPdfSourceArgs) {
 
     const className = record.class.name;
 
-    if (/bard/i.test(className) && featureNames.has("bardic inspiration")) {
+    if (/bard/i.test(className)) {
       const uses = Math.max(1, getAbilityModifier(args.effectiveAbilities.charisma));
       const die = getBardicInspirationDie(entry.level);
       pushResource(className, "Bardic Inspiration", `${uses} d${die}`, entry.level >= 5 ? "Short Rest" : "Long Rest");
     }
 
-    if (/fighter/i.test(className) && (featureNames.has("combat superiority") || featureNames.has("superiority dice"))) {
+    if (/fighter/i.test(className) && entry.level >= 3) {
       pushResource(className, "Superiority Dice", getSuperiorityDiceSummary(entry.level), "Short Rest");
     }
 
-    if (/druid/i.test(className) && featureNames.has("wild shape")) {
+    if (/druid/i.test(className)) {
       pushResource(className, "Wild Shape", `${Math.max(2, Math.floor(entry.level / 2))} uses`, "Short Rest");
     }
 
@@ -1485,54 +1485,86 @@ function getClassResources(args: BuilderPdfSourceArgs) {
       pushResource(className, "Starry Form", "Uses Wild Shape", "Short Rest");
     }
 
-    if (/monk/i.test(className) && featureNames.has("ki")) {
+    if (/monk/i.test(className)) {
       pushResource(className, "Ki Points", `${entry.level}`, "Short Rest");
     }
 
-    if (/paladin/i.test(className) && featureNames.has("lay on hands")) {
+    if (/paladin/i.test(className)) {
       pushResource(className, "Lay on Hands", `${entry.level * 5}`, "Long Rest");
     }
 
-    if (/cleric|paladin/i.test(className) && featureNames.has("channel divinity")) {
+    if (/cleric|paladin/i.test(className) && entry.level >= 2) {
       pushResource(className, "Channel Divinity", getChannelDivinityUses(entry.level), "Short Rest");
     }
 
-    if (/fighter/i.test(className) && featureNames.has("action surge")) {
+    if (/fighter/i.test(className) && entry.level >= 2) {
       pushResource(className, "Action Surge", "1 use", "Short Rest");
     }
 
-    if (/fighter/i.test(className) && featureNames.has("second wind")) {
+    if (/fighter/i.test(className)) {
       pushResource(className, "Second Wind", "1 use", "Short Rest");
     }
 
-    if (/barbarian/i.test(className) && featureNames.has("rage")) {
+    if (/barbarian/i.test(className)) {
       pushResource(className, "Rage", getBarbarianRageUses(entry.level), "Long Rest");
     }
 
-    if (/wizard/i.test(className) && featureNames.has("arcane recovery")) {
+    if (/wizard/i.test(className)) {
       pushResource(className, "Arcane Recovery", "1 use", "Long Rest");
     }
 
-    if (/warlock/i.test(className) && featureNames.has("pact magic")) {
+    if (/warlock/i.test(className)) {
       const slotLevel = entry.level >= 18 ? 5 : entry.level >= 15 ? 4 : entry.level >= 9 ? 3 : entry.level >= 5 ? 2 : 1;
       pushResource(className, "Pact Magic", `${slotLevel}th level`, "Short Rest");
     }
 
-    if (/artificer/i.test(className) && featureNames.has("infuse item")) {
+    if (/artificer/i.test(className)) {
       pushResource(className, "Infusions", `${entry.level}`, "Long Rest");
     }
 
-    if (/sorcerer/i.test(className) && (featureNames.has("font of magic") || featureNames.has("sorcery points"))) {
+    if (/sorcerer/i.test(className)) {
       pushResource(className, "Sorcery Points", `${entry.level}`, "Long Rest");
     }
 
-    if (/blood.?hunter/i.test(className) && featureNames.has("blood curses")) {
+    if (/blood.?hunter/i.test(className)) {
       const pb = Math.ceil(args.draft.level / 4) + 1;
       pushResource(className, "Blood Curses", `${pb} uses`, "Long Rest");
     }
 
-    if (/weaveshaper/i.test(className) && featureNames.has("weave strings")) {
+    if (/weaveshaper/i.test(className)) {
       pushResource(className, "Weave Strings", `${3 + entry.level} strings`, "Short Rest");
+    }
+
+    if (/pugilist/i.test(className)) {
+      pushResource(className, "Brutal Strike", `${2 + Math.floor(entry.level / 2)} uses`, "Short Rest");
+    }
+
+    if (/swordmage/i.test(className)) {
+      pushResource(className, "Aegis", `${2 + Math.floor(entry.level / 2)} uses`, "Short Rest");
+    }
+
+    if (/prism/i.test(className)) {
+      pushResource(className, "Prism Shard", `${1 + Math.floor(entry.level / 2)} uses`, "Long Rest");
+    }
+
+    if (/magus/i.test(className)) {
+      pushResource(className, "Spellstrike", `${Math.max(1, Math.floor(entry.level / 3))} uses`, "Short Rest");
+    }
+
+    if (/spiritualist/i.test(className)) {
+      pushResource(className, "Phantom", "1 companion", "Long Rest");
+    }
+
+    if (/factotum/i.test(className)) {
+      pushResource(className, "Opportunistic Piety", `${1 + Math.floor(entry.level / 5)} uses`, "Long Rest");
+    }
+
+    if (/cook/i.test(className)) {
+      pushResource(className, "Meal Prep", "1 use", "Long Rest");
+    }
+
+    if (/grave.?warden/i.test(className)) {
+      pushResource(className, "Dark Mending", `${1 + Math.floor(entry.level / 4)} uses`, "Long Rest");
     }
   }
 
