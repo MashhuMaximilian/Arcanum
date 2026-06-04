@@ -985,28 +985,13 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
         font: "Helvetica-Bold", maxSize: 3.25, minSize: 2.0, color: "#000000",
       });
-      // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day")
-      // The Recharge column is 26pt wide. At 4pt Helvetica-Bold all cadence strings
-      // fit on one line. drawCenteredTextInRect with lineBreak+height was clipping
-      // the text invisibly in the narrow column, so we render via pdfkit directly
-      // and manually center the baseline vertically — pdfkit's text() places the
-      // baseline near the top of the rect, so compute the offset and add half the
-      // difference between the cell height and the rendered text height to rowY.
-      ctx.doc.save();
-      ctx.doc.font("Helvetica-Bold").fontSize(4).fillColor("#000000");
-      const rechargeCellH = rRowH - 1;
-      const rechargeTextH = ctx.doc.heightOfString(resource.cadence, {
-        width: rw3,
-        align: "center",
-        lineBreak: false,
+      // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day").
+      // Font matches the surrounding VAL and RESOURCE columns (maxSize 3.25,
+      // minSize 2.0). All cadence strings are short (≤2 words) and fit on one
+      // line in the 26pt-wide column at 3.25pt.
+      drawCenteredTextInRect(ctx, resource.cadence, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
+        font: "Helvetica-Bold", maxSize: 3.25, minSize: 2.0, color: "#000000",
       });
-      const rechargeY = rowY + Math.max(0, (rechargeCellH - rechargeTextH) / 2);
-      ctx.doc.text(resource.cadence, rv3, rechargeY, {
-        width: rw3,
-        align: "center",
-        lineBreak: false,
-      });
-      ctx.doc.restore();
 
       if (idx < rNumRows - 1) {
         strokeRule(ctx, resourceRuleX, rowY + rRowH - 1, resourceRuleW, "#00000012");
