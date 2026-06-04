@@ -974,13 +974,16 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     orderedClassResources.forEach((resource, idx) => {
       const rowY = rDataY + idx * rRowH;
 
-      // Value (e.g. "2d6" or "3")
+      // Value (e.g. "2d6" or "3") — matches the spellcasting card body font
+      // (maxSize 3.25 / minSize 2.0 — see the spellSources.forEach block above).
+      // The previous 5.0pt / 4.5pt was visibly larger than the spellcasting
+      // body and made the two cards look unbalanced.
       drawCenteredTextInRect(ctx, resource.value, { x: rv1, y: rowY, width: rw1, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 3.25, minSize: 2.0, color: "#000000",
       });
       // Resource name (e.g. "Arcane Recovery", "Sorcery Points")
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 4.5, minSize: 3.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 3.25, minSize: 2.0, color: "#000000",
       });
       // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day")
       // The Recharge column is 26pt wide. At 4pt Helvetica-Bold all cadence strings
