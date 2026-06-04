@@ -1075,50 +1075,86 @@ function resolveSheetExpression(
     }
   }
 
-  // DRACONIC ANCESTRY PLACEHOLDERS — resolve based on draconic ancestry subrace element
+  // DRACONIC ANCESTRY PLACEHOLDERS — resolve from the chosen Draconic Ancestry element.
+  //
+  // In 5e, Draconic Ancestry is NOT a subrace — it's a racial-trait choice (the
+  // user picks one of ten colour elements: ID_RACIAL_TRAIT_DRACONIC_ANCESTRY_<COLOR>).
+  // Those per-colour elements live in args.selectedRacialTraitElements /
+  // args.selectedElements, NOT in args.selectedSubrace (which is empty for
+  // Dragonborn). The previous fix (15bae33) only broadened the regex on
+  // args.selectedSubrace — the element was never looked at, so the resolver
+  // kept returning null and the warnings kept firing.
+  //
+  // We prefer reading the values from the element's own `rules` (which already
+  // carry the right per-colour strings), and fall back to a regex+table lookup
+  // for any colour that doesn't have a rule.
   if (baseToken === "draconic-ancestry") {
-    // Fallback: map common scale tokens to text values based on ancestry type derived from subrace
-    const subraceEl = args.selectedSubrace;
-    if (subraceEl) {
-      const ancestryMatch = subraceEl.id.match(/(?:ID_RACIAL_TRAIT_DRACONIC_ANCESTRY_|ID_RACE_DRAGONBORN_|DRACONIC-ANCESTRY-)([A-Z]+)$/i);
+    const ancestryEl =
+      (args.selectedSubrace &&
+        /^ID_RACIAL_TRAIT_DRACONIC_ANCESTRY_[A-Z]+$/i.test(args.selectedSubrace.id) &&
+        args.selectedSubrace) ||
+      args.selectedRacialTraitElements.find(
+        (element) => /^ID_RACIAL_TRAIT_DRACONIC_ANCESTRY_[A-Z]+$/i.test(element.id),
+      ) ||
+      args.selectedElements.find(
+        (element) => /^ID_RACIAL_TRAIT_DRACONIC_ANCESTRY_[A-Z]+$/i.test(element.id),
+      );
+
+    if (ancestryEl) {
+      // Prefer the element's own stat rules — they are the authoritative source.
+      const ruleByName = new Map<string, string>();
+      for (const rule of ancestryEl.rules ?? []) {
+        if (rule?.kind === "stat" && typeof rule.name === "string" && typeof rule.value === "string") {
+          ruleByName.set(normalizeSheetLookupKey(rule.name), rule.value);
+        }
+      }
+
+      if (!scaleToken) {
+        const color = ruleByName.get("draconic-ancestry");
+        if (color) return { kind: "text", value: color };
+        // Fall back to the colour embedded in the element name, e.g.
+        // "Draconic Ancestry (Red)" → "Red".
+        const nameMatch = ancestryEl.name?.match(/\(([^)]+)\)/);
+        if (nameMatch) return { kind: "text", value: nameMatch[1] };
+      }
+
+      if (scaleToken === "damage type" || scaleToken === "damage") {
+        const value = ruleByName.get("draconic-ancestry:damage type");
+        if (value) return { kind: "text", value };
+      }
+      if (scaleToken === "breath") {
+        const value = ruleByName.get("draconic-ancestry:breath");
+        if (value) return { kind: "text", value };
+      }
+
+      // Legacy fallback: derive values from the ancestry colour via the
+      // hardcoded damage-type table (for any colour that lacks a rule).
+      const ancestryMatch = ancestryEl.id.match(/(?:ID_RACIAL_TRAIT_DRACONIC_ANCESTRY_|ID_RACE_DRAGONBORN_|DRACONIC-ANCESTRY-)([A-Z]+)$/i);
       if (ancestryMatch) {
         const ancestryType = ancestryMatch[1].toUpperCase();
         const acidTypes = ["BLACK", "COPPER", "GREEN"];
         const coldTypes = ["SILVER", "WHITE"];
         const fireTypes = ["BRASS", "GOLD", "RED"];
-        const lightningTypes = ["BRONZE"];
-        const blueTypes = ["BLUE"];
+        const lightningTypes = ["BRONZE", "BLUE"];
 
         if (scaleToken === "damage type" || scaleToken === "damage") {
-          if (acidTypes.includes(ancestryType)) {
-            return { kind: "text", value: "Acid" };
-          }
-          if (coldTypes.includes(ancestryType)) {
-            return { kind: "text", value: "Cold" };
-          }
-          if (fireTypes.includes(ancestryType)) {
-            return { kind: "text", value: "Fire" };
-          }
-          if (lightningTypes.includes(ancestryType)) {
-            return { kind: "text", value: "Lightning" };
-          }
-          if (blueTypes.includes(ancestryType)) {
-            return { kind: "text", value: "Lightning" };
-          }
+          if (acidTypes.includes(ancestryType)) return { kind: "text", value: "Acid" };
+          if (coldTypes.includes(ancestryType)) return { kind: "text", value: "Cold" };
+          if (fireTypes.includes(ancestryType)) return { kind: "text", value: "Fire" };
+          if (lightningTypes.includes(ancestryType)) return { kind: "text", value: "Lightning" };
         }
         if (scaleToken === "breath") {
-          if (acidTypes.includes(ancestryType)) {
-            return { kind: "text", value: "Acid Breath" };
-          }
-          if (coldTypes.includes(ancestryType)) {
-            return { kind: "text", value: "Breath Weapon (Cone)" };
-          }
-          if (fireTypes.includes(ancestryType)) {
+          if (acidTypes.includes(ancestryType)) return { kind: "text", value: "Acid Breath" };
+          if (coldTypes.includes(ancestryType) || fireTypes.includes(ancestryType)) {
             return { kind: "text", value: "Breath Weapon (Cone)" };
           }
           if (lightningTypes.includes(ancestryType)) {
             return { kind: "text", value: "Breath Weapon (Line)" };
           }
+        }
+        if (!scaleToken) {
+          // Last-resort colour name when the element has no rules at all.
+          return { kind: "text", value: ancestryType.charAt(0) + ancestryType.slice(1).toLowerCase() };
         }
       }
     }
