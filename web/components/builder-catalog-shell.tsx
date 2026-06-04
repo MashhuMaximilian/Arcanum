@@ -82,18 +82,18 @@ export function BuilderCatalogShell({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-fetch when step changes (after initial hydration)
+  // Re-fetch when step changes (after initial hydration).
+  // IMPORTANT: do NOT set isHydratingCatalogs(true) here — that would unmount
+  // BuilderEditor and discard the user's in-progress form state on every step
+  // change (perceived as a "page refresh"). The refetch updates catalogs
+  // silently; the editor is the source of truth for the active step.
   useEffect(() => {
     let cancelled = false;
 
     async function refetchForStep(step: string) {
-      // foundation/preview steps don't need SRD data
-      if (step === "foundation" || step === "review") {
-        setIsHydratingCatalogs(false);
-        return;
-      }
+      // foundation/review steps don't need SRD data
+      if (step === "foundation" || step === "review") return;
 
-      setIsHydratingCatalogs(true);
       try {
         const url = `/api/srd-catalogs?step=${encodeURIComponent(step)}`;
         const response = await fetch(url);
@@ -105,12 +105,9 @@ export function BuilderCatalogShell({
 
         if (!cancelled) {
           setCatalogs(resolved);
-          setIsHydratingCatalogs(false);
         }
       } catch {
-        if (!cancelled) {
-          setIsHydratingCatalogs(false);
-        }
+        // Keep previous catalogs on transient failure.
       }
     }
 
