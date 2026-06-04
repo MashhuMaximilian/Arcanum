@@ -1080,13 +1080,14 @@ function resolveSheetExpression(
     // Fallback: map common scale tokens to text values based on ancestry type derived from subrace
     const subraceEl = args.selectedSubrace;
     if (subraceEl) {
-      const ancestryMatch = subraceEl.id.match(/(?:ID_RACE_DRAGONBORN_|DRACONIC-ANCESTRY-)([A-Z]+)$/i);
+      const ancestryMatch = subraceEl.id.match(/(?:ID_RACIAL_TRAIT_DRACONIC_ANCESTRY_|ID_RACE_DRAGONBORN_|DRACONIC-ANCESTRY-)([A-Z]+)$/i);
       if (ancestryMatch) {
         const ancestryType = ancestryMatch[1].toUpperCase();
         const acidTypes = ["BLACK", "COPPER", "GREEN"];
-        const coldTypes = ["BLUE", "SILVER", "WHITE"];
+        const coldTypes = ["SILVER", "WHITE"];
         const fireTypes = ["BRASS", "GOLD", "RED"];
-        const lightningTypes = ["BLUE", "BRONZE"];
+        const lightningTypes = ["BRONZE"];
+        const blueTypes = ["BLUE"];
 
         if (scaleToken === "damage type" || scaleToken === "damage") {
           if (acidTypes.includes(ancestryType)) {
@@ -1099,6 +1100,9 @@ function resolveSheetExpression(
             return { kind: "text", value: "Fire" };
           }
           if (lightningTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Lightning" };
+          }
+          if (blueTypes.includes(ancestryType)) {
             return { kind: "text", value: "Lightning" };
           }
         }
