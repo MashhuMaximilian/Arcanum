@@ -662,6 +662,54 @@ function isLowSignalFeatureElement(element: BuiltInElement) {
     return true;
   }
 
+  // Pattern-based KEEP/DEFER filter for the page-1 FEATURES & TRAITS deck.
+  // These are element NAMES that should be DEFERRED to page 2+ because they
+  // represent long sub-lists, multi-paragraph descriptions, or content that is
+  // already displayed in another card on page 1 (Spellcasting, Proficiencies,
+  // Saves/Skills). See [[Arcanum-features-card-keep-defer]] for the full
+  // KEEP/DEFER rationale from the DnD 5e advisor.
+  //
+  // Be conservative: only drop entries that are obviously long lists or
+  // sub-options. Don't drop short class features just because the name
+  // contains "spell" (e.g. "Spellcasting" feature is KEEP, "Prepared Spells"
+  // is DEFER).
+  const DEFER_NAME_PATTERNS: RegExp[] = [
+    // Long sub-lists of options
+    /^expertise$/i,                  // e.g. "Expertise" — multi-line flavor
+    /^skill expertise/i,              // "Skill Expertise (Insight/Religion)" — duplicates Skills
+    /^circle spells?$/i,              // Circle of the Land sub-list
+    /^mountain circle/i,              // "Mountain Circle" — Circle of the Land sub-option
+    /^natural recovery$/i,            // Circle of the Land multi-line flavor
+    /^favou?red enemy/i,              // Ranger favored enemy options list
+    /^natural explorer/i,             // Ranger natural explorer options list
+    /^metamagic/i,                    // Sorcerer metamagic options
+    /^man[eu]vers?/i,                 // Battle Master maneuver list
+    /^(?:eldritch )?invocations?$/i,  // Warlock invocation list
+    /^infusions?/i,                   // Artificer infusion list
+    /^wild\s+comp(?:anion)?/i,       // Beast Master companion options
+    /^prepared spells?$/i,            // Duplicates Spellcasting card
+    /^spells? known$/i,               // Duplicates Spellcasting card
+    /^spellbook$/i,                   // Wizard spellbook options
+    /^bonus proficien/i,              // Duplicates Proficiencies section
+    /^additional feature/i,           // Multi-paragraph homebrew add-ons
+    // Domain-specific grants (subclass feature → concrete spell list)
+    /^divine\s+domain/i,              // Cleric domain feature
+    // Spells granted as class features (Way of the Four Elements, Druid
+    // Circle of the Land, etc.). We can't enumerate all spells, so we use a
+    // small list of common feature-granted spells. Generic "this is a spell"
+    // detection lives in the Spellcasting card.
+    /^spider\s+climb/i,
+    /^lightning\s+bolt/i,
+    /^stoneskin/i,
+    /^passwall$/i,
+    /^stone\s+shape/i,
+    /^spike\s+growth/i,
+    /^meld\s+into\s+stone/i,
+  ];
+  if (DEFER_NAME_PATTERNS.some((re) => re.test(title))) {
+    return true;
+  }
+
   return false;
 }
 
