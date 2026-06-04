@@ -1697,13 +1697,6 @@ function buildSkillRows(args: BuilderPdfSourceArgs) {
     };
   });
 
-  console.info("[pdf/skills] Ability check rows", {
-    strDex: rows.filter((row) => ["STR", "DEX"].includes(row.ability)).map((row) => ({ label: row.label, proficient: row.proficient, expertise: row.expertise, total: row.total })),
-    int: rows.filter((row) => row.ability === "INT").map((row) => ({ label: row.label, proficient: row.proficient, expertise: row.expertise, total: row.total })),
-    wis: rows.filter((row) => row.ability === "WIS").map((row) => ({ label: row.label, proficient: row.proficient, expertise: row.expertise, total: row.total })),
-    cha: rows.filter((row) => row.ability === "CHA").map((row) => ({ label: row.label, proficient: row.proficient, expertise: row.expertise, total: row.total })),
-  });
-
   return rows;
 }
 
@@ -1807,15 +1800,6 @@ function buildProficiencyGroups(args: BuilderPdfSourceArgs) {
   const equipmentTools = collectInventoryToolLabels(args.draft);
   const choiceTools = collectChoiceToolLabels(args);
   const tools = uniqueStrings([...proficiencyTools, ...equipmentTools, ...choiceTools]);
-
-  console.info("[pdf/proficiencies] Tools & Instr.", {
-    tools,
-    sources: {
-      proficiencies: proficiencyTools,
-      equipment: equipmentTools,
-      choices: choiceTools,
-    },
-  });
 
   return {
     weapons: uniqueStrings(grouped.weapons.map((f) => f.label)),
