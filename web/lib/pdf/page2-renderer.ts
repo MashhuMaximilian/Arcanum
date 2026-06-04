@@ -653,15 +653,13 @@ function renderCompanionStatsRow(
     align: "center",
     lineBreak: false,
   });
-  // Multiclass characters produce 4+ entries (e.g. "3d8 • 3d8 • 2d8 • 2d6").
-  // At 5pt bold the string is too wide for 80pt and pdfkit wraps + ellipsizes,
-  // truncating after 1 line ("3d8 • 3d8 •…"). Drop to 3pt and widen the rect
-  // height to 24pt so up to 6+ classes fit on a single wrapped line with no
-  // truncation. Text rect extends 3pt below the 30pt cell into unused space
-  // at the bottom of the 108pt statsRow region.
-  drawText(ctx, hitDice || "—", { x: rect.x + 2, y: rect.y + cellH * 2 + 9, width: cellW - 4, height: 24 }, {
+  // Multiclass characters used to overflow here (e.g. "3d8 • 3d8 • 2d8 • 2d6"
+  // at 5pt bold was 88pt wide vs 80pt cell). Hit dice are now combined into at
+  // most 4 entries (Xd6 / Xd8 / Xd10 / Xd12) so the worst case is ~22 chars —
+  // fits 80pt at 5pt. Restore a readable 5pt and trim height back to 19pt.
+  drawText(ctx, hitDice || "—", { x: rect.x + 2, y: rect.y + cellH * 2 + 9, width: cellW - 4, height: 19 }, {
     font: "Helvetica-Bold",
-    size: 3,
+    size: 5,
     color: COLORS.textPrimary,
     align: "center",
     lineBreak: true,

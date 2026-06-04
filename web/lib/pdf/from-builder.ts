@@ -549,14 +549,21 @@ function deriveHitDiceSummary(args: {
   draft: CharacterDraft;
   classRecordsByEntry: Array<BuiltInClassRecord | null>;
 }) {
-  const parts = args.draft.classEntries.flatMap((entry, index) => {
+  // Combine identical hit dice so multiclass shows e.g. "8d8 • 2d6"
+  // (sum of all "Xd8" entries) instead of "3d8 • 3d8 • 2d8 • 2d6".
+  // Sort by die size ascending for stable display.
+  const totalsByDie = new Map<number, number>();
+  args.draft.classEntries.forEach((entry, index) => {
     if (!entry.classId || entry.level <= 0) {
-      return [];
+      return;
     }
     const className = resolveClassName(args.classRecordsByEntry[index], entry);
     const hitDie = resolveHitDie(className);
-    return [`${entry.level}d${hitDie}`];
+    totalsByDie.set(hitDie, (totalsByDie.get(hitDie) ?? 0) + entry.level);
   });
+  const parts = Array.from(totalsByDie.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([die, count]) => `${count}d${die}`);
 
   return parts.join(" • ") || "—";
 }
