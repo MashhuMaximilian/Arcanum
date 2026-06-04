@@ -563,6 +563,22 @@ function renderStatStrip(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       drawDefensesStatBox(ctx, rect, defensesValue);
       return;
     }
+    if (spec.key === "hit dice") {
+      // The hit dice cell is wider than the other stat boxes (54.71pt × 42pt)
+      // but the value string can be long ("3d8 • 3d8 • 1d6 • 1d6" for a 4-class
+      // multiclass). drawValueOnlyStatBox uses maxSize 13.5/7, which wraps a long
+      // string to 2-3 lines and the cell height (15.12pt) clips the bottom with
+      // "…". Render with a smaller font range (7/4) so up to ~4 lines fit.
+      const value = statValue(character, spec.key, spec.fallback);
+      const valueRect = rectFromFractions(rect, { x: 0.07, y: 0.17, width: 0.86, height: 0.36 });
+      drawCenteredTextInRect(ctx, value, valueRect, {
+        font: "Helvetica-Bold",
+        maxSize: 7,
+        minSize: 4,
+        color: "#000000",
+      });
+      return;
+    }
     const value = statValue(character, spec.key, spec.fallback);
     drawValueOnlyStatBox(ctx, rect, value, spec.mode);
   });
