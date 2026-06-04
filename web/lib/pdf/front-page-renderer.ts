@@ -987,14 +987,21 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       });
       // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day")
       // The Recharge column is 26pt wide. At 4pt Helvetica-Bold all cadence strings
-      // fit on one line. At 6pt the text was rendering (not clipped) but visibly
-      // too large for the column width, making it look broken. drawCenteredTextInRect
-      // with lineBreak+height was clipping the text invisibly in the narrow column,
-      // so we call pdfkit directly with lineBreak: false to render one line in the
-      // 26pt box.
+      // fit on one line. drawCenteredTextInRect with lineBreak+height was clipping
+      // the text invisibly in the narrow column, so we render via pdfkit directly
+      // and manually center the baseline vertically — pdfkit's text() places the
+      // baseline near the top of the rect, so compute the offset and add half the
+      // difference between the cell height and the rendered text height to rowY.
       ctx.doc.save();
       ctx.doc.font("Helvetica-Bold").fontSize(4).fillColor("#000000");
-      ctx.doc.text(resource.cadence, rv3, rowY, {
+      const rechargeCellH = rRowH - 1;
+      const rechargeTextH = ctx.doc.heightOfString(resource.cadence, {
+        width: rw3,
+        align: "center",
+        lineBreak: false,
+      });
+      const rechargeY = rowY + Math.max(0, (rechargeCellH - rechargeTextH) / 2);
+      ctx.doc.text(resource.cadence, rv3, rechargeY, {
         width: rw3,
         align: "center",
         lineBreak: false,
