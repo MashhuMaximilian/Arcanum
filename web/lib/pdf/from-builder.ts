@@ -1027,6 +1027,52 @@ function resolveSheetExpression(
     }
   }
 
+  // DRACONIC ANCESTRY PLACEHOLDERS — resolve based on draconic ancestry subrace element
+  if (baseToken === "draconic-ancestry") {
+    // Fallback: map common scale tokens to text values based on ancestry type derived from subrace
+    const subraceEl = args.selectedSubrace;
+    if (subraceEl) {
+      const ancestryMatch = subraceEl.id.match(/(?:ID_RACE_DRAGONBORN_|DRACONIC-ANCESTRY-)([A-Z]+)$/i);
+      if (ancestryMatch) {
+        const ancestryType = ancestryMatch[1].toUpperCase();
+        const acidTypes = ["BLACK", "COPPER", "GREEN"];
+        const coldTypes = ["BLUE", "SILVER", "WHITE"];
+        const fireTypes = ["BRASS", "GOLD", "RED"];
+        const lightningTypes = ["BLUE", "BRONZE"];
+
+        if (scaleToken === "damage type" || scaleToken === "damage") {
+          if (acidTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Acid" };
+          }
+          if (coldTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Cold" };
+          }
+          if (fireTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Fire" };
+          }
+          if (lightningTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Lightning" };
+          }
+        }
+        if (scaleToken === "breath") {
+          if (acidTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Acid Breath" };
+          }
+          if (coldTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Breath Weapon (Cone)" };
+          }
+          if (fireTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Breath Weapon (Cone)" };
+          }
+          if (lightningTypes.includes(ancestryType)) {
+            return { kind: "text", value: "Breath Weapon (Line)" };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   if (key.startsWith("-")) {
     const negatedValue = resolveSheetExpression(key.slice(1), args, context, visiting);
     return negatedValue?.kind === "number"
