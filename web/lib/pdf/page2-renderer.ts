@@ -1374,7 +1374,7 @@ function renderCompanionSection(
         height: 8,
       }, {
         font: "Helvetica-Bold",
-        size: 5.5,
+        size: 7,
         color: "#555555",
       });
       y += 8;
