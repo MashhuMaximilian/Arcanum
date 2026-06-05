@@ -2,6 +2,7 @@ import type { PdfSvgAssetBundle } from "@/lib/pdf/svg-assets.server";
 import type { PdfPageCard, ResolvedPdfCharacter } from "@/lib/pdf/types";
 import type { CharacterInventoryItem } from "@/lib/characters/types";
 import {
+  componentRect,
   drawCenteredTextInRect,
   drawFittedText,
   drawSvg,
@@ -551,6 +552,52 @@ type CompanionRects = {
 
 const STAT_VIEWBOX = { width: 55, height: 72 } as const;
 
+// SVG viewBox dimensions for the bonus/HP/AC/passive assets used by the
+// companion middle column. All masks/values below use these viewBox coords
+// so they stay aligned with the SVG's internal text bands no matter how
+// the rect is resized.
+const BONUS_BOX_VIEWBOX = { width: 45, height: 42 } as const;
+const HP_VIEWBOX = { width: 138, height: 42 } as const;
+const AC_VIEWBOX = { width: 39, height: 44 } as const;
+const PASSIVE_BOX_VIEWBOX = { width: 29, height: 34 } as const;
+
+// Slots are written in viewBox units and follow each ornament's visible
+// interior rather than its full outer bounds.
+const BONUS_BOX_SLOTS = {
+  value: { x: 3, y: 8, width: 39, height: 22 },
+  label: { x: 2, y: 29, width: 41, height: 12 },
+} as const;
+
+const HP_SLOTS = {
+  // Cell 0 (MAX HP) ends at x=36 in the source SVG.
+  maxHpValue: { x: 0, y: 9, width: 32, height: 23 },
+} as const;
+
+const AC_SLOTS = {
+  // Shield's inner body above the baked-in AC label.
+  value: { x: 4, y: 10, width: 31, height: 23 },
+} as const;
+
+const PASSIVE_BOX_SLOTS = {
+  // Top half: speed value. Bottom: speed mode label.
+  value: { x: 2, y: 8, width: 25, height: 18 },
+  label: { x: 1, y: 25, width: 27, height: 8 },
+} as const;
+
+/**
+ * Several source SVG components include their placeholder labels as path
+ * outlines rather than text nodes. Keep only the decorative frame paths so
+ * companion values can be rendered without opaque masks touching the border.
+ */
+function frameOnlySvg(svg: string | undefined, framePathCount: number) {
+  if (!svg) return undefined;
+  let pathIndex = 0;
+  return svg.replace(/<path\b[^>]*\/?>/g, (path) => {
+    pathIndex += 1;
+    return pathIndex <= framePathCount ? path : "";
+  });
+}
+
 function computeCompanionLayout(): CompanionRects {
   const pageWidth = COMPANION_PAGE.width;
   const bodyHeight = COMPANION_PAGE.bodyBottom - COMPANION_PAGE.bodyTop;
@@ -636,7 +683,9 @@ function computeCompanionLayout(): CompanionRects {
     height: 44,
   };
 
-  const speedTop = hpRowY + 56;
+  // Keep the speed row visually attached to HP/AC while retaining enough
+  // breathing room for the centered SPEED caption.
+  const speedTop = hpRowY + 45;
   const speedLabel: PdfRect = {
     x: middleColumn.x,
     y: speedTop,
@@ -646,11 +695,11 @@ function computeCompanionLayout(): CompanionRects {
   const speedBoxGap = (middleColumn.width - 29 * 5) / 4;
   const speedBoxes = Array.from({ length: 5 }, (_, index) => ({
     x: middleColumn.x + index * (29 + speedBoxGap),
-    y: speedTop + 10,
+    y: speedTop + 8,
     width: 29,
     height: 34,
   }));
-  const skillsTop = speedTop + 51;
+  const skillsTop = speedTop + 47;
   // Bottom of the abilities column: the last ability cell (row 1, index 5)
   // ends at abilityTop + 2*abilityHeight + abilityGapY. Use this as the
   // visual floor for the right-column cards.
@@ -697,15 +746,6 @@ function computeCompanionLayout(): CompanionRects {
       height: Math.max(0, rightAvailableHeight - traitsHeight - 6),
     },
     abilitiesBottom,
-  };
-}
-
-function mapComponentRect(component: PdfRect, viewBox: { width: number; height: number }, slot: PdfRect): PdfRect {
-  return {
-    x: component.x + slot.x * (component.width / viewBox.width),
-    y: component.y + slot.y * (component.height / viewBox.height),
-    width: slot.width * (component.width / viewBox.width),
-    height: slot.height * (component.height / viewBox.height),
   };
 }
 
@@ -795,9 +835,9 @@ function renderCompanionHeader(
   drawSvg(ctx, assets.frontPageHeaderShell || assets.frontPageHeader, rects.header);
 
   drawFittedText(ctx, data.name, {
-    x: rects.header.x + 35,
+    x: rects.header.x + 58,
     y: rects.header.y + 35,
-    width: 160,
+    width: 150,
     height: 17,
   }, {
     font: "Times-Bold",
@@ -807,36 +847,36 @@ function renderCompanionHeader(
     lineBreak: false,
   });
 
-  const rightX = rects.header.x + 215;
-  const rightWidth = rects.header.width - 280;
+  const rightX = rects.header.x + 247;
+  const rightWidth = rects.header.width - 267;
   drawCompanionHeaderField(ctx, "Creature", data.creature, {
     x: rightX,
     y: rects.header.y + 25,
-    width: 95,
+    width: 105,
     height: 16,
   });
   drawCompanionHeaderField(ctx, "Owner", data.owner, {
-    x: rightX + 100,
+    x: rightX + 110,
     y: rects.header.y + 25,
-    width: rightWidth - 100,
+    width: rightWidth - 110,
     height: 16,
   });
   drawCompanionHeaderField(ctx, "Size", data.size, {
     x: rightX,
     y: rects.header.y + 43,
-    width: 80,
+    width: 86,
     height: 15,
   });
   drawCompanionHeaderField(ctx, "Type", data.type, {
-    x: rightX + 85,
+    x: rightX + 91,
     y: rects.header.y + 43,
-    width: 80,
+    width: 100,
     height: 15,
   });
   drawCompanionHeaderField(ctx, "Alignment", data.alignment, {
-    x: rightX + 170,
+    x: rightX + 196,
     y: rects.header.y + 43,
-    width: rightWidth - 170,
+    width: rightWidth - 196,
     height: 15,
   });
 }
@@ -890,28 +930,28 @@ function renderCompanionAbilities(
       color: "#000000",
     } as const;
 
-    drawCenteredTextInRect(ctx, formatModifier(modifier), mapComponentRect(cell.rect, STAT_VIEWBOX, slots.save), {
+    drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
       ...valueOptions,
       maxSize: 8.4,
     });
-    drawCenteredTextInRect(ctx, String(score), mapComponentRect(cell.rect, STAT_VIEWBOX, slots.score), {
+    drawCenteredTextInRect(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
       ...valueOptions,
       maxSize: 14.5,
       minSize: 8,
     });
-    maskRect(ctx, mapComponentRect(cell.rect, STAT_VIEWBOX, {
+    maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
       x: 13.5,
       y: 43.8,
       width: 28,
       height: 8,
     }));
-    drawCenteredTextInRect(ctx, cell.label, mapComponentRect(cell.rect, STAT_VIEWBOX, slots.label), {
+    drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
       font: "Helvetica",
       maxSize: 7,
       minSize: 5,
       color: "#000000",
     });
-    drawCenteredTextInRect(ctx, formatModifier(modifier), mapComponentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
+    drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
       ...valueOptions,
       maxSize: 8.2,
     });
@@ -925,43 +965,15 @@ function renderCompanionBonusBox(
   value: string,
   label: string,
 ) {
-  drawSvg(ctx, assets.bonusBox, rect, "contain");
-  const valueHeight = 17;
-  const labelHeight = 14;
-  // Mask #1 — covers the value's centered band so the renderer-drawn value
-  // sits cleanly on a white field.
-  maskRect(ctx, {
-    x: rect.x + 5,
-    y: rect.y + Math.max(0, (rect.height - valueHeight) / 2) - 1,
-    width: rect.width - 10,
-    height: valueHeight + 2,
-  });
-  drawCenteredTextInRect(ctx, value, {
-    x: rect.x + 5,
-    y: rect.y + Math.max(0, (rect.height - valueHeight) / 2),
-    width: rect.width - 10,
-    height: valueHeight,
-  }, {
+  drawSvg(ctx, frameOnlySvg(assets.bonusBox, 2), rect, "contain");
+  drawCenteredTextInRect(ctx, value, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.value), {
     font: "Helvetica-Bold",
-    maxSize: 12,
-    minSize: 7,
+    maxSize: 14,
+    minSize: 8,
     color: "#000000",
   });
-  // Mask #2 — covers the SVG's baked-in "PROFICIENCY BONUS" footer text so
-  // the renderer-drawn label below sits cleanly on white instead of
-  // overlapping the baked-in label.
-  maskRect(ctx, {
-    x: rect.x + 3,
-    y: rect.y + rect.height - 14,
-    width: rect.width - 6,
-    height: 12,
-  });
-  drawCenteredTextInRect(ctx, label, {
-    x: rect.x + 3,
-    y: rect.y + rect.height - labelHeight - 1,
-    width: rect.width - 6,
-    height: labelHeight,
-  }, {
+
+  drawCenteredTextInRect(ctx, label, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.label), {
     font: "Helvetica",
     maxSize: 5.1,
     minSize: 3.5,
@@ -978,37 +990,22 @@ function renderCompanionHpAndAc(
   ac: string,
 ) {
   drawSvg(ctx, assets.hp, rects.hp, "contain");
-  const hpThird = rects.hp.width / 3;
-  const hpValueHeight = 14;
-  // Mask the area under the centered MAX HP value (cell 0 only)
-  maskRect(ctx, {
-    x: rects.hp.x + 3,
-    y: rects.hp.y + Math.max(0, (rects.hp.height - hpValueHeight) / 2 - 1),
-    width: hpThird - 6,
-    height: hpValueHeight + 2,
-  });
-  drawCenteredTextInRect(ctx, hp, {
-    x: rects.hp.x,
-    y: rects.hp.y + Math.max(0, (rects.hp.height - hpValueHeight) / 2),
-    width: hpThird,
-    height: hpValueHeight,
-  }, {
+
+  // The HP SVG has no placeholder number in the MAX HP value socket, so
+  // drawing directly into its local slot preserves every border and label.
+  drawCenteredTextInRect(ctx, hp, componentRect(rects.hp, HP_VIEWBOX, HP_SLOTS.maxHpValue), {
     font: "Helvetica-Bold",
-    maxSize: 12,
-    minSize: 7,
+    maxSize: 14,
+    minSize: 8,
     color: "#000000",
   });
 
   drawSvg(ctx, assets.ac, rects.ac, "contain");
-  drawCenteredTextInRect(ctx, ac, {
-    x: rects.ac.x + 5,
-    y: rects.ac.y + Math.max(0, (rects.ac.height - 18) / 2),
-    width: rects.ac.width - 10,
-    height: 18,
-  }, {
+  // Likewise, keep the shield's baked-in AC label and draw only the value.
+  drawCenteredTextInRect(ctx, ac, componentRect(rects.ac, AC_VIEWBOX, AC_SLOTS.value), {
     font: "Helvetica-Bold",
-    maxSize: 13,
-    minSize: 8,
+    maxSize: 15,
+    minSize: 9,
     color: "#000000",
   });
 }
@@ -1039,33 +1036,16 @@ function renderCompanionSpeeds(
     color: "#777777",
   });
   const entries = parseMovementSpeeds(speed);
+  const passiveFrame = frameOnlySvg(assets.passiveBox, 4);
   rects.speedBoxes.forEach((rect, index) => {
-    drawSvg(ctx, assets.passiveBox, rect, "contain");
-    // Whitewash the SVG's baked-in "INSIGHT" footer label so the renderer-drawn
-    // speed mode label (e.g. "Walking") sits cleanly on top.
-    maskRect(ctx, {
-      x: rect.x + 2,
-      y: rect.y + 25,
-      width: rect.width - 4,
-      height: rect.height - 26,
-    });
-    drawCenteredTextInRect(ctx, entries[index].value, {
-      x: rect.x + 3,
-      y: rect.y + Math.max(0, (rect.height - 10) / 2),
-      width: rect.width - 6,
-      height: 10,
-    }, {
+    drawSvg(ctx, passiveFrame, rect, "contain");
+    drawCenteredTextInRect(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
       font: "Helvetica-Bold",
-      maxSize: 7.5,
-      minSize: 5,
+      maxSize: 9,
+      minSize: 6,
       color: "#000000",
     });
-    drawCenteredTextInRect(ctx, entries[index].label, {
-      x: rect.x + 1,
-      y: rect.y + rect.height - 9,
-      width: rect.width - 2,
-      height: 7,
-    }, {
+    drawCenteredTextInRect(ctx, entries[index].label, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.label), {
       font: "Helvetica",
       maxSize: 3.8,
       minSize: 2.8,
@@ -1125,7 +1105,7 @@ function renderCompanionSection(
 
   drawCenteredTextInRect(ctx, title, {
     x: rect.x + 10,
-    y: rect.y + 4,
+    y: rect.y + 10,
     width: rect.width - 20,
     height: 11,
   }, {
@@ -1150,7 +1130,7 @@ function renderCompanionSection(
     return;
   }
 
-  let y = rect.y + 22;
+  let y = rect.y + 28;
   const maxY = rect.y + rect.height - 10;
   for (const card of cards) {
     const body = cleanHtmlText(card.summary || card.detail || "");
