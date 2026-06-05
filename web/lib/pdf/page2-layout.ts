@@ -7,19 +7,25 @@ export const PAGE2_PRINT_SAFE_OFFSET = {
   y: (PAGE_SIZE.height * (1 - PAGE2_PRINT_SAFE_SCALE)) / 2,
 } as const;
 
-// Page 2 regions for inventory (page 2A)
+// Page 2 regions for inventory (page 2A) — v2 layout:
+//   y=0..18     INVENTORY header (full width)
+//   y=18..445   TOP AREA (427pt) — 2 columns, descriptions dominant on right
+//   y=450..500  UTILITY ROW (50pt slim) — 4 blocks: attuned, valuables, currency, encumbrance
+//   y=505..735  BOTTOM 3 COLUMNS (230pt) — stored #1, stored #2, quest items
+//   y=740..790  ADDITIONAL TREASURE (50pt, only if content exists)
 export const PAGE2_INVENTORY_REGIONS = {
   outer: { x: 10, y: 10, width: 575, height: 822 },
-  inventoryHeader: { x: 10, y: 10, width: 575, height: 18 },
-  inventoryIndex: { x: 10, y: 28, width: 190, height: 280 },
-  itemDescriptions: { x: 210, y: 28, width: 365, height: 280 },
-  attunedAndValuables: { x: 10, y: 316, width: 230, height: 58 },
-  currency: { x: 250, y: 316, width: 325, height: 58 },
-  encumbrance: { x: 10, y: 382, width: 575, height: 42 },
-  additionalTreasure: { x: 10, y: 432, width: 575, height: 80 },
-  storedItemsLeft: { x: 10, y: 518, width: 285, height: 120 },
-  storedItemsRight: { x: 300, y: 518, width: 285, height: 120 },
-  questItems: { x: 10, y: 646, width: 575, height: 156 },
+  inventoryHeader: { x: 10, y: 0, width: 575, height: 18 },
+  inventoryIndex: { x: 10, y: 18, width: 180, height: 427 },
+  itemDescriptions: { x: 195, y: 18, width: 380, height: 427 },
+  attuned: { x: 10, y: 450, width: 70, height: 50 },
+  valuables: { x: 85, y: 450, width: 120, height: 50 },
+  currency: { x: 210, y: 450, width: 240, height: 50 },
+  encumbrance: { x: 455, y: 450, width: 120, height: 50 },
+  storedItemsLeft: { x: 10, y: 505, width: 185, height: 230 },
+  storedItemsMiddle: { x: 200, y: 505, width: 185, height: 230 },
+  questItems: { x: 390, y: 505, width: 185, height: 230 },
+  additionalTreasure: { x: 10, y: 740, width: 575, height: 50 },
 } satisfies Record<string, PdfRect>;
 
 // Page 2 regions for companion (page 2B)
