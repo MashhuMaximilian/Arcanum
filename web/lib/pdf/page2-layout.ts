@@ -9,35 +9,17 @@ export const PAGE2_PRINT_SAFE_OFFSET = {
 
 // Page 2 regions for inventory (page 2A)
 export const PAGE2_INVENTORY_REGIONS = {
-  // Outer bounds: full printable area
   outer: { x: 10, y: 10, width: 575, height: 822 },
-
-  // Top section: two-column layout (inventory table + item descriptions)
   inventoryHeader: { x: 10, y: 10, width: 575, height: 18 },
-
-  // Left column (65%): main inventory table
-  inventoryTable: { x: 10, y: 28, width: 374, height: 280 },
-
-  // Right column (35%): item descriptions
-  itemDescriptions: { x: 394, y: 28, width: 191, height: 280 },
-
-  // Middle row: Attuned + Valuables (left), Currency (right)
-  attunedAndValuables: { x: 10, y: 316, width: 230, height: 60 },
-  currency: { x: 250, y: 316, width: 335, height: 60 },
-
-  // Encumbrance
-  encumbrance: { x: 10, y: 384, width: 575, height: 50 },
-
-  // Additional Treasure (full width)
-  additionalTreasure: { x: 10, y: 442, width: 575, height: 80 },
-
-  // Stored Items (two columns)
-  storedItemsHeader: { x: 10, y: 530, width: 575, height: 18 },
-  storedItemsLeft: { x: 10, y: 548, width: 285, height: 120 },
-  storedItemsRight: { x: 300, y: 548, width: 285, height: 120 },
-
-  // Quest Items & Trinkets
-  questItems: { x: 10, y: 676, width: 575, height: 156 },
+  inventoryIndex: { x: 10, y: 28, width: 190, height: 280 },
+  itemDescriptions: { x: 210, y: 28, width: 365, height: 280 },
+  attunedAndValuables: { x: 10, y: 316, width: 230, height: 58 },
+  currency: { x: 250, y: 316, width: 325, height: 58 },
+  encumbrance: { x: 10, y: 382, width: 575, height: 42 },
+  additionalTreasure: { x: 10, y: 432, width: 575, height: 80 },
+  storedItemsLeft: { x: 10, y: 518, width: 285, height: 120 },
+  storedItemsRight: { x: 300, y: 518, width: 285, height: 120 },
+  questItems: { x: 10, y: 646, width: 575, height: 156 },
 } satisfies Record<string, PdfRect>;
 
 // Page 2 regions for companion (page 2B)

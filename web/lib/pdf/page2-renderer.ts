@@ -98,60 +98,72 @@ function renderInventoryHeader(ctx: PdfRenderContext, _assets: PdfSvgAssetBundle
   drawSectionTitle(ctx, "INVENTORY", rect);
 }
 
-function renderInventoryTable(
+function renderInventoryIndex(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
   items: CharacterInventoryItem[],
 ) {
-  const rect = PAGE2_INVENTORY_REGIONS.inventoryTable;
-  drawSvg(ctx, assets.greyBackground, rect);
+  const rect = PAGE2_INVENTORY_REGIONS.inventoryIndex;
+  drawSvg(ctx, assets.generalContainer, rect);
 
-  // Column layout: # | Name | Qty | lb
-  const colX = [rect.x + 2, rect.x + 20, rect.x + 130, rect.x + 220];
-  const headerY = rect.y + 2;
+  drawText(ctx, "EQUIPPED", { x: rect.x + 2, y: rect.y + 2, width: rect.width - 4, height: 10 }, {
+    font: "Helvetica-Bold",
+    size: TYPOGRAPHY.small.maxSize,
+    color: COLORS.textPrimary,
+  });
 
-  // Draw column headers
+  const colX = [rect.x + 4, rect.x + 20, rect.x + 140, rect.x + 168];
+  const headerY = rect.y + 12;
+
   const headers = ["#", "Name", "Qty", "lb"];
   headers.forEach((h, i) => {
-    drawText(ctx, h, { x: colX[i], y: headerY, width: 30, height: 12 }, {
+    drawText(ctx, h, { x: colX[i], y: headerY, width: 30, height: 10 }, {
       font: "Helvetica-Bold",
-      size: TYPOGRAPHY.small.maxSize,
+      size: TYPOGRAPHY.small.minSize,
       color: COLORS.textSecondary,
     });
   });
 
-  // Separator line under headers
   const sepDoc = ctx.doc as { moveTo: (x: number, y: number) => { lineTo: (x: number, y: number) => { stroke: () => void } } };
-  sepDoc.moveTo(rect.x + 2, headerY + 4).lineTo(rect.x + rect.width - 2, headerY + 4).stroke();
+  sepDoc.moveTo(rect.x + 2, headerY + 3).lineTo(rect.x + rect.width - 2, headerY + 3).stroke();
 
-  // Draw inventory rows
-  const rowStartY = headerY + 7;
-  const maxRows = Math.floor((rect.height - (rowStartY - rect.y) - 8) / (LINE_HEIGHT + LINE_ROW_GAP));
+  const rowStartY = headerY + 6;
+  const maxRows = Math.floor((rect.height - (rowStartY - rect.y) - 6) / (LINE_HEIGHT + LINE_ROW_GAP));
   const visibleItems = items.slice(0, maxRows);
+  const hasMore = items.length > maxRows;
 
   visibleItems.forEach((item, index) => {
     const rowY = rowStartY + index * (LINE_HEIGHT + LINE_ROW_GAP);
 
-    // Draw line
-    const lineRect: PdfRect = { x: rect.x + 2, y: rowY, width: LINE_WIDTH, height: LINE_HEIGHT };
+    const lineRect: PdfRect = { x: rect.x + 2, y: rowY, width: rect.width - 4, height: LINE_HEIGHT };
     drawSvg(ctx, assets.line, lineRect);
 
-    // Item data
+    const truncatedName = item.name.length > 22 ? item.name.slice(0, 20) + "…" : item.name;
     const rowData = [
       String(index + 1),
-      item.name.length > 30 ? item.name.slice(0, 28) + "…" : item.name,
+      truncatedName,
       String(item.quantity),
       item.weight ?? "—",
     ];
 
     rowData.forEach((text, i) => {
-      drawText(ctx, text, { x: colX[i], y: rowY + 1, width: 100, height: 8 }, {
+      drawText(ctx, text, { x: colX[i], y: rowY + 1, width: i === 1 ? 110 : 30, height: 8 }, {
         font: "Helvetica",
         size: TYPOGRAPHY.body.maxSize,
         color: COLORS.textPrimary,
       });
     });
   });
+
+  if (hasMore) {
+    const lastY = rowStartY + maxRows * (LINE_HEIGHT + LINE_ROW_GAP);
+    const moreCount = items.length - maxRows;
+    drawText(ctx, `…${moreCount} more`, { x: rect.x + 4, y: lastY + 1, width: rect.width - 8, height: 8 }, {
+      font: "Helvetica-Oblique",
+      size: TYPOGRAPHY.small.minSize,
+      color: COLORS.textTertiary,
+    });
+  }
 }
 
 function renderItemDescriptions(
@@ -171,7 +183,7 @@ function renderItemDescriptions(
   if (magicItems.length === 0) {
     drawText(
       ctx,
-      "No magic items or attuned equipment.",
+      "No items requiring description.",
       { x: rect.x + 4, y: rect.y + 16, width: rect.width - 8, height: 30 },
       { font: "Helvetica-Oblique", size: TYPOGRAPHY.small.maxSize, color: COLORS.textTertiary },
     );
@@ -184,13 +196,12 @@ function renderItemDescriptions(
   magicItems.forEach((item) => {
     if (currentY + 22 > rect.y + rect.height - 4) return;
 
-    // Item name (bold)
     drawText(ctx, item.name, { x: rect.x + 4, y: currentY, width: rect.width - 8, height: 8 }, {
       font: "Helvetica-Bold",
       size: TYPOGRAPHY.body.maxSize,
       color: COLORS.textPrimary,
     });
-    currentY += 6;
+    currentY += 7;
 
     if (item.rarity) {
       drawText(ctx, item.rarity, { x: rect.x + 4, y: currentY, width: 100, height: 8 }, {
@@ -198,7 +209,7 @@ function renderItemDescriptions(
         size: TYPOGRAPHY.small.minSize,
         color: COLORS.textSecondary,
       });
-      currentY += 5;
+      currentY += 6;
     }
 
     if (item.sourceLabel) {
@@ -207,21 +218,22 @@ function renderItemDescriptions(
         size: TYPOGRAPHY.small.minSize,
         color: COLORS.textTertiary,
       });
-      currentY += 5;
+      currentY += 6;
     }
 
     if (item.detailHtml) {
       const cleanDesc = cleanHtmlText(item.detailHtml);
-      const descLines = cleanDesc.split("\n").slice(0, 2);
+      const descLines = cleanDesc.split("\n").slice(0, 3);
       descLines.forEach((line) => {
-        if (currentY + 5 > rect.y + rect.height - 4) return;
-        const trimmed = line.length > 50 ? line.slice(0, 48) + "…" : line;
+        if (currentY + 6 > rect.y + rect.height - 4) return;
+        const maxChars = Math.floor((rect.width - 8) / (TYPOGRAPHY.small.minSize * 0.6));
+        const trimmed = line.length > maxChars ? line.slice(0, maxChars - 1) + "…" : line;
         drawText(ctx, trimmed, { x: rect.x + 4, y: currentY, width: rect.width - 8, height: 8 }, {
           font: "Helvetica",
           size: TYPOGRAPHY.small.minSize,
           color: COLORS.textSecondary,
         });
-        currentY += 5;
+        currentY += 6;
       });
     }
 
@@ -237,25 +249,26 @@ function renderAttunedAndValuables(
   valuables: string[],
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.attunedAndValuables;
-  drawSvg(ctx, assets.greyBackground, rect);
+  drawSvg(ctx, assets.generalContainer, rect);
 
-  // Attuned section
   drawText(ctx, "ATTUNED", { x: rect.x + 4, y: rect.y + 4, width: 80, height: 10 }, {
     font: "Helvetica-Bold",
     size: TYPOGRAPHY.small.maxSize,
     color: COLORS.textPrimary,
   });
-  drawText(ctx, `${attunedCount}/${maxAttuned}`, { x: rect.x + 4, y: rect.y + 14, width: 80, height: 14 }, {
-    font: "Helvetica",
-    size: TYPOGRAPHY.body.maxSize,
-    color: COLORS.textSecondary,
+
+  const passiveRect: PdfRect = { x: rect.x + 4, y: rect.y + 14, width: 50, height: 28 };
+  drawSvg(ctx, assets.passiveBox, passiveRect);
+  drawCenteredTextInRect(ctx, `${attunedCount}/${maxAttuned}`, passiveRect, {
+    font: "Helvetica-Bold",
+    maxSize: TYPOGRAPHY.body.maxSize,
+    minSize: TYPOGRAPHY.small.maxSize,
+    color: COLORS.textPrimary,
   });
 
-  // Divider
   const midDoc = ctx.doc as { moveTo: (x: number, y: number) => { lineTo: (x: number, y: number) => { stroke: () => void } } };
   midDoc.moveTo(rect.x + rect.width / 2, rect.y + 4).lineTo(rect.x + rect.width / 2, rect.y + rect.height - 4).stroke();
 
-  // Valuables section
   const midX = rect.x + rect.width / 2;
   drawText(ctx, "VALUABLES", { x: midX + 4, y: rect.y + 4, width: 100, height: 10 }, {
     font: "Helvetica-Bold",
@@ -265,13 +278,15 @@ function renderAttunedAndValuables(
 
   if (valuables.length > 0) {
     const valText = valuables.slice(0, 3).join(", ");
-    drawText(ctx, valText.length > 40 ? valText.slice(0, 38) + "…" : valText, { x: midX + 4, y: rect.y + 14, width: rect.width / 2 - 8, height: 20 }, {
+    const maxChars = Math.floor((rect.width / 2 - 8) / (TYPOGRAPHY.body.maxSize * 0.5));
+    const displayText = valText.length > maxChars ? valText.slice(0, maxChars - 2) + "…" : valText;
+    drawText(ctx, displayText, { x: midX + 4, y: rect.y + 16, width: rect.width / 2 - 8, height: 30 }, {
       font: "Helvetica",
       size: TYPOGRAPHY.body.maxSize,
       color: COLORS.textSecondary,
     });
   } else {
-    drawText(ctx, "—", { x: midX + 4, y: rect.y + 14, width: 30, height: 14 }, {
+    drawText(ctx, "—", { x: midX + 4, y: rect.y + 16, width: 30, height: 14 }, {
       font: "Helvetica",
       size: TYPOGRAPHY.body.maxSize,
       color: COLORS.textTertiary,
@@ -285,15 +300,10 @@ function renderCurrency(
   currency: { cp: number; sp: number; ep: number; gp: number; pp: number },
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.currency;
-  drawSvg(ctx, assets.greyBackground, rect);
+  drawSvg(ctx, assets.generalContainer, rect);
 
-  drawText(ctx, "CURRENCY", { x: rect.x + 4, y: rect.y + 2, width: 60, height: 10 }, {
-    font: "Helvetica-Bold",
-    size: TYPOGRAPHY.small.maxSize,
-    color: COLORS.textPrimary,
-  });
+  drawSectionTitle(ctx, "CURRENCY", rect);
 
-  // Center the 5 bonus boxes
   const availableWidth = rect.width - 2 * CURRENCY_ROW_PADDING;
   const totalBonusBoxesWidth = 5 * BONUS_BOX_WIDTH + 4 * BONUS_BOX_GAP;
   const startOffset = Math.max(0, (availableWidth - totalBonusBoxesWidth) / 2);
@@ -303,20 +313,18 @@ function renderCurrency(
     const y = rect.y + 16;
 
     const boxRect: PdfRect = { x, y, width: BONUS_BOX_WIDTH, height: BONUS_BOX_HEIGHT };
-    drawSvg(ctx, assets.bonusBox, boxRect);
+    drawSvg(ctx, assets.proficiencyBox1, boxRect);
 
     const value = currency[type];
 
-    // Label centered in top portion
-    drawCenteredTextInRect(ctx, CURRENCY_LABELS[type], { ...boxRect, y: boxRect.y, height: 14 }, {
+    drawCenteredTextInRect(ctx, CURRENCY_LABELS[type], { ...boxRect, y: boxRect.y + 2, height: 12 }, {
       font: "Helvetica-Bold",
       maxSize: TYPOGRAPHY.small.minSize,
       minSize: 3,
       color: COLORS.textSecondary,
     });
 
-    // Value centered in bottom portion
-    drawCenteredTextInRect(ctx, String(value), { ...boxRect, y: boxRect.y + 14, height: boxRect.height - 14 }, {
+    drawCenteredTextInRect(ctx, String(value), { ...boxRect, y: boxRect.y + 14, height: boxRect.height - 16 }, {
       font: "Helvetica-Bold",
       maxSize: TYPOGRAPHY.currency.maxSize,
       minSize: 5,
@@ -334,45 +342,44 @@ function renderEncumbrance(
   const rect = PAGE2_INVENTORY_REGIONS.encumbrance;
   drawSvg(ctx, _assets.generalContainer, rect);
 
-  drawText(ctx, "ENCUMBRANCE", { x: rect.x + 4, y: rect.y + 2, width: 80, height: 10 }, {
+  drawSectionTitle(ctx, "ENCUMBRANCE", rect);
+
+  const labelY = rect.y + 14;
+  const valueY = rect.y + 26;
+
+  drawText(ctx, "Carried:", { x: rect.x + 6, y: labelY, width: 50, height: 10 }, {
     font: "Helvetica-Bold",
     size: TYPOGRAPHY.small.maxSize,
     color: COLORS.textPrimary,
   });
-
-  drawText(ctx, `Carried: ${carriedWeight} lb`, { x: rect.x + 4, y: rect.y + 14, width: 100, height: 10 }, {
+  drawText(ctx, `${carriedWeight} lb`, { x: rect.x + 50, y: labelY, width: 60, height: 10 }, {
     font: "Helvetica",
     size: TYPOGRAPHY.body.maxSize,
     color: COLORS.textPrimary,
   });
 
-  drawText(ctx, `Capacity: ${capacity} lb`, { x: rect.x + 120, y: rect.y + 14, width: 100, height: 10 }, {
+  drawText(ctx, "Capacity:", { x: rect.x + 120, y: labelY, width: 55, height: 10 }, {
+    font: "Helvetica-Bold",
+    size: TYPOGRAPHY.small.maxSize,
+    color: COLORS.textSecondary,
+  });
+  drawText(ctx, `${capacity} lb`, { x: rect.x + 170, y: labelY, width: 60, height: 10 }, {
     font: "Helvetica",
     size: TYPOGRAPHY.body.maxSize,
     color: COLORS.textSecondary,
   });
 
   const pushDragLift = capacity * 2;
-  drawText(ctx, `Push/Drag/Lift: ${pushDragLift} lb`, { x: rect.x + 220, y: rect.y + 14, width: 130, height: 10 }, {
+  drawText(ctx, "Push/Drag/Lift:", { x: rect.x + 240, y: labelY, width: 90, height: 10 }, {
+    font: "Helvetica-Bold",
+    size: TYPOGRAPHY.small.maxSize,
+    color: COLORS.textSecondary,
+  });
+  drawText(ctx, `${pushDragLift} lb`, { x: rect.x + 325, y: labelY, width: 60, height: 10 }, {
     font: "Helvetica",
     size: TYPOGRAPHY.body.maxSize,
     color: COLORS.textSecondary,
   });
-
-  // Visual bar
-  const barX = rect.x + 4;
-  const barY = rect.y + 26;
-  const barWidth = rect.width - 8;
-  const barHeight = 6;
-  const fillRatio = Math.min(carriedWeight / capacity, 1);
-  const fillWidth = Math.max(0, barWidth * fillRatio);
-
-  const shapeDoc = ctx.doc as unknown as { rect: (x: number, y: number, w: number, h: number) => { fill: (c?: string) => void; stroke: (c?: string, w?: number) => void } };
-  shapeDoc.rect(barX, barY, barWidth, barHeight).fill("#E0E0E0");
-  if (fillWidth > 0) {
-    shapeDoc.rect(barX, barY, fillWidth, barHeight).fill(carriedWeight > capacity ? "#CC3333" : "#4A90D9");
-  }
-  shapeDoc.rect(barX, barY, barWidth, barHeight).stroke("#999999", 0.5);
 }
 
 function renderLinedSection(
@@ -413,12 +420,13 @@ function renderStoredItems(
   const rightRect = PAGE2_INVENTORY_REGIONS.storedItemsRight;
 
   [leftRect, rightRect].forEach((rect, colIndex) => {
-    drawSvg(ctx, assets.greyBackground, rect);
+    drawSvg(ctx, assets.generalContainer, rect);
 
     const header = `STORED ITEMS #${colIndex + 1}`;
-    drawText(ctx, header, { x: rect.x + 4, y: rect.y + 2, width: 120, height: 10 }, {
+    drawCenteredTextInRect(ctx, header, { x: rect.x, y: rect.y + 2, width: rect.width, height: 10 }, {
       font: "Helvetica-Bold",
-      size: TYPOGRAPHY.small.maxSize,
+      maxSize: TYPOGRAPHY.small.maxSize,
+      minSize: 5,
       color: COLORS.textPrimary,
     });
 
@@ -432,7 +440,9 @@ function renderStoredItems(
       drawSvg(ctx, assets.line, lineRect);
 
       const itemLabel = `${item.quantity > 1 ? `${item.quantity}x ` : ""}${item.name}`;
-      drawText(ctx, itemLabel.length > 35 ? itemLabel.slice(0, 33) + "…" : itemLabel, { x: rect.x + 4, y: lineY + 1, width: rect.width - 40, height: 8 }, {
+      const maxNameChars = Math.floor((rect.width - 44) / (TYPOGRAPHY.body.maxSize * 0.5));
+      const displayName = itemLabel.length > maxNameChars ? itemLabel.slice(0, maxNameChars - 1) + "…" : itemLabel;
+      drawText(ctx, displayName, { x: rect.x + 4, y: lineY + 1, width: rect.width - 40, height: 8 }, {
         font: "Helvetica",
         size: TYPOGRAPHY.body.maxSize,
         color: COLORS.textPrimary,
@@ -446,6 +456,17 @@ function renderStoredItems(
         });
       }
     });
+
+    const totalItems = items.length;
+    if (totalItems > 16) {
+      const moreCount = totalItems - 16;
+      const lastLineY = contentStartY + 8 * lineGap;
+      drawText(ctx, `…${moreCount} more`, { x: rect.x + 4, y: lastLineY + 1, width: rect.width - 8, height: 8 }, {
+        font: "Helvetica-Oblique",
+        size: TYPOGRAPHY.small.minSize,
+        color: COLORS.textTertiary,
+      });
+    }
   });
 }
 
@@ -503,7 +524,7 @@ export function renderInventoryPage(
   const data = extractInventoryData(character);
 
   renderInventoryHeader(ctx, assets);
-  renderInventoryTable(ctx, assets, data.equipment);
+  renderInventoryIndex(ctx, assets, data.equipment);
   renderItemDescriptions(ctx, assets, data.equipment);
   renderAttunedAndValuables(ctx, assets, data.attunedCount, data.maxAttuned, data.valuables);
   renderCurrency(ctx, assets, data.currency);
