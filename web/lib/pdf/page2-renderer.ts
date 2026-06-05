@@ -3,15 +3,12 @@ import type { PdfPageCard, ResolvedPdfCharacter } from "@/lib/pdf/types";
 import type { CharacterInventoryItem } from "@/lib/characters/types";
 import {
   drawCenteredTextInRect,
-  drawFittedText,
   drawSvg,
   drawText,
-  fitTextSize,
   type PdfRect,
   type PdfRenderContext,
 } from "@/lib/pdf/drawing";
 import {
-  PAGE2_COMPANION_REGIONS,
   PAGE2_INVENTORY_REGIONS,
   PAGE2_PRINT_SAFE_OFFSET,
   PAGE2_PRINT_SAFE_SCALE,
@@ -116,16 +113,6 @@ function cleanHtmlText(html: string): string {
     .replace(/&amp;/gi, "&")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-}
-
-function fillRect(ctx: PdfRenderContext, rect: PdfRect, color: string) {
-  const shapeDoc = ctx.doc as unknown as { rect: (x: number, y: number, w: number, h: number) => { fill: (c?: string) => void; stroke: (c?: string, w?: number) => void } };
-  shapeDoc.rect(rect.x, rect.y, rect.width, rect.height).fill(color);
-}
-
-function strokeRect(ctx: PdfRenderContext, rect: PdfRect, color: string, width: number) {
-  const shapeDoc = ctx.doc as unknown as { rect: (x: number, y: number, w: number, h: number) => { fill: (c?: string) => void; stroke: (c?: string, w?: number) => void } };
-  shapeDoc.rect(rect.x, rect.y, rect.width, rect.height).stroke(color, width);
 }
 
 // ============================================================

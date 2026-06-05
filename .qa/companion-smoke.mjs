@@ -47,11 +47,16 @@ const companionCard = {
   sections: [],
   tags: [
     "name:Wolf",
-    "type:Medium beast",
+    "type:beast",
+    "size:Medium",
     "cr:1/4",
     "ac:13",
     "hp:11 (2d8+2)",
     "speed:40 ft.",
+    "alignment:unaligned",
+    "senses:passive Perception 13",
+    "languages:—",
+    "skills:Perception +5, Stealth +4",
     "str:12",
     "dex:15",
     "con:12",
@@ -109,5 +114,25 @@ doc.on("end", async () => {
   const out = path.join(projectRoot, ".qa", "companion-3col-smoke.pdf");
   await writeFile(out, buf);
   console.log(`Wrote ${buf.byteLength} bytes to ${out}`);
+
+  // ---- Layout assertions ----
+  // We re-read the PDF and check it's well-formed and a single A4 page.
+  // The page2-renderer must fit everything on one page (no overflow).
+  // Text-content checks are not reliable here because PDFKit FlateDecode-
+  // compresses the content streams, and we don't ship a text extractor in
+  // this repo. Visual verification is done by rasterizing the PDF and
+  // looking at the resulting PNG.
+  const text = buf.toString("latin1");
+  const pageObjects = (text.match(/\/Type\s*\/Page[^s]/g) || []).length;
+  if (pageObjects !== 1) {
+    console.error(`❌ Expected 1 page, found ${pageObjects}`);
+    process.exit(1);
+  }
+  // MediaBox should be A4 portrait (595x842) — the renderer pins this.
+  if (!text.includes("/MediaBox [0 0 595 842]")) {
+    console.error("❌ PDF is not A4 portrait (MediaBox [0 0 595 842])");
+    process.exit(1);
+  }
+  console.log("✅ Layout OK: 1 A4 page, ready for visual verification.");
 });
 doc.end();
