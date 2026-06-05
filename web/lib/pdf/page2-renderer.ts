@@ -773,9 +773,9 @@ function renderCompanionHeader(
   drawSvg(ctx, assets.frontPageHeaderShell || assets.frontPageHeader, rects.header);
 
   drawFittedText(ctx, data.name, {
-    x: rects.header.x + 20,
+    x: rects.header.x + 35,
     y: rects.header.y + 35,
-    width: 166,
+    width: 160,
     height: 17,
   }, {
     font: "Times-Bold",
@@ -785,36 +785,36 @@ function renderCompanionHeader(
     lineBreak: false,
   });
 
-  const rightX = rects.header.x + 232;
-  const rightWidth = rects.header.width - 255;
+  const rightX = rects.header.x + 215;
+  const rightWidth = rects.header.width - 280;
   drawCompanionHeaderField(ctx, "Creature", data.creature, {
     x: rightX,
     y: rects.header.y + 25,
-    width: 105,
+    width: 95,
     height: 16,
   });
   drawCompanionHeaderField(ctx, "Owner", data.owner, {
-    x: rightX + 112,
+    x: rightX + 100,
     y: rects.header.y + 25,
-    width: rightWidth - 112,
+    width: rightWidth - 100,
     height: 16,
   });
   drawCompanionHeaderField(ctx, "Size", data.size, {
     x: rightX,
     y: rects.header.y + 43,
-    width: 92,
+    width: 80,
     height: 15,
   });
   drawCompanionHeaderField(ctx, "Type", data.type, {
-    x: rightX + 100,
+    x: rightX + 85,
     y: rects.header.y + 43,
-    width: 96,
+    width: 80,
     height: 15,
   });
   drawCompanionHeaderField(ctx, "Alignment", data.alignment, {
-    x: rightX + 204,
+    x: rightX + 170,
     y: rects.header.y + 43,
-    width: rightWidth - 204,
+    width: rightWidth - 170,
     height: 15,
   });
 }
