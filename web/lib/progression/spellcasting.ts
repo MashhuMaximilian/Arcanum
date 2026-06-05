@@ -217,6 +217,8 @@ function getUnlockedSubclassFeatures(record: BuiltInClassRecord | null, entry: C
 function normalizeListKey(value: string) {
   return value
     .replace(/["']/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/[^a-zA-Z0-9\s]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -347,14 +349,46 @@ function resolveSpellSupport(
 
 function getSpellSupportTokens(spell: BuiltInElement) {
   return new Set(
-    spell.supports.flatMap((support) => splitSupportKeys(support)),
+    [
+      ...spell.supports.flatMap((support) => splitSupportKeys(support)),
+      ...splitSupportKeys(getSetterValue(spell, "school")),
+    ].filter(Boolean),
+  );
+}
+
+function getSupportAliases(value: string) {
+  const normalized = normalizeListKey(value);
+  const aliases = new Set([normalized]);
+  const withoutOrderPrefix = normalized.replace(/^order of (?:the )?/, "");
+
+  aliases.add(withoutOrderPrefix);
+  if (withoutOrderPrefix.endsWith(" discipline")) {
+    aliases.add(withoutOrderPrefix.slice(0, -" discipline".length));
+  }
+
+  return [...aliases].filter(Boolean);
+}
+
+function supportTokensMatch(expected: string, actual: string) {
+  const expectedAliases = getSupportAliases(expected);
+  const actualAliases = getSupportAliases(actual);
+
+  return expectedAliases.some((expectedAlias) =>
+    actualAliases.some(
+      (actualAlias) =>
+        expectedAlias === actualAlias ||
+        actualAlias.endsWith(` ${expectedAlias}`) ||
+        expectedAlias.endsWith(` ${actualAlias}`),
+    ),
   );
 }
 
 function matchesSpellSupport(spell: BuiltInElement, supportGroups: string[][]) {
-  const tokens = getSpellSupportTokens(spell);
+  const tokens = [...getSpellSupportTokens(spell)];
 
-  return supportGroups.every((group) => group.some((token) => tokens.has(token)));
+  return supportGroups.every((group) =>
+    group.some((expected) => tokens.some((actual) => supportTokensMatch(expected, actual))),
+  );
 }
 
 function getAvailableSpellIdsForRule(
@@ -493,7 +527,15 @@ export function getPreparationCapacity(
   );
 }
 
-function buildExactSelectionNote(kind: SpellSelectionGroupKind, count: number) {
+function buildExactSelectionNote(
+  kind: SpellSelectionGroupKind,
+  count: number,
+  selectionNoun?: string,
+) {
+  if (selectionNoun) {
+    return `Choose exactly ${count} ${selectionNoun}${count === 1 ? "" : "s"}.`;
+  }
+
   switch (kind) {
     case "cantrip":
       return `Choose exactly ${count} cantrip${count === 1 ? "" : "s"}.`;
@@ -515,6 +557,7 @@ function createSelectionGroupFromRules(args: {
   ownerLabel: string;
   ownerType: SpellSelectionGroup["ownerType"];
   rules: Extract<BuiltInRule, { kind: "select" }>[];
+  selectionNoun?: string;
   spellcastingAbility?: string;
   title: string;
 }) {
@@ -547,7 +590,7 @@ function createSelectionGroupFromRules(args: {
     maxSelections: exactSelections,
     availableSpellIds: uniqueStrings(args.availableSpellIds),
     grantedSpellIds: [],
-    notes: [buildExactSelectionNote(args.kind, exactSelections)],
+    notes: [buildExactSelectionNote(args.kind, exactSelections, args.selectionNoun)],
   } satisfies SpellSelectionGroup;
 }
 
@@ -620,22 +663,38 @@ function buildGroupsForSource(
 
   selectionRules.forEach((rule) => {
     const support = resolveSpellSupport(rule, source.fallbackListKey, maxSpellLevel);
+    const isDiscipline =
+      /\bdiscipline(s)?\b/i.test(
+        [rule.name, rule.supports, source.fallbackListKey, source.ownerLabel].filter(Boolean).join(" "),
+      );
     const kind: SpellSelectionGroupKind =
       source.forceAllSpellLists
         ? "known"
-        : rule.name.toLowerCase().includes("cantrip") || support?.level === 0
+        : !isDiscipline && (rule.name.toLowerCase().includes("cantrip") || support?.level === 0)
         ? "cantrip"
         : rule.name.toLowerCase().includes("spellbook")
           ? "spellbook"
           : "known";
+    const disciplineTitle = /\bdisciplines?\b/i.test(source.ownerLabel)
+      ? source.ownerLabel
+      : `${source.ownerLabel} disciplines`;
+    const levelSpecificKnownMatch = rule.name.match(
+      /^(\d+(?:st|nd|rd|th))-level Spell,\s*(.+)$/i,
+    );
     const title =
-      kind === "cantrip"
+      isDiscipline
+        ? disciplineTitle
+        : kind === "cantrip"
         ? `${source.ownerLabel} cantrips`
         : kind === "spellbook"
           ? `${source.ownerLabel} spellbook`
+          : levelSpecificKnownMatch
+            ? `${levelSpecificKnownMatch[2]} ${levelSpecificKnownMatch[1]}-level spell`
           : `${source.ownerLabel} spells`;
     const description =
-      kind === "cantrip"
+      isDiscipline
+        ? `Choose the ${disciplineTitle.toLowerCase()} currently available.`
+        : kind === "cantrip"
         ? `Choose the ${source.ownerLabel.toLowerCase()} cantrips currently available.`
         : kind === "spellbook"
           ? `Add spells to ${source.ownerLabel.toLowerCase()}'s spellbook.`
@@ -650,7 +709,9 @@ function buildGroupsForSource(
     const groupKey =
       kind === "spellbook"
         ? [kind, normalizeListKey(rule.name)].join("|")
-        : [kind, normalizeListKey(rule.name), supportSignature].join("|");
+        : isDiscipline
+          ? [kind, "discipline", supportSignature].join("|")
+          : [kind, normalizeListKey(rule.name), supportSignature].join("|");
     const existing = grouped.get(groupKey);
     grouped.set(groupKey, {
       kind,
@@ -663,6 +724,7 @@ function buildGroupsForSource(
   const groups: SpellSelectionGroup[] = [];
 
   grouped.forEach(({ kind, rules, title, description }, groupKey) => {
+    const isDisciplineGroup = groupKey.includes("|discipline|");
     const availableSpellIds = source.forceAllSpellLists
       ? spells
           .filter((spell) => getSpellLevel(spell) <= (source.forcedMaxSpellLevel ?? maxSpellLevel))
@@ -684,7 +746,9 @@ function buildGroupsForSource(
       }
 
       const spellLevel = getSpellLevel(spell);
-      return kind === "cantrip" ? spellLevel === 0 : allowsCantrips || spellLevel > 0;
+      return kind === "cantrip"
+        ? spellLevel === 0
+        : isDisciplineGroup || allowsCantrips || spellLevel > 0;
     });
 
     groups.push(
@@ -697,6 +761,7 @@ function buildGroupsForSource(
         ownerLabel: source.ownerLabel,
         ownerType: source.ownerType,
         rules,
+        selectionNoun: isDisciplineGroup ? "discipline" : undefined,
         spellcastingAbility: source.spellcastingAbility,
         title,
       }),
@@ -849,9 +914,16 @@ export function deriveSpellcastingGroups({
     }
 
     const unlockedFeatures = getUnlockedClassFeatures(classRecord, entry.level);
+    const unlockedSubclassFeatures = getUnlockedSubclassFeatures(classRecord, entry);
+    const subclassSpellcastingLists = uniqueStrings(
+      unlockedSubclassFeatures
+        .map((feature) => feature.spellcasting?.list || feature.spellcasting?.name || "")
+        .filter(Boolean),
+    );
     const classSpellcastingRules = mergeRules(
       classRecord.class.rules,
       ...unlockedFeatures.flatMap((feature) => [feature.rules, feature.spellcasting?.rules]),
+      ...unlockedSubclassFeatures.flatMap((feature) => [feature.rules, feature.spellcasting?.rules]),
     );
     unlockedFeatures.forEach((feature) => {
       const featureRules = mergeRules(feature.rules, feature.spellcasting?.rules);
@@ -867,10 +939,14 @@ export function deriveSpellcastingGroups({
         !preparedFromSpellbook &&
         featureRules.some((rule) => rule.kind === "stat" && rule.name.endsWith(":spellcasting:prepare"));
       const isMagicalSecrets = isMagicalSecretsElement(feature);
+      const fallbackListKey =
+        feature.spellcasting?.list ||
+        feature.spellcasting?.name ||
+        (subclassSpellcastingLists.length === 1 ? subclassSpellcastingLists[0] : classRecord.class.name);
 
       sources.push({
         currentLevel: entry.level,
-        fallbackListKey: feature.spellcasting?.list || feature.spellcasting?.name || classRecord.class.name,
+        fallbackListKey,
         forceAllSpellLists: isMagicalSecrets,
         forcedMaxSpellLevel: isMagicalSecrets
           ? getCasterMaxSpellLevelForCharacterLevel(entry.level)
@@ -885,7 +961,6 @@ export function deriveSpellcastingGroups({
       });
     });
 
-    const unlockedSubclassFeatures = getUnlockedSubclassFeatures(classRecord, entry);
     unlockedSubclassFeatures.forEach((feature) => {
       const featureRules = mergeRules(feature.rules, feature.spellcasting?.rules);
 

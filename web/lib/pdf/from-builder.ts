@@ -783,6 +783,7 @@ type SheetResolvedValue =
 type SheetResolverContext = {
   acValue: number;
   classLevels: Map<string, number>;
+  companionAbilities?: Partial<Record<AbilityKey, number>>;
   hpValue: number;
   proficiencyBonus: number;
   selectedElementIds: Set<string>;
@@ -1199,6 +1200,22 @@ function resolveSheetExpression(
     };
   }
 
+  const companionAbilityMatch = key.match(
+    /^companion:(strength|dexterity|constitution|intelligence|wisdom|charisma)(?::(score|modifier))?$/i,
+  );
+  if (companionAbilityMatch) {
+    const ability = companionAbilityMatch[1].toLowerCase() as AbilityKey;
+    const mode = companionAbilityMatch[2]?.toLowerCase() ?? "score";
+    const score = context.companionAbilities?.[ability];
+    if (!Number.isFinite(score)) {
+      return null;
+    }
+    return {
+      kind: "number",
+      value: mode === "modifier" ? getAbilityModifier(score as number) : score as number,
+    };
+  }
+
   return resolveSheetStatKey(key, args, context, visiting);
 }
 
@@ -1291,10 +1308,20 @@ function buildSheetResolverContext(args: BuilderPdfSourceArgs, scopeElement?: Bu
     selectedElements: args.selectedElements,
   });
   const { selectedElementIds, statRulesByKey } = collectApplicableSheetStatRules(args, scopeElement);
+  const companionAbilities = scopeElement
+    ? Object.fromEntries(
+        ABILITY_KEYS.flatMap((ability) => {
+          const raw = scopeElement.setters.find((setter) => setter.name === ability)?.value;
+          const score = raw ? Number.parseInt(raw, 10) : Number.NaN;
+          return Number.isFinite(score) ? [[ability, score]] : [];
+        }),
+      )
+    : undefined;
 
   return {
     acValue: acData.value,
     classLevels: getClassLevelByName(args),
+    companionAbilities,
     hpValue: Number.parseInt(hpData.value, 10) || 0,
     proficiencyBonus,
     selectedElementIds,
@@ -2095,7 +2122,7 @@ function buildCompanionCards(args: BuilderPdfSourceArgs) {
         element.rules?.forEach((rule) => {
           if (rule.kind === "stat") {
             // Rules like "companion:ac" → extract value
-            const match = rule.name.match(/^companion:(\w+)$/);
+            const match = rule.name.match(/^companion:([^:]+)$/);
             if (match) {
               rulesSetters[match[1]] = rule.value;
             }
@@ -2108,6 +2135,17 @@ function buildCompanionCards(args: BuilderPdfSourceArgs) {
         // Format: key:value (e.g. "str:14", "ac:13", "cr:1/4")
         // Try setterMap first, fall back to rulesSetters for companion:xxx rules
         const getSetter = (key: string) => setterMap.get(key) ?? rulesSetters[key] ?? "";
+        const companionContext = buildSheetResolverContext(args, element);
+        const resolvedCompanionHp = resolveSheetExpression(
+          "companion:hp:max",
+          args,
+          companionContext,
+          new Set<string>(),
+        );
+        const hpValue =
+          resolvedCompanionHp?.kind === "number"
+            ? String(resolvedCompanionHp.value)
+            : getSetter("hp");
         
         const tags: string[] = [
           ...dedupedSupport,
@@ -2115,7 +2153,7 @@ function buildCompanionCards(args: BuilderPdfSourceArgs) {
           getSetter("size") ? `size:${getSetter("size")}` : null,
           getSetter("challenge") ? `cr:${getSetter("challenge")}` : null,
           getSetter("ac") ? `ac:${getSetter("ac")}` : null,
-          getSetter("hp") ? `hp:${getSetter("hp")}` : null,
+          hpValue ? `hp:${hpValue}` : null,
           getSetter("speed") ? `speed:${getSetter("speed")}` : null,
           getSetter("alignment") ? `alignment:${getSetter("alignment")}` : null,
           getSetter("senses") ? `senses:${getSetter("senses")}` : null,
@@ -2144,15 +2182,37 @@ function buildCompanionCards(args: BuilderPdfSourceArgs) {
           ids
             .map((id) => companionSubElementsById.get(id))
             .filter((entry): entry is BuiltInElement => Boolean(entry))
-            .map((entry) =>
-              withPdfTags(
+            .map((entry) => {
+              const detailContext = buildSheetResolverContext(args, entry);
+              const action =
+                fillSheetPlaceholders(entry.sheet?.action ?? "", args, detailContext) ||
+                (entry.type === "Companion Reaction"
+                  ? "Reaction"
+                  : entry.type === "Companion Action"
+                    ? "Action"
+                    : "");
+              const usage = fillSheetPlaceholders(
+                entry.sheet?.usage ??
+                  entry.sheet?.descriptions.find((description) => description.usage)?.usage ??
+                  "",
+                args,
+                detailContext,
+              );
+
+              return withPdfTags(
                 toPdfCardFromElement(entry, {
                   kind: "feature",
                   pageHint: "companion",
+                  sourceAction: action || undefined,
+                  summary: getFrontPageSummary(entry, args),
                 }),
-                [`companion-section:${section}`],
-              ),
-            ),
+                [
+                  `companion-section:${section}`,
+                  action ? `companion-action:${action}` : "",
+                  usage ? `companion-usage:${usage}` : "",
+                ].filter(Boolean),
+              );
+            }),
         );
 
         return [rootCard, ...detailCards];

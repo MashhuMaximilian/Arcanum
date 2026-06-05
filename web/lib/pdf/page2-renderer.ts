@@ -1094,6 +1094,30 @@ function companionSection(card: PdfPageCard) {
   return card.tags.find((tag) => tag.startsWith("companion-section:"))?.split(":")[1] ?? "actions";
 }
 
+function companionTagValue(card: PdfPageCard, prefix: string) {
+  return card.tags.find((tag) => tag.startsWith(prefix))?.slice(prefix.length).trim() ?? "";
+}
+
+function companionCardBody(card: PdfPageCard) {
+  const action = companionTagValue(card, "companion-action:");
+  const usage = companionTagValue(card, "companion-usage:");
+  const body = cleanHtmlText(card.summary || card.detail || "");
+  const metadata = [action, usage].filter(Boolean);
+
+  if (!metadata.length || !body.includes("|")) {
+    return body;
+  }
+
+  const parts = body.split("|").map((part) => part.trim()).filter(Boolean);
+  while (
+    parts.length > 1 &&
+    metadata.some((value) => value.toLowerCase() === parts[0].toLowerCase())
+  ) {
+    parts.shift();
+  }
+  return parts.join(" | ");
+}
+
 function renderCompanionSection(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
@@ -1133,19 +1157,38 @@ function renderCompanionSection(
   let y = rect.y + 28;
   const maxY = rect.y + rect.height - 10;
   for (const card of cards) {
-    const body = cleanHtmlText(card.summary || card.detail || "");
-    if (y + 18 > maxY) return;
+    const action = companionTagValue(card, "companion-action:");
+    const usage = companionTagValue(card, "companion-usage:");
+    const metadata = [action, usage].filter(Boolean).join(" · ");
+    const body = companionCardBody(card);
+    const titleHeight = metadata ? 10 : 11;
+    if (y + titleHeight + (metadata ? 8 : 0) + 7 > maxY) return;
+
     drawText(ctx, `${card.title}.`, {
       x: rect.x + 12,
       y,
       width: rect.width - 24,
-      height: 11,
+      height: titleHeight,
     }, {
       font: "Helvetica-Bold",
       size: 8,
       color: "#000000",
     });
-    y += 11;
+    y += titleHeight;
+
+    if (metadata) {
+      drawText(ctx, metadata.toUpperCase(), {
+        x: rect.x + 12,
+        y,
+        width: rect.width - 24,
+        height: 8,
+      }, {
+        font: "Helvetica-Bold",
+        size: 5.5,
+        color: "#555555",
+      });
+      y += 8;
+    }
 
     ctx.doc.save();
     ctx.doc.font("Helvetica").fontSize(7.2);
