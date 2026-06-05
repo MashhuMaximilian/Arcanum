@@ -944,29 +944,24 @@ function renderCompanionHpAndAc(
 ) {
   drawSvg(ctx, assets.hp, rects.hp, "contain");
   const hpThird = rects.hp.width / 3;
-  Array.from({ length: 3 }, (_, index) => {
-    maskRect(ctx, {
-      x: rects.hp.x + hpThird * index + 3,
-      y: rects.hp.y + 0.5,
-      width: hpThird - 6,
-      height: 25,
-    });
+  const hpValueHeight = 14;
+  // Mask the area under the centered MAX HP value (cell 0 only)
+  maskRect(ctx, {
+    x: rects.hp.x + 3,
+    y: rects.hp.y + Math.max(0, (rects.hp.height - hpValueHeight) / 2 - 1),
+    width: hpThird - 6,
+    height: hpValueHeight + 2,
   });
-  [
-    { value: hp, index: 0 },
-    { value: hp, index: 1 },
-  ].forEach(({ value, index }) => {
-    drawCenteredTextInRect(ctx, value, {
-      x: rects.hp.x + hpThird * index + 2,
-      y: rects.hp.y + 4,
-      width: hpThird - 4,
-      height: 18,
-    }, {
-      font: "Helvetica-Bold",
-      maxSize: 12,
-      minSize: 7,
-      color: "#000000",
-    });
+  drawCenteredTextInRect(ctx, hp, {
+    x: rects.hp.x,
+    y: rects.hp.y + Math.max(0, (rects.hp.height - hpValueHeight) / 2),
+    width: hpThird,
+    height: hpValueHeight,
+  }, {
+    font: "Helvetica-Bold",
+    maxSize: 12,
+    minSize: 7,
+    color: "#000000",
   });
 
   drawSvg(ctx, assets.ac, rects.ac, "contain");
