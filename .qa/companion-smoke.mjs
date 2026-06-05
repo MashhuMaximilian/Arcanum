@@ -14,15 +14,40 @@ const projectRoot = "/Users/max/dev/Arcanum";
 // can find web/public/pdf-svg/*.
 process.chdir(projectRoot);
 
+// Two cards: one trait ("Keen Smell") and one action ("Bite"). Tests the
+// TRAITS vs ACTIONS split in the rendered layout.
+const traitCard = {
+  id: "wolf-keen",
+  title: "Keen Hearing and Smell",
+  kind: "trait",
+  contentKind: "feature",
+  summary: "The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell.",
+  sections: [],
+  tags: [],
+};
+
+const biteCard = {
+  id: "wolf-bite",
+  title: "Bite",
+  kind: "action",
+  contentKind: "feature",
+  summary: "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone.",
+  sections: [],
+  tags: [],
+};
+
 const companionCard = {
+  id: "wolf-base",
   title: "Wolf",
+  kind: "trait",
+  contentKind: "creature",
   subtitle: "beast, CR 1/4",
   body: "",
-  summary: "Keen Hearing and Smell. The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell.\nPack Tactics. The wolf has advantage on an attack roll against a creature if at least one of the wolf's allies is within 5 ft. of the creature and the ally isn't incapacitated.",
+  summary: "Medium beast",
   sections: [],
   tags: [
     "name:Wolf",
-    "type:beast",
+    "type:Medium beast",
     "cr:1/4",
     "ac:13",
     "hp:11 (2d8+2)",
@@ -33,16 +58,14 @@ const companionCard = {
     "int:3",
     "wis:12",
     "cha:6",
-    "skill:Perception +3",
-    "skill:Stealth +4",
   ],
 };
 
 const character = {
-  name: "Smoke Test Druid",
+  name: "Thorin Ironfoot",
   level: 3,
-  classes: [{ name: "Druid", level: 3 }],
-  companionCards: [companionCard],
+  classes: [{ name: "Ranger", level: 3, subclass: "Beast Master" }],
+  companionCards: [companionCard, traitCard, biteCard],
   pagePlan: [{ kind: "companion" }],
   frontPage: { stats: [] },
 };

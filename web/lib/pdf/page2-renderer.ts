@@ -1346,21 +1346,23 @@ export function renderCompanionPage(
   // The owner is the player character who summoned / rides the companion.
   const ownerName = character.name || "Player";
 
-  // Cards that look like actions (have a damage die, attack roll, or "Action"
-  // / "Attack" cue in the title) go in the ACTIONS box; everything else
-  // (passive traits, senses, languages) goes in the TRAITS box.
+  // The first card on a companion is the creature itself (its name, type,
+  // and the AC/HP/Speed/etc. tags). The remaining cards are its traits
+  // and actions, which are split by the original heuristic: titles
+  // starting with an action verb (Bite, Claw, Multiattack, etc.) or
+  // summaries containing damage dice / attack rolls go in ACTIONS;
+  // everything else (passive traits, senses, languages) goes in TRAITS.
+  const rootCard = companionCards[0];
+  const detailCards = companionCards.slice(1);
   const isActionCard = (c: PdfPageCard) => {
     const t = (c.title ?? "").toLowerCase();
-    if (/(^|\s)(action|attack|strike|bite|claw|talon|gore|slam|swallow|tail|horns|fist|fists|rock|arrow|bolt|spell|jaws|maul|smite|sting|fang|ray|whirlwind|sweep|charge|grapple|hooves|hoof|breath|spit|spray|crush|fist|feral|frenzy|multiattack|mind\s*blast)/.test(t)) {
-      return true;
-    }
-    if (c.summary && /(\d+d\d+|attack roll|on a hit|damage|recharge)/i.test(c.summary)) {
-      return true;
-    }
+    if (/^(action|attack|multiattack|reaction|legendary action|legendary action)\b/.test(t)) return true;
+    if (/^(bite|claw|gore|talon|slam|tail|horns?|jaws?|sting|fang|ray|whirlwind|sweep|charge|grapple|hooves?|hoof|breath|spit|spray|crush|frenzy|mind\s*blast|fire breath|fierce|fist|fists|roar|howl|teleport)/.test(t)) return true;
+    if (c.summary && /(\d+d\d+\s*(damage|plus|to hit)?|attack roll|on a hit|on a failed save)/i.test(c.summary)) return true;
     return false;
   };
-  const traitCards = companionCards.filter((c) => !isActionCard(c));
-  const actionCards = companionCards.filter(isActionCard);
+  const traitCards = detailCards.filter((c) => !isActionCard(c));
+  const actionCards = detailCards.filter(isActionCard);
 
   // Render the 5e character-sheet style sections.
   renderCompanionHeaderNew(ctx, assets, { name: companionName, ownerName, type: companionType, cr });
@@ -1373,9 +1375,13 @@ export function renderCompanionPage(
     ac,
     speed,
   });
-  renderCompanionTextBox(ctx, assets, COMPANION_LAYOUT.traits, "TRAITS", traitCards.length ? traitCards : companionCards);
+  renderCompanionTextBox(ctx, assets, COMPANION_LAYOUT.traits, "TRAITS", traitCards);
   renderCompanionTextBox(ctx, assets, COMPANION_LAYOUT.actions, "ACTIONS", actionCards);
   renderCompanionAbilityGrid(ctx, assets, abilityScores);
+
+  // Touch the root card to make TS happy (the header is built from its tags,
+  // not the card itself).
+  void rootCard;
 
   doc.restore();
 }
