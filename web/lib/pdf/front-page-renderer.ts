@@ -1,6 +1,9 @@
 import type { PdfSvgAssetBundle } from "@/lib/pdf/svg-assets.server";
 import type { PdfPageCard, PdfRightColumnCompactTrait, PdfRightColumnNoteLine, ResolvedPdfCharacter } from "@/lib/pdf/types";
 import {
+  componentPoint,
+  componentRadius,
+  componentRect,
   drawCenteredTextInRect,
   drawFittedText,
   drawSvg,
@@ -279,28 +282,6 @@ function findStat(character: ResolvedPdfCharacter, key: string) {
 function findStatsByIdPrefix(character: ResolvedPdfCharacter, prefix: string) {
   const normalizedPrefix = normalizeKey(prefix);
   return character.frontPage.stats.filter((candidate) => normalizeKey(candidate.id).startsWith(normalizedPrefix));
-}
-
-function componentRect(region: PdfRect, viewBox: { width: number; height: number }, rect: PdfRect): PdfRect {
-  const scaleX = region.width / viewBox.width;
-  const scaleY = region.height / viewBox.height;
-  return {
-    x: region.x + rect.x * scaleX,
-    y: region.y + rect.y * scaleY,
-    width: rect.width * scaleX,
-    height: rect.height * scaleY,
-  };
-}
-
-function componentPoint(region: PdfRect, viewBox: { width: number; height: number }, point: { x: number; y: number }) {
-  return {
-    x: region.x + point.x * (region.width / viewBox.width),
-    y: region.y + point.y * (region.height / viewBox.height),
-  };
-}
-
-function componentRadius(region: PdfRect, viewBox: { width: number; height: number }, radius: number) {
-  return radius * Math.min(region.width / viewBox.width, region.height / viewBox.height);
 }
 
 function fitSingleLineSize(
