@@ -2109,7 +2109,30 @@ function buildCompanionCards(args: BuilderPdfSourceArgs) {
     );
   };
 
-  const companionElements = args.selectedProgressionElements.filter(isExplicitCompanionElement);
+  // Companion data elements can be referenced indirectly via <select type="Companion">
+  // rules on a class feature (e.g. Battle Smith's Steel Defender). The select rule's
+  // `default` (or first `choices[].id`) points to the actual Companion data element
+  // with the setters/rules we need for the PDF export. Resolve those here so the
+  // export doesn't fall back to the long text setter for HP.
+  const companionDataElementBySelectDefault = new Map<string, BuiltInElement>();
+  for (const progressionEl of args.selectedProgressionElements) {
+    for (const rule of progressionEl.rules ?? []) {
+      if (rule.kind !== "select" || rule.type !== "Companion") continue;
+      const defaultId = rule.choices?.[0]?.id;
+      if (!defaultId) continue;
+      const dataEl = companionSubElementsById.get(defaultId)
+        ?? args.selectedProgressionElements.find((e) => e.id === defaultId)
+        ?? args.companionDetailElements.find((e) => e.id === defaultId);
+      if (dataEl && isExplicitCompanionElement(dataEl)) {
+        companionDataElementBySelectDefault.set(progressionEl.id, dataEl);
+      }
+    }
+  }
+
+  const companionElements = uniqueById([
+    ...args.selectedProgressionElements.filter(isExplicitCompanionElement),
+    ...companionDataElementBySelectDefault.values(),
+  ]);
 
   return uniqueById(
     companionElements
@@ -2787,7 +2810,7 @@ export function buildPdfCharacterFromDraft(args: BuilderPdfDraftCatalogs & { dra
     allSelectedFeatElements,
     classRecordsByEntry,
     companionDetailElements: progressionElements.filter((element) =>
-      ["Companion Trait", "Companion Action", "Companion Reaction"].includes(element.type),
+      ["Companion", "Companion Trait", "Companion Action", "Companion Reaction"].includes(element.type),
     ),
     draft,
     effectiveAbilities,
