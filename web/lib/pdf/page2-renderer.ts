@@ -3,8 +3,10 @@ import type { PdfPageCard, ResolvedPdfCharacter } from "@/lib/pdf/types";
 import type { CharacterInventoryItem } from "@/lib/characters/types";
 import {
   drawCenteredTextInRect,
+  drawFittedText,
   drawSvg,
   drawText,
+  maskRect,
   type PdfRect,
   type PdfRenderContext,
 } from "@/lib/pdf/drawing";
@@ -15,49 +17,19 @@ import {
 } from "@/lib/pdf/page2-layout";
 import { PAGE_SIZE } from "@/lib/pdf/front-page-layout";
 
-// --- Companion page layout (3 columns below header) ---
-//
-// Page 2 is A4 portrait (595 x 842). The companion page is laid out as:
-//
-//   ┌─────────────────────────────────────────────────────────────┐
-//   │ HEADER (full width, h=60)                                  │
-//   │  Name banner (w=200)         │ Creature│Owner│Size│Type│Al  │
-//   ├─────────────────────────────────────────────────────────────┤
-//   │ LEFT  (x=10,  w=170)  │ MID  (x=185, w=130)  │ RIGHT       │
-//   │ ┌────────┐             │ ┌P─┬I─┬CR┐           │ (x=320,     │
-//   │ │PICTURE │             │ │  │  │  │           │  w=265,     │
-//   │ │        │             │ ├─┴──┴──┤           │  h=752)     │
-//   │ └────────┘             │ │ HP │AC│           │ ┌────────┐  │
-//   │ ┌─┬─┬─┐ STR/DEX/CON   │ ├─┴───┴──┤           │ │Features│  │
-//   │ │S│D│C│ (Stat Block)  │ │ Speed  │           │ │ &Traits│  │
-//   │ ├─┼─┼─┤                │ ├────────┤           │ │        │  │
-//   │ │I│W│H│ INT/WIS/CHA   │ │ Skills │           │ │        │  │
-//   │ └─┴─┴─┘                │ │  ...   │           │ │        │  │
-//   │                        │ └────────┘           │ └────────┘  │
-//   └─────────────────────────────────────────────────────────────┘
-const COMPANION_LAYOUT = {
-  // Top header band
-  header: { x: 10, y: 10, width: 575, height: 60 },
-  nameBanner: { x: 10, y: 10, width: 200, height: 60 },
-  fields: { x: 215, y: 10, width: 370, height: 60 },
-  // Body top
-  bodyTop: 80,
+// Companion pages stay A4 portrait. The desired composition is translated
+// into three balanced columns below the full-width decorative header:
+// picture/abilities, core stats/senses, and actions.
+const COMPANION_PAGE = {
+  width: PAGE_SIZE.width,
+  height: PAGE_SIZE.height,
+  margin: 10,
+  headerHeight: 69,
+  bodyTop: 84,
   bodyBottom: 832,
-  // Left column (Picture + 6 abilities 3x2 grid)
-  left: {
-    x: 10,
-    width: 170,
-    picture: { x: 10, y: 80, width: 170, height: 170 },
-    abilities: { x: 10, y: 260, width: 170, height: 270 },
-  },
-  // Middle column (Prof+Init+CR, HP+AC, Speeds, Skills)
-  middle: { x: 185, width: 130 },
-  // Right column (single Features box, full body height)
-  right: {
-    x: 320,
-    width: 265,
-    features: { x: 320, y: 80, width: 265, height: 752 },
-  },
+  gutter: 9,
+  leftWidth: 190,
+  middleWidth: 170,
 } as const;
 
 // --- Typography constants for page 2 ---
@@ -550,402 +522,659 @@ export function renderInventoryPage(
 }
 
 // ============================================================
-// RENDER COMPANION PAGE — clean 3-column layout below header
+// RENDER COMPANION PAGE
 // ============================================================
-//
-// The companion page is a single A4 page with a header band and 3 body
-// columns (LEFT, MIDDLE, RIGHT). All rects are computed up-front in
-// computeCompanionLayout(), then the columns are drawn in order:
-// container SVGs first, then text on top. This guarantees no overlap.
-//
-//   ┌──────────────────────────────────────────────────────────────┐
-//   │ HEADER  Name banner (w=200)  │ 5 fields (w=370)              │
-//   ├──────────┬───────────────────┬──────────────────────────────┤
-//   │ LEFT     │ MIDDLE            │ RIGHT                         │
-//   │ PICTURE  │ 3× BonusBox       │                               │
-//   │ 6× Stat  │ HP + AC           │ FEATURES (full height)        │
-//   │ Block    │ 1× Passive        │                               │
-//   │ (3x2)    │ General Skills    │                               │
-//   └──────────┴───────────────────┴──────────────────────────────┘
 
-/** All bounding boxes for the companion page, computed once. */
-type CompanionRects = {
-  header: PdfRect;
-  nameBanner: PdfRect;
-  fields: PdfRect;
-  // Field sub-rects (5 small fields inside the fields rect)
-  fieldSlots: Array<{ label: string; rect: PdfRect }>;
-  // Left column
-  picture: PdfRect;
-  abilityCells: Array<{ key: string; label: string; rect: PdfRect }>;
-  // Middle column
-  profInitCr: PdfRect[]; // 3 boxes
-  hp: PdfRect;
-  ac: PdfRect;
-  speed: PdfRect;
-  skills: PdfRect;
-  // Right column
-  features: PdfRect;
+type CompanionAbilityCell = {
+  key: "str" | "dex" | "con" | "int" | "wis" | "cha";
+  label: string;
+  rect: PdfRect;
 };
 
+type CompanionRects = {
+  header: PdfRect;
+  leftColumn: PdfRect;
+  middleColumn: PdfRect;
+  rightColumn: PdfRect;
+  picture: PdfRect;
+  abilityCells: CompanionAbilityCell[];
+  bonusBoxes: PdfRect[];
+  hp: PdfRect;
+  ac: PdfRect;
+  speedLabel: PdfRect;
+  speedBoxes: PdfRect[];
+  skills: PdfRect;
+  actions: PdfRect;
+};
+
+const STAT_VIEWBOX = { width: 55, height: 72 } as const;
+
 function computeCompanionLayout(): CompanionRects {
-  const { header, nameBanner, fields, left, middle, right } = COMPANION_LAYOUT;
+  const pageWidth = COMPANION_PAGE.width;
+  const bodyHeight = COMPANION_PAGE.bodyBottom - COMPANION_PAGE.bodyTop;
+  const leftX = COMPANION_PAGE.margin;
+  const middleX = leftX + COMPANION_PAGE.leftWidth + COMPANION_PAGE.gutter;
+  const rightX = middleX + COMPANION_PAGE.middleWidth + COMPANION_PAGE.gutter;
+  const rightWidth = pageWidth - COMPANION_PAGE.margin - rightX;
 
-  // Field slots: 5 fields (Creature, Owner, Size, Type, Alignment)
-  const fieldLabels = ["Creature", "Owner", "Size", "Type", "Alignment"];
-  const fieldGap = 2;
-  const slotW = (fields.width - fieldGap * (fieldLabels.length - 1)) / fieldLabels.length;
-  const fieldSlots = fieldLabels.map((label, i) => ({
+  const leftColumn: PdfRect = {
+    x: leftX,
+    y: COMPANION_PAGE.bodyTop,
+    width: COMPANION_PAGE.leftWidth,
+    height: bodyHeight,
+  };
+  const middleColumn: PdfRect = {
+    x: middleX,
+    y: COMPANION_PAGE.bodyTop,
+    width: COMPANION_PAGE.middleWidth,
+    height: bodyHeight,
+  };
+  const rightColumn: PdfRect = {
+    x: rightX,
+    y: COMPANION_PAGE.bodyTop,
+    width: rightWidth,
+    height: bodyHeight,
+  };
+
+  const picture: PdfRect = {
+    x: leftColumn.x,
+    y: leftColumn.y,
+    width: leftColumn.width,
+    height: 260,
+  };
+
+  const abilityGapX = 7.5;
+  const abilityGapY = 10;
+  const abilityWidth = (leftColumn.width - abilityGapX * 2) / 3;
+  const abilityHeight = abilityWidth * (STAT_VIEWBOX.height / STAT_VIEWBOX.width);
+  const abilityTop = picture.y + picture.height + 12;
+  const abilitySpecs = [
+    ["str", "STR"],
+    ["dex", "DEX"],
+    ["con", "CON"],
+    ["int", "INT"],
+    ["wis", "WIS"],
+    ["cha", "CHA"],
+  ] as const;
+  const abilityCells = abilitySpecs.map(([key, label], index) => ({
+    key,
     label,
-    rect: { x: fields.x + i * (slotW + fieldGap), y: fields.y, width: slotW, height: fields.height },
-  }));
-
-  // Ability cells: 3x2 grid, each cell preserves the SVG's natural aspect
-  // ratio (55 × 72 = 0.764) so the stat block shapes don't get squished.
-  const gap = 4;
-  const cellW = (left.abilities.width - gap * 2) / 3;
-  // Natural height for the cell width: 72/55 = 1.31, so cellH = cellW * 1.31
-  const cellH = Math.min(110, cellW * (72 / 55));
-  // 2 rows × cellH + 1 gap = total grid height. Center the grid vertically
-  // inside the abilities area.
-  const gridH = 2 * cellH + gap;
-  const gridY = left.abilities.y + Math.max(0, (left.abilities.height - gridH) / 2);
-  const abilities: Array<{ key: string; label: string }> = [
-    { key: "str", label: "STR" },
-    { key: "dex", label: "DEX" },
-    { key: "con", label: "CON" },
-    { key: "int", label: "INT" },
-    { key: "wis", label: "WIS" },
-    { key: "cha", label: "CHA" },
-  ];
-  const abilityCells = abilities.map((ab, i) => ({
-    ...ab,
     rect: {
-      x: left.abilities.x + (i % 3) * (cellW + gap),
-      y: gridY + Math.floor(i / 3) * (cellH + gap),
-      width: cellW,
-      height: cellH,
+      x: leftColumn.x + (index % 3) * (abilityWidth + abilityGapX),
+      y: abilityTop + Math.floor(index / 3) * (abilityHeight + abilityGapY),
+      width: abilityWidth,
+      height: abilityHeight,
     },
   }));
 
-  // Middle column: vertical stack of stat boxes
-  const m = { x: middle.x, width: middle.width };
-  let y = COMPANION_LAYOUT.bodyTop;
-  const boxH = 38;
-  const profInitCrH = 40;
-  // Row 1: 3 bonus boxes (Prof / Init / CR)
-  const bonusW = (m.width - gap * 2) / 3;
-  const profInitCr = [
-    { x: m.x, y, width: bonusW, height: profInitCrH },
-    { x: m.x + bonusW + gap, y, width: bonusW, height: profInitCrH },
-    { x: m.x + 2 * (bonusW + gap), y, width: bonusW, height: profInitCrH },
-  ];
-  y += profInitCrH + gap;
-  // Row 2: HP + AC (HP is wide, AC is narrow)
-  const hpW = Math.floor(m.width * 0.62);
-  const acW = m.width - hpW - gap;
-  const hpRect: PdfRect = { x: m.x, y, width: hpW, height: boxH };
-  const acRect: PdfRect = { x: m.x + hpW + gap, y, width: acW, height: boxH };
-  y += boxH + gap;
-  // Row 3: Speeds (a small passive box, full middle-column width as a labelled row)
-  const speedRect: PdfRect = { x: m.x, y, width: m.width, height: boxH };
-  y += boxH + gap;
-  // Row 4: Skills (takes the rest of the column)
-  const skillsHeight = COMPANION_LAYOUT.bodyBottom - y - 4;
-  const skillsRect: PdfRect = { x: m.x, y, width: m.width, height: skillsHeight };
+  const bonusGap = 5;
+  const bonusWidth = (middleColumn.width - bonusGap * 2) / 3;
+  const bonusHeight = bonusWidth * (42 / 45);
+  const bonusBoxes = Array.from({ length: 3 }, (_, index) => ({
+    x: middleColumn.x + index * (bonusWidth + bonusGap),
+    y: middleColumn.y,
+    width: bonusWidth,
+    height: bonusHeight,
+  }));
+
+  const hpRowY = middleColumn.y + bonusHeight + 12;
+  const acWidth = 42;
+  const hpWidth = middleColumn.width - acWidth - 6;
+  const hpHeight = hpWidth * (42 / 138);
+  const hp: PdfRect = {
+    x: middleColumn.x,
+    y: hpRowY + Math.max(0, (44 - hpHeight) / 2),
+    width: hpWidth,
+    height: hpHeight,
+  };
+  const ac: PdfRect = {
+    x: middleColumn.x + hpWidth + 6,
+    y: hpRowY,
+    width: acWidth,
+    height: 44,
+  };
+
+  const speedTop = hpRowY + 54;
+  const speedLabel: PdfRect = {
+    x: middleColumn.x,
+    y: speedTop,
+    width: middleColumn.width,
+    height: 8,
+  };
+  const speedBoxGap = (middleColumn.width - 29 * 5) / 4;
+  const speedBoxes = Array.from({ length: 5 }, (_, index) => ({
+    x: middleColumn.x + index * (29 + speedBoxGap),
+    y: speedTop + 8,
+    width: 29,
+    height: 34,
+  }));
+  const skillsTop = speedTop + 49;
+  const skills: PdfRect = {
+    x: middleColumn.x,
+    y: skillsTop,
+    width: middleColumn.width,
+    height: COMPANION_PAGE.bodyBottom - skillsTop,
+  };
 
   return {
-    header,
-    nameBanner,
-    fields,
-    fieldSlots,
-    picture: left.picture,
+    header: {
+      x: COMPANION_PAGE.margin,
+      y: 7,
+      width: pageWidth - COMPANION_PAGE.margin * 2,
+      height: COMPANION_PAGE.headerHeight,
+    },
+    leftColumn,
+    middleColumn,
+    rightColumn,
+    picture,
     abilityCells,
-    profInitCr,
-    hp: hpRect,
-    ac: acRect,
-    speed: speedRect,
-    skills: skillsRect,
-    features: right.features,
+    bonusBoxes,
+    hp,
+    ac,
+    speedLabel,
+    speedBoxes,
+    skills,
+    actions: { ...rightColumn },
   };
 }
 
-/** Renders the full-width header band. */
+function mapComponentRect(component: PdfRect, viewBox: { width: number; height: number }, slot: PdfRect): PdfRect {
+  return {
+    x: component.x + slot.x * (component.width / viewBox.width),
+    y: component.y + slot.y * (component.height / viewBox.height),
+    width: slot.width * (component.width / viewBox.width),
+    height: slot.height * (component.height / viewBox.height),
+  };
+}
+
+function drawCompanionHeaderLine(ctx: PdfRenderContext, rect: PdfRect) {
+  const doc = ctx.doc as unknown as {
+    save: () => void;
+    restore: () => void;
+    strokeColor: (color: string) => {
+      lineWidth: (width: number) => {
+        dash: (length: number, options: { space: number }) => {
+          moveTo: (x: number, y: number) => {
+            lineTo: (x: number, y: number) => {
+              stroke: () => {
+                undash: () => void;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  doc.save();
+  doc
+    .strokeColor("#a7a7a7")
+    .lineWidth(0.25)
+    .dash(0.7, { space: 0.8 })
+    .moveTo(rect.x, rect.y)
+    .lineTo(rect.x + rect.width, rect.y)
+    .stroke()
+    .undash();
+  doc.restore();
+}
+
+function drawCompanionHeaderField(
+  ctx: PdfRenderContext,
+  label: string,
+  value: string,
+  rect: PdfRect,
+) {
+  drawText(ctx, label.toUpperCase(), {
+    x: rect.x,
+    y: rect.y,
+    width: rect.width,
+    height: 6,
+  }, {
+    font: "Helvetica",
+    size: 3.5,
+    color: "#777777",
+    lineBreak: false,
+  });
+  drawCompanionHeaderLine(ctx, {
+    x: rect.x,
+    y: rect.y + rect.height - 1,
+    width: rect.width,
+    height: 0,
+  });
+  if (value) {
+    drawFittedText(ctx, value, {
+      x: rect.x,
+      y: rect.y + 6,
+      width: rect.width,
+      height: rect.height - 7,
+    }, {
+      font: "Helvetica",
+      maxSize: 6.4,
+      minSize: 4.2,
+      color: "#000000",
+      lineBreak: false,
+      ellipsis: true,
+    });
+  }
+}
+
 function renderCompanionHeader(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
   rects: CompanionRects,
-  data: { name: string; fields: Record<string, string> },
-) {
-  // Outer header frame (use the front-page header shell as the bordered background)
-  drawSvg(ctx, assets.frontPageHeaderShell, rects.header);
-
-  // Name banner (left part of the header)
-  const nb = rects.nameBanner;
-  drawText(ctx, data.name.toUpperCase(), { x: nb.x + 6, y: nb.y + 6, width: nb.width - 12, height: 22 }, {
-    font: "Times-Bold",
-    size: 18,
-    color: COLORS.textPrimary,
-  });
-  // Subtitle: the type line
-  const sub = (data.fields.Type ? `${data.fields.Type} · ` : "") + (data.fields.Alignment || "Companion");
-  drawText(ctx, sub, { x: nb.x + 6, y: nb.y + 30, width: nb.width - 12, height: 14 }, {
-    font: "Times-Italic",
-    size: 10,
-    color: COLORS.textSecondary,
-  });
-  // CR small label (top-right of the banner)
-  drawText(ctx, `CR ${data.fields["Challenge Rating"] || "—"}`, { x: nb.x + 6, y: nb.y + 44, width: nb.width - 12, height: 12 }, {
-    font: "Helvetica-Bold",
-    size: 8,
-    color: COLORS.textSecondary,
-  });
-
-  // 5 small fields on the right
-  for (const slot of rects.fieldSlots) {
-    // Label at top
-    drawText(ctx, slot.label.toUpperCase(), { x: slot.rect.x + 2, y: slot.rect.y + 4, width: slot.rect.width - 4, height: 10 }, {
-      font: "Helvetica-Bold",
-      size: 6,
-      color: COLORS.textSecondary,
-    });
-    // Value below
-    const value = data.fields[slot.label] || "—";
-    drawCenteredTextInRect(ctx, value, { x: slot.rect.x, y: slot.rect.y + 16, width: slot.rect.width, height: slot.rect.height - 18 }, {
-      font: "Helvetica",
-      maxSize: 10,
-      minSize: 6,
-      color: COLORS.textPrimary,
-    });
-  }
-}
-
-/** Renders the LEFT column: PICTURE placeholder + 6 ability scores in 3x2 grid. */
-function renderCompanionLeftColumn(
-  ctx: PdfRenderContext,
-  assets: PdfSvgAssetBundle,
-  rects: CompanionRects,
-  scores: Record<string, number>,
-) {
-  // Picture frame (custom rectangle — no SVG per the spec)
-  const pic = rects.picture;
-  const docAny = ctx.doc as unknown as {
-    rect: (x: number, y: number, w: number, h: number) => { stroke: (c: string, w: number) => void };
-  };
-  docAny.rect(pic.x, pic.y, pic.width, pic.height).stroke("#666666", 0.8);
-  drawText(ctx, "[ Picture ]", { x: pic.x, y: pic.y + pic.height / 2 - 6, width: pic.width, height: 12 }, {
-    font: "Helvetica-Oblique",
-    size: 9,
-    color: COLORS.textTertiary,
-    align: "center",
-  });
-
-  // 6 ability score cells (each uses _Stat Block.svg, preserved aspect)
-  for (const cell of rects.abilityCells) {
-    // Letterbox the SVG inside the cell so the natural aspect is preserved.
-    drawSvg(ctx, assets.statBlock, cell.rect, "contain");
-
-    const score = scores[cell.key] ?? 10;
-    const mod = Math.floor((score - 10) / 2);
-    const modStr = formatModifier(mod);
-
-    // Label (top of the cell)
-    drawCenteredTextInRect(ctx, cell.label, { x: cell.rect.x, y: cell.rect.y + 4, width: cell.rect.width, height: 8 }, {
-      font: "Helvetica-Bold",
-      maxSize: 6.5,
-      minSize: 4,
-      color: COLORS.textSecondary,
-    });
-    // Score (big bold, centered in the cell)
-    drawCenteredTextInRect(ctx, String(score), { x: cell.rect.x, y: cell.rect.y + cell.rect.height * 0.20, width: cell.rect.width, height: cell.rect.height * 0.55 }, {
-      font: "Times-Bold",
-      maxSize: 18,
-      minSize: 10,
-      color: COLORS.textPrimary,
-    });
-    // Modifier (small, below the score)
-    drawCenteredTextInRect(ctx, modStr, { x: cell.rect.x, y: cell.rect.y + cell.rect.height * 0.78, width: cell.rect.width, height: cell.rect.height * 0.18 }, {
-      font: "Times-Roman",
-      maxSize: 8,
-      minSize: 5,
-      color: COLORS.textSecondary,
-    });
-  }
-}
-
-/** Renders the MIDDLE column: Prof/Init/CR, HP/AC, Speeds, Skills. */
-function renderCompanionMiddleColumn(
-  ctx: PdfRenderContext,
-  assets: PdfSvgAssetBundle,
-  rects: CompanionRects,
   data: {
-    prof: number;
-    init: number;
-    cr: string;
-    maxHp: string;
-    ac: string;
-    speed: string;
-    skills: string[];
+    name: string;
+    creature: string;
+    owner: string;
+    size: string;
+    type: string;
+    alignment: string;
   },
 ) {
-  // Row 1: 3 bonus boxes (Prof / Init / CR)
-  const labels1 = ["PROFICIENCY", "INITIATIVE", "CHALLENGE"];
-  const values1 = [`+${data.prof}`, formatModifier(data.init), data.cr];
-  rects.profInitCr.forEach((rect, i) => {
-    drawLabeledStatBox(ctx, assets, rect, "bonusBox", labels1[i], values1[i]);
+  drawSvg(ctx, assets.frontPageHeaderShell || assets.frontPageHeader, rects.header);
+
+  drawFittedText(ctx, data.name, {
+    x: rects.header.x + 20,
+    y: rects.header.y + 35,
+    width: 166,
+    height: 17,
+  }, {
+    font: "Times-Bold",
+    maxSize: 17,
+    minSize: 9,
+    color: "#000000",
+    lineBreak: false,
   });
 
-  // Row 2: HP (wide) + AC (narrow)
-  drawLabeledStatBox(ctx, assets, rects.hp, "hp", "HIT POINTS", data.maxHp, { valueSize: 18 });
-  drawLabeledStatBox(ctx, assets, rects.ac, "ac", "ARMOR CLASS", data.ac, { valueSize: 18 });
-
-  // Row 3: Speeds (small passive box, full middle-column width as a labelled row)
-  drawLabeledStatBox(ctx, assets, rects.speed, "passiveBox", "SPEED", data.speed, { valueSize: 10, labelSize: 6 });
-
-  // Row 4: Skills (general box)
-  drawSvg(ctx, assets.generalContainer, rects.skills);
-  drawText(ctx, "SKILLS", { x: rects.skills.x + 4, y: rects.skills.y + 2, width: rects.skills.width - 8, height: 9 }, {
-    font: "Helvetica-Bold",
-    size: 6.5,
-    color: COLORS.textSecondary,
+  const rightX = rects.header.x + 232;
+  const rightWidth = rects.header.width - 255;
+  drawCompanionHeaderField(ctx, "Creature", data.creature, {
+    x: rightX,
+    y: rects.header.y + 25,
+    width: 105,
+    height: 16,
   });
-
-  let sy = rects.skills.y + 14;
-  if (data.skills.length === 0) {
-    drawText(ctx, "—", { x: rects.skills.x + 4, y: sy, width: rects.skills.width - 8, height: 8 }, {
-      font: "Times-Italic",
-      size: 7,
-      color: COLORS.textTertiary,
-    });
-    return;
-  }
-  // 1-column skill list (the middle column is too narrow for 2 columns)
-  for (const skill of data.skills) {
-    if (sy + 9 > rects.skills.y + rects.skills.height - 2) break;
-    drawText(ctx, skill, { x: rects.skills.x + 4, y: sy, width: rects.skills.width - 8, height: 8 }, {
-      font: "Helvetica",
-      size: 6.5,
-      color: COLORS.textPrimary,
-    });
-    sy += 9;
-  }
+  drawCompanionHeaderField(ctx, "Owner", data.owner, {
+    x: rightX + 112,
+    y: rects.header.y + 25,
+    width: rightWidth - 112,
+    height: 16,
+  });
+  drawCompanionHeaderField(ctx, "Size", data.size, {
+    x: rightX,
+    y: rects.header.y + 43,
+    width: 92,
+    height: 15,
+  });
+  drawCompanionHeaderField(ctx, "Type", data.type, {
+    x: rightX + 100,
+    y: rects.header.y + 43,
+    width: 96,
+    height: 15,
+  });
+  drawCompanionHeaderField(ctx, "Alignment", data.alignment, {
+    x: rightX + 204,
+    y: rects.header.y + 43,
+    width: rightWidth - 204,
+    height: 15,
+  });
 }
 
-/** Renders the RIGHT column: a single Features & Traits box. */
-function renderCompanionRightColumn(
+function renderCompanionPicture(ctx: PdfRenderContext, rect: PdfRect) {
+  const doc = ctx.doc as unknown as {
+    save: () => void;
+    restore: () => void;
+    rect: (x: number, y: number, width: number, height: number) => {
+      lineWidth: (width: number) => {
+        strokeColor: (color: string) => {
+          stroke: () => void;
+        };
+      };
+    };
+  };
+  doc.save();
+  doc.rect(rect.x, rect.y, rect.width, rect.height)
+    .lineWidth(0.8)
+    .strokeColor("#b8b8b8")
+    .stroke();
+  doc.restore();
+  drawCenteredTextInRect(ctx, "Picture", rect, {
+    font: "Helvetica",
+    maxSize: 14,
+    minSize: 10,
+    color: "#111111",
+  });
+}
+
+function renderCompanionAbilities(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
   rects: CompanionRects,
-  cards: PdfPageCard[],
+  scores: Record<CompanionAbilityCell["key"], number>,
 ) {
-  const r = rects.features;
-  drawSvg(ctx, assets.generalContainer, r);
-  drawText(ctx, "FEATURES & TRAITS", { x: r.x + 6, y: r.y + 4, width: r.width - 12, height: 12 }, {
-    font: "Times-Bold",
-    size: 11,
-    color: COLORS.textPrimary,
-  });
+  const slots = {
+    save: { x: 11, y: 7.2, width: 33, height: 9.2 },
+    score: { x: 10.5, y: 26.8, width: 34, height: 15.5 },
+    label: { x: 10, y: 45, width: 35, height: 8 },
+    modifier: { x: 12, y: 57.2, width: 31, height: 10.6 },
+  } satisfies Record<string, PdfRect>;
 
-  // Underline
-  const docAny = ctx.doc as unknown as { moveTo: (x: number, y: number) => { lineTo: (x: number, y: number) => { stroke: (c: string, w: number) => void } } };
-  docAny.moveTo(r.x + 6, r.y + 18).lineTo(r.x + r.width - 6, r.y + 18).stroke("#666666", 0.5);
+  for (const cell of rects.abilityCells) {
+    drawSvg(ctx, assets.statBlock, cell.rect, "contain");
+    const score = scores[cell.key];
+    const modifier = Math.floor((score - 10) / 2);
+    const valueOptions = {
+      font: "Helvetica-Bold",
+      minSize: 5,
+      color: "#000000",
+    } as const;
 
-  let y = r.y + 22;
-  const maxY = r.y + r.height - 4;
-  const innerW = r.width - 12;
-  const bodySize = 7.5;
-
-  if (cards.length === 0) {
-    drawText(ctx, "—", { x: r.x + 6, y, width: innerW, height: 10 }, {
-      font: "Times-Italic",
-      size: 8,
-      color: COLORS.textTertiary,
+    drawCenteredTextInRect(ctx, formatModifier(modifier), mapComponentRect(cell.rect, STAT_VIEWBOX, slots.save), {
+      ...valueOptions,
+      maxSize: 8.4,
     });
-    return;
-  }
-
-  for (const card of cards) {
-    if (y + 14 > maxY) break;
-    // Title
-    drawText(ctx, card.title, { x: r.x + 6, y, width: innerW, height: 10 }, {
-      font: "Times-Bold",
-      size: 8,
-      color: COLORS.textPrimary,
+    drawCenteredTextInRect(ctx, String(score), mapComponentRect(cell.rect, STAT_VIEWBOX, slots.score), {
+      ...valueOptions,
+      maxSize: 14.5,
+      minSize: 8,
     });
-    y += 10;
-    if (card.summary) {
-      const maxCharsPerLine = Math.floor(innerW / (bodySize * 0.55));
-      const lines = card.summary.split("\n").flatMap((line) => wrapText(line, maxCharsPerLine));
-      for (const line of lines) {
-        if (y + bodySize + 1 > maxY) break;
-        drawText(ctx, line, { x: r.x + 8, y, width: innerW - 4, height: bodySize + 1 }, {
-          font: "Times-Roman",
-          size: bodySize,
-          color: COLORS.textPrimary,
-        });
-        y += bodySize + 1;
-      }
-    }
-    y += 4;
+    maskRect(ctx, mapComponentRect(cell.rect, STAT_VIEWBOX, {
+      x: 13.5,
+      y: 43.8,
+      width: 28,
+      height: 8,
+    }));
+    drawCenteredTextInRect(ctx, cell.label, mapComponentRect(cell.rect, STAT_VIEWBOX, slots.label), {
+      font: "Helvetica",
+      maxSize: 7,
+      minSize: 5,
+      color: "#000000",
+    });
+    drawCenteredTextInRect(ctx, formatModifier(modifier), mapComponentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
+      ...valueOptions,
+      maxSize: 8.2,
+    });
   }
 }
 
-/** Draws a labeled stat box: an SVG frame with a small label on top and a
- *  large value below, both centered. */
-function drawLabeledStatBox(
+function renderCompanionBonusBox(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
   rect: PdfRect,
-  bg: "bonusBox" | "hp" | "ac" | "passiveBox" | "generalContainer",
-  label: string,
   value: string,
-  options?: { labelSize?: number; valueSize?: number },
+  label: string,
 ) {
-  drawSvg(ctx, assets[bg], rect);
-
-  // Top strip: small caption label
-  const labelHeight = Math.max(8, Math.floor(rect.height * 0.30));
-  drawCenteredTextInRect(ctx, label, { x: rect.x, y: rect.y + 1, width: rect.width, height: labelHeight - 1 }, {
-    font: "Helvetica-Bold",
-    maxSize: options?.labelSize ?? 6,
-    minSize: 4,
-    color: COLORS.textSecondary,
+  drawSvg(ctx, assets.bonusBox, rect, "contain");
+  maskRect(ctx, {
+    x: rect.x + 5,
+    y: rect.y + 4,
+    width: rect.width - 10,
+    height: rect.height - 7,
   });
-
-  // Bottom: large value
-  drawCenteredTextInRect(ctx, value, { x: rect.x, y: rect.y + labelHeight, width: rect.width, height: rect.height - labelHeight - 1 }, {
-    font: "Times-Bold",
-    maxSize: options?.valueSize ?? 14,
-    minSize: 6,
-    color: COLORS.textPrimary,
+  drawCenteredTextInRect(ctx, value, {
+    x: rect.x + 5,
+    y: rect.y + 7,
+    width: rect.width - 10,
+    height: 17,
+  }, {
+    font: "Helvetica-Bold",
+    maxSize: 12,
+    minSize: 7,
+    color: "#000000",
+  });
+  drawCenteredTextInRect(ctx, label, {
+    x: rect.x + 3,
+    y: rect.y + 27,
+    width: rect.width - 6,
+    height: rect.height - 30,
+  }, {
+    font: "Helvetica",
+    maxSize: 5.1,
+    minSize: 3.5,
+    color: "#000000",
+    lineGap: 0,
   });
 }
 
-/** Wraps a single line of text to `width` characters per line. */
-function wrapText(text: string, width: number): string[] {
-  if (width <= 0) return [text];
-  const words = text.split(/\s+/);
-  const out: string[] = [];
-  let current = "";
-  for (const w of words) {
-    if (!current) {
-      current = w;
-    } else if ((current + " " + w).length <= width) {
-      current += " " + w;
-    } else {
-      out.push(current);
-      current = w;
+function renderCompanionHpAndAc(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  rects: CompanionRects,
+  hp: string,
+  ac: string,
+) {
+  drawSvg(ctx, assets.hp, rects.hp, "contain");
+  const hpThird = rects.hp.width / 3;
+  Array.from({ length: 3 }, (_, index) => {
+    maskRect(ctx, {
+      x: rects.hp.x + hpThird * index + 3,
+      y: rects.hp.y + 0.5,
+      width: hpThird - 6,
+      height: 25,
+    });
+  });
+  [
+    { value: hp, index: 0 },
+    { value: hp, index: 1 },
+  ].forEach(({ value, index }) => {
+    drawCenteredTextInRect(ctx, value, {
+      x: rects.hp.x + hpThird * index + 2,
+      y: rects.hp.y + 4,
+      width: hpThird - 4,
+      height: 18,
+    }, {
+      font: "Helvetica-Bold",
+      maxSize: 12,
+      minSize: 7,
+      color: "#000000",
+    });
+  });
+
+  drawSvg(ctx, assets.ac, rects.ac, "contain");
+  drawCenteredTextInRect(ctx, ac, {
+    x: rects.ac.x + 5,
+    y: rects.ac.y + 10,
+    width: rects.ac.width - 10,
+    height: 18,
+  }, {
+    font: "Helvetica-Bold",
+    maxSize: 13,
+    minSize: 8,
+    color: "#000000",
+  });
+}
+
+function parseMovementSpeeds(raw: string) {
+  const normalized = raw.toLowerCase();
+  const findMode = (mode: string) => normalized.match(new RegExp(`${mode}(?:ing)?\\s*(\\d+)\\s*ft`))?.[1] ?? "";
+  const walking = normalized.match(/(?:^|[,;])\s*(?:walk(?:ing)?\s*)?(\d+)\s*ft/)?.[1] ?? "";
+  return [
+    { label: "Walking", value: walking },
+    { label: "Flying", value: findMode("fly") },
+    { label: "Climbing", value: findMode("climb") },
+    { label: "Swimming", value: findMode("swim") },
+    { label: "Burrowing", value: findMode("burrow") },
+  ];
+}
+
+function renderCompanionSpeeds(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  rects: CompanionRects,
+  speed: string,
+) {
+  drawCenteredTextInRect(ctx, "SPEED", rects.speedLabel, {
+    font: "Helvetica",
+    maxSize: 4.5,
+    minSize: 3.5,
+    color: "#777777",
+  });
+  const entries = parseMovementSpeeds(speed);
+  rects.speedBoxes.forEach((rect, index) => {
+    drawSvg(ctx, assets.passiveBox, rect, "contain");
+    drawCenteredTextInRect(ctx, entries[index].value, {
+      x: rect.x + 3,
+      y: rect.y + 8,
+      width: rect.width - 6,
+      height: 10,
+    }, {
+      font: "Helvetica-Bold",
+      maxSize: 7.5,
+      minSize: 5,
+      color: "#000000",
+    });
+    drawCenteredTextInRect(ctx, entries[index].label, {
+      x: rect.x + 1,
+      y: rect.y + 25,
+      width: rect.width - 2,
+      height: 7,
+    }, {
+      font: "Helvetica",
+      maxSize: 3.8,
+      minSize: 2.8,
+      color: "#333333",
+      lineGap: 0,
+    });
+  });
+}
+
+function renderCompanionSkills(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  rect: PdfRect,
+  skills: string[],
+) {
+  drawSvg(ctx, assets.generalContainer, rect);
+  drawCenteredTextInRect(ctx, "SKILLS & SENSES", {
+    x: rect.x + 8,
+    y: rect.y + 19,
+    width: rect.width - 16,
+    height: 10,
+  }, {
+    font: "Helvetica-Bold",
+    maxSize: 6.5,
+    minSize: 5,
+    color: "#222222",
+  });
+  let y = rect.y + 38;
+  for (const line of skills) {
+    drawText(ctx, line, {
+      x: rect.x + 10,
+      y,
+      width: rect.width - 20,
+      height: 13,
+    }, {
+      font: "Helvetica",
+      size: 7.5,
+      color: "#000000",
+      lineGap: 0,
+    });
+    y += 15;
+  }
+}
+
+function companionSection(card: PdfPageCard) {
+  return card.tags.find((tag) => tag.startsWith("companion-section:"))?.split(":")[1] ?? "actions";
+}
+
+function renderCompanionActions(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  rect: PdfRect,
+  cards: PdfPageCard[],
+) {
+  drawSvg(ctx, assets.generalContainer, rect);
+  const sections = ["traits", "actions", "reactions"] as const;
+  const populated = sections.filter((section) => cards.some((card) => companionSection(card) === section));
+  const title = populated.length === 1
+    ? populated[0].toUpperCase()
+    : "FEATURES, TRAITS & ACTIONS";
+
+  drawCenteredTextInRect(ctx, title, {
+    x: rect.x + 10,
+    y: rect.y + 19,
+    width: rect.width - 20,
+    height: 11,
+  }, {
+    font: "Helvetica-Bold",
+    maxSize: 7.5,
+    minSize: 5.5,
+    color: "#222222",
+  });
+
+  let y = rect.y + 38;
+  const maxY = rect.y + rect.height - 12;
+  for (const section of populated) {
+    const sectionCards = cards.filter((card) => companionSection(card) === section);
+    if (populated.length > 1) {
+      drawText(ctx, section.toUpperCase(), {
+        x: rect.x + 12,
+        y,
+        width: rect.width - 24,
+        height: 10,
+      }, {
+        font: "Helvetica-Bold",
+        size: 7,
+        color: "#333333",
+      });
+      y += 13;
+    }
+
+    for (const card of sectionCards) {
+      const body = cleanHtmlText(card.summary || card.detail || "");
+      if (y + 18 > maxY) return;
+      drawText(ctx, `${card.title}.`, {
+        x: rect.x + 12,
+        y,
+        width: rect.width - 24,
+        height: 11,
+      }, {
+        font: "Helvetica-Bold",
+        size: 8,
+        color: "#000000",
+      });
+      y += 11;
+
+      ctx.doc.save();
+      ctx.doc.font("Helvetica").fontSize(7.2);
+      const bodyHeight = Math.min(
+        maxY - y,
+        ctx.doc.heightOfString(body, {
+          width: rect.width - 24,
+          lineGap: 1,
+        }),
+      );
+      ctx.doc.restore();
+      drawText(ctx, body, {
+        x: rect.x + 12,
+        y,
+        width: rect.width - 24,
+        height: bodyHeight,
+      }, {
+        font: "Helvetica",
+        size: 7.2,
+        color: "#000000",
+        lineGap: 1,
+      });
+      y += bodyHeight + 10;
     }
   }
-  if (current) out.push(current);
-  return out;
 }
 
-/** Formats a numeric modifier with an explicit sign (e.g. +2, 0, -1). */
-function formatModifier(n: number): string {
-  if (n > 0) return `+${n}`;
-  if (n < 0) return String(n);
-  return "0";
+function formatModifier(value: number) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function proficiencyBonusForCr(rawCr: string) {
+  const [numerator, denominator] = rawCr.split("/").map(Number);
+  const cr = denominator ? numerator / denominator : Number(rawCr);
+  if (!Number.isFinite(cr) || cr <= 4) return 2;
+  if (cr <= 8) return 3;
+  if (cr <= 12) return 4;
+  if (cr <= 16) return 5;
+  if (cr <= 20) return 6;
+  if (cr <= 24) return 7;
+  if (cr <= 28) return 8;
+  return 9;
 }
 
 export function renderCompanionPage(
@@ -953,101 +1182,66 @@ export function renderCompanionPage(
   assets: PdfSvgAssetBundle,
   character: ResolvedPdfCharacter,
 ) {
-  ctx.doc.addPage({ size: [PAGE_SIZE.width, PAGE_SIZE.height], margin: 0 });
-
-  const doc = ctx.doc as unknown as { save: () => void; restore: () => void; translate: (x: number, y: number) => { scale: (s: number) => void } };
-  doc.save();
-  doc.translate(PAGE2_PRINT_SAFE_OFFSET.x, PAGE2_PRINT_SAFE_OFFSET.y).scale(PAGE2_PRINT_SAFE_SCALE);
+  ctx.doc.addPage({ size: [COMPANION_PAGE.width, COMPANION_PAGE.height], margin: 0 });
 
   const companionCards = character.companionCards ?? [];
-  const firstCompanion = companionCards[0];
+  const root = companionCards[0];
+  if (!root) return;
 
-  if (!firstCompanion) {
-    doc.restore();
-    return;
-  }
-
-  // Compute all rects up-front. This guarantees no overlap and makes the
-  // layout self-documenting.
   const rects = computeCompanionLayout();
-
-  // Tag conventions on the companion card:
-  //   "type:<text>"      creature type (e.g. "beast", "dragon")
-  //   "size:<text>"      size (e.g. "Medium", "Large")
-  //   "cr:<n>"           challenge rating
-  //   "ac:<n>"           armor class
-  //   "hp:<n> [dice]"    hit points
-  //   "speed:<text>"     speed, e.g. "40 ft., fly 60 ft."
-  //   "alignment:<text>" alignment, e.g. "neutral"
-  //   "senses:<list>"    senses
-  //   "languages:<list>" languages
-  //   "skills:<list>"    comma-separated skill list
-  //   "str:<n>" .. "cha:<n>" ability scores
-  const tags = firstCompanion.tags ?? [];
-  const getTag = (prefix: string) => tags.find((t) => t.startsWith(prefix + ":"))?.replace(prefix + ":", "") ?? "";
-
-  const companionName = firstCompanion.title || "Companion";
-  const cr = getTag("cr") || "—";
-  const ac = getTag("ac") || "—";
-  const hpRaw = getTag("hp") || "—";
-  const speed = getTag("speed") || "30 ft.";
-  const hpBase = hpRaw.match(/^(\d+)/)?.[1] ?? hpRaw;
-
-  const abilityScores = {
-    str: parseInt(getTag("str")) || 10,
-    dex: parseInt(getTag("dex")) || 10,
-    con: parseInt(getTag("con")) || 10,
-    int: parseInt(getTag("int")) || 10,
-    wis: parseInt(getTag("wis")) || 10,
-    cha: parseInt(getTag("cha")) || 10,
+  const getTag = (prefix: string) => {
+    const tag = root.tags.find((candidate) => candidate.toLowerCase().startsWith(`${prefix.toLowerCase()}:`));
+    return tag?.slice(tag.indexOf(":") + 1).trim() ?? "";
   };
 
-  // Proficiency bonus: companion uses ranger scaling (PB at level 1 = +2)
-  const prof = Math.max(2, Math.floor((character.level - 1) / 4) + 2);
-  const dexMod = Math.floor((abilityScores.dex - 10) / 2);
-
-  // Header fields: Creature, Owner, Size, Type, Alignment. Challenge Rating
-  // is shown in the name banner (it has its own little slot at the bottom).
-  //   Creature  = the creature's species/name (e.g. "Wolf")
-  //   Type      = the D&D creature type (e.g. "beast")
-  const ownerName = character.name || "Player";
-  const creatureKind = companionName; // the root card's title is the species
+  const name = root.title || "Companion";
+  const cr = getTag("cr");
+  const hpRaw = getTag("hp");
+  const hp = hpRaw.match(/\d+/)?.[0] ?? "";
+  const speed = getTag("speed");
+  const scores = {
+    str: Number(getTag("str")) || 10,
+    dex: Number(getTag("dex")) || 10,
+    con: Number(getTag("con")) || 10,
+    int: Number(getTag("int")) || 10,
+    wis: Number(getTag("wis")) || 10,
+    cha: Number(getTag("cha")) || 10,
+  };
+  const skillLines = getTag("skills").split(",").map((entry) => entry.trim()).filter(Boolean);
   const senses = getTag("senses");
-  const languages = getTag("languages");
-  const skillsRaw = getTag("skills");
-  const skills = [
-    ...(skillsRaw ? skillsRaw.split(",").map((s) => s.trim()).filter(Boolean) : []),
-    ...(senses ? [`Senses ${senses}`] : []),
-    ...(languages && languages !== "—" ? [`Languages ${languages}`] : []),
-  ];
+  const passiveFromSenses = senses.match(/passive\s+perception\s+(\d+)/i)?.[1];
+  const perceptionBonus = skillLines.find((entry) => /^perception\b/i.test(entry))?.match(/[+-]?\d+/)?.[0];
+  const passivePerception = passiveFromSenses
+    ?? (perceptionBonus ? String(10 + Number(perceptionBonus)) : "");
+  if (passivePerception && !skillLines.some((entry) => /passive perception/i.test(entry))) {
+    skillLines.push(`Passive Perception ${passivePerception}`);
+  }
+  if (senses && !/passive perception/i.test(senses)) {
+    skillLines.push(senses);
+  }
 
-  // Draw the header band
   renderCompanionHeader(ctx, assets, rects, {
-    name: companionName,
-    fields: {
-      Creature: creatureKind,
-      Owner: ownerName,
-      Size: getTag("size") || "—",
-      Type: getTag("type") || "—",
-      Alignment: getTag("alignment") || "—",
-      "Challenge Rating": cr,
-    },
+    name,
+    creature: name,
+    owner: character.name || "Player",
+    size: getTag("size"),
+    type: getTag("type"),
+    alignment: getTag("alignment"),
   });
+  renderCompanionPicture(ctx, rects.picture);
+  renderCompanionAbilities(ctx, assets, rects, scores);
 
-  // Draw the 3 body columns
-  renderCompanionLeftColumn(ctx, assets, rects, abilityScores);
-  renderCompanionMiddleColumn(ctx, assets, rects, {
-    prof,
-    init: dexMod,
-    cr,
-    maxHp: hpBase,
-    ac,
-    speed,
-    skills,
+  const proficiencyBonus = proficiencyBonusForCr(cr);
+  const initiative = Math.floor((scores.dex - 10) / 2);
+  [
+    [formatModifier(proficiencyBonus), "PROFICIENCY\nBONUS"],
+    [formatModifier(initiative), "INITIATIVE\nBONUS"],
+    [cr, "CHALLENGE\nRATING"],
+  ].forEach(([value, label], index) => {
+    renderCompanionBonusBox(ctx, assets, rects.bonusBoxes[index], value, label);
   });
-  // Features box: skip the first card (the root creature card) — its data
-  // is shown in the header.
-  renderCompanionRightColumn(ctx, assets, rects, companionCards.slice(1));
-
-  doc.restore();
+  renderCompanionHpAndAc(ctx, assets, rects, hp, getTag("ac"));
+  renderCompanionSpeeds(ctx, assets, rects, speed);
+  renderCompanionSkills(ctx, assets, rects.skills, skillLines);
+  renderCompanionActions(ctx, assets, rects.actions, companionCards.slice(1));
 }

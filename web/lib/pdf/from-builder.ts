@@ -2121,20 +2121,25 @@ function buildCompanionCards(args: BuilderPdfSourceArgs) {
           tags,
         });
 
-        const detailIds = [
-          ...splitFreeTextList(getSetter("traits")),
-          ...splitFreeTextList(getSetter("actions")),
-          ...splitFreeTextList(getSetter("reactions")),
-        ];
-        const detailCards = detailIds
-          .map((id) => companionSubElementsById.get(id))
-          .filter((entry): entry is BuiltInElement => Boolean(entry))
-          .map((entry) =>
-            toPdfCardFromElement(entry, {
-              kind: "feature",
-              pageHint: "companion",
-            }),
-          );
+        const detailGroups = [
+          { section: "traits", ids: splitFreeTextList(getSetter("traits")) },
+          { section: "actions", ids: splitFreeTextList(getSetter("actions")) },
+          { section: "reactions", ids: splitFreeTextList(getSetter("reactions")) },
+        ] as const;
+        const detailCards = detailGroups.flatMap(({ section, ids }) =>
+          ids
+            .map((id) => companionSubElementsById.get(id))
+            .filter((entry): entry is BuiltInElement => Boolean(entry))
+            .map((entry) =>
+              withPdfTags(
+                toPdfCardFromElement(entry, {
+                  kind: "feature",
+                  pageHint: "companion",
+                }),
+                [`companion-section:${section}`],
+              ),
+            ),
+        );
 
         return [rootCard, ...detailCards];
       }),
