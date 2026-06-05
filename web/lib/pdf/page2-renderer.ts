@@ -634,7 +634,7 @@ function computeCompanionLayout(): CompanionRects {
     height: 44,
   };
 
-  const speedTop = hpRowY + 54;
+  const speedTop = hpRowY + 56;
   const speedLabel: PdfRect = {
     x: middleColumn.x,
     y: speedTop,
@@ -644,11 +644,11 @@ function computeCompanionLayout(): CompanionRects {
   const speedBoxGap = (middleColumn.width - 29 * 5) / 4;
   const speedBoxes = Array.from({ length: 5 }, (_, index) => ({
     x: middleColumn.x + index * (29 + speedBoxGap),
-    y: speedTop + 8,
+    y: speedTop + 10,
     width: 29,
     height: 34,
   }));
-  const skillsTop = speedTop + 49;
+  const skillsTop = speedTop + 51;
   const skills: PdfRect = {
     x: middleColumn.x,
     y: skillsTop,
@@ -1008,6 +1008,14 @@ function renderCompanionSpeeds(
   const entries = parseMovementSpeeds(speed);
   rects.speedBoxes.forEach((rect, index) => {
     drawSvg(ctx, assets.passiveBox, rect, "contain");
+    // Whitewash the SVG's baked-in "INSIGHT" footer label so the renderer-drawn
+    // speed mode label (e.g. "Walking") sits cleanly on top.
+    maskRect(ctx, {
+      x: rect.x + 2,
+      y: rect.y + 25,
+      width: rect.width - 4,
+      height: rect.height - 26,
+    });
     drawCenteredTextInRect(ctx, entries[index].value, {
       x: rect.x + 3,
       y: rect.y + Math.max(0, (rect.height - 10) / 2),
