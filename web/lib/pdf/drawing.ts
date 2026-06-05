@@ -185,6 +185,46 @@ export function drawCenteredTextInRect(
   });
 }
 
+/**
+ * Map a slot defined in SVG `viewBox` coordinates into a rect on the actual
+ * page. Use this together with SVG viewBox constants to position masks,
+ * labels, and values exactly where the SVG's own text bands sit —
+ * independent of how the component is resized on the page.
+ */
+export function componentRect(
+  region: PdfRect,
+  viewBox: { width: number; height: number },
+  rect: PdfRect,
+): PdfRect {
+  const scaleX = region.width / viewBox.width;
+  const scaleY = region.height / viewBox.height;
+  return {
+    x: region.x + rect.x * scaleX,
+    y: region.y + rect.y * scaleY,
+    width: rect.width * scaleX,
+    height: rect.height * scaleY,
+  };
+}
+
+export function componentPoint(
+  region: PdfRect,
+  viewBox: { width: number; height: number },
+  point: { x: number; y: number },
+) {
+  return {
+    x: region.x + point.x * (region.width / viewBox.width),
+    y: region.y + point.y * (region.height / viewBox.height),
+  };
+}
+
+export function componentRadius(
+  region: PdfRect,
+  viewBox: { width: number; height: number },
+  radius: number,
+) {
+  return radius * Math.min(region.width / viewBox.width, region.height / viewBox.height);
+}
+
 export function maskRect(ctx: PdfRenderContext, rect: PdfRect, color = "#ffffff") {
   const shapeDoc = ctx.doc as PdfShapeDocument;
   ctx.doc.save();
