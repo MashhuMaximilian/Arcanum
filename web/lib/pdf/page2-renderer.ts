@@ -546,6 +546,7 @@ type CompanionRects = {
   skills: PdfRect;
   traits: PdfRect;
   actions: PdfRect;
+  abilitiesBottom: number;
 };
 
 const STAT_VIEWBOX = { width: 55, height: 72 } as const;
@@ -650,12 +651,23 @@ function computeCompanionLayout(): CompanionRects {
     height: 34,
   }));
   const skillsTop = speedTop + 51;
+  // Bottom of the abilities column: the last ability cell (row 1, index 5)
+  // ends at abilityTop + 2*abilityHeight + abilityGapY. Use this as the
+  // visual floor for the right-column cards.
+  const abilitiesBottom = abilityTop + abilityHeight * 2 + abilityGapY;
+  const cardBottomLimit = abilitiesBottom - 12; // 12pt padding below abilities
   const skills: PdfRect = {
     x: middleColumn.x,
     y: skillsTop,
     width: middleColumn.width,
-    height: COMPANION_PAGE.bodyBottom - skillsTop,
+    height: Math.max(0, Math.min(COMPANION_PAGE.bodyBottom - skillsTop, cardBottomLimit - skillsTop)),
   };
+
+  // Re-derive the right-column cards so the bottom edge respects the abilities
+  // column bottom. Split the available band (rightColumn.y → cardBottomLimit)
+  // 50/50 with a 6pt gutter between TRAITS (top) and ACTIONS (bottom).
+  const rightAvailableHeight = Math.max(0, cardBottomLimit - rightColumn.y);
+  const traitsHeight = Math.floor((rightAvailableHeight - 6) / 2);
 
   return {
     header: {
@@ -675,18 +687,16 @@ function computeCompanionLayout(): CompanionRects {
     speedLabel,
     speedBoxes,
     skills,
-    // Split the right column into a TRAITS card (top) and an ACTIONS card
-    // (bottom). 50/50 with a 6pt gutter between them; Issue 6 will tighten
-    // these to the abilities column bottom.
     traits: {
       ...rightColumn,
-      height: Math.floor((rightColumn.height - 6) / 2),
+      height: traitsHeight,
     },
     actions: {
       ...rightColumn,
-      y: rightColumn.y + Math.floor((rightColumn.height - 6) / 2) + 6,
-      height: Math.floor((rightColumn.height - 6) / 2),
+      y: rightColumn.y + traitsHeight + 6,
+      height: Math.max(0, rightAvailableHeight - traitsHeight - 6),
     },
+    abilitiesBottom,
   };
 }
 
