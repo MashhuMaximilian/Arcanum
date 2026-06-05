@@ -544,6 +544,7 @@ type CompanionRects = {
   speedLabel: PdfRect;
   speedBoxes: PdfRect[];
   skills: PdfRect;
+  traits: PdfRect;
   actions: PdfRect;
 };
 
@@ -674,7 +675,18 @@ function computeCompanionLayout(): CompanionRects {
     speedLabel,
     speedBoxes,
     skills,
-    actions: { ...rightColumn },
+    // Split the right column into a TRAITS card (top) and an ACTIONS card
+    // (bottom). 50/50 with a 6pt gutter between them; Issue 6 will tighten
+    // these to the abilities column bottom.
+    traits: {
+      ...rightColumn,
+      height: Math.floor((rightColumn.height - 6) / 2),
+    },
+    actions: {
+      ...rightColumn,
+      y: rightColumn.y + Math.floor((rightColumn.height - 6) / 2) + 6,
+      height: Math.floor((rightColumn.height - 6) / 2),
+    },
   };
 }
 
@@ -1081,88 +1093,100 @@ function companionSection(card: PdfPageCard) {
   return card.tags.find((tag) => tag.startsWith("companion-section:"))?.split(":")[1] ?? "actions";
 }
 
+function renderCompanionSection(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  rect: PdfRect,
+  title: string,
+  cards: PdfPageCard[],
+) {
+  drawSvg(ctx, assets.generalContainer, rect);
+
+  drawCenteredTextInRect(ctx, title, {
+    x: rect.x + 10,
+    y: rect.y + 4,
+    width: rect.width - 20,
+    height: 11,
+  }, {
+    font: "Helvetica-Bold",
+    maxSize: 6.5,
+    minSize: 5,
+    color: "#222222",
+  });
+
+  if (cards.length === 0) {
+    drawCenteredTextInRect(ctx, "—", {
+      x: rect.x + 12,
+      y: rect.y + rect.height / 2 - 6,
+      width: rect.width - 24,
+      height: 12,
+    }, {
+      font: "Helvetica",
+      maxSize: 9,
+      minSize: 6,
+      color: "#999999",
+    });
+    return;
+  }
+
+  let y = rect.y + 22;
+  const maxY = rect.y + rect.height - 10;
+  for (const card of cards) {
+    const body = cleanHtmlText(card.summary || card.detail || "");
+    if (y + 18 > maxY) return;
+    drawText(ctx, `${card.title}.`, {
+      x: rect.x + 12,
+      y,
+      width: rect.width - 24,
+      height: 11,
+    }, {
+      font: "Helvetica-Bold",
+      size: 8,
+      color: "#000000",
+    });
+    y += 11;
+
+    ctx.doc.save();
+    ctx.doc.font("Helvetica").fontSize(7.2);
+    const bodyHeight = Math.min(
+      maxY - y,
+      ctx.doc.heightOfString(body, {
+        width: rect.width - 24,
+        lineGap: 1,
+      }),
+    );
+    ctx.doc.restore();
+    drawText(ctx, body, {
+      x: rect.x + 12,
+      y,
+      width: rect.width - 24,
+      height: bodyHeight,
+    }, {
+      font: "Helvetica",
+      size: 7.2,
+      color: "#000000",
+      lineGap: 1,
+    });
+    y += bodyHeight + 8;
+  }
+}
+
+function renderCompanionTraits(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  rect: PdfRect,
+  cards: PdfPageCard[],
+) {
+  renderCompanionSection(ctx, assets, rect, "TRAITS", cards);
+}
+
 function renderCompanionActions(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
   rect: PdfRect,
   cards: PdfPageCard[],
 ) {
-  drawSvg(ctx, assets.generalContainer, rect);
-  const sections = ["traits", "actions", "reactions"] as const;
-  const populated = sections.filter((section) => cards.some((card) => companionSection(card) === section));
-  const title = populated.length === 1
-    ? populated[0].toUpperCase()
-    : "FEATURES, TRAITS & ACTIONS";
-
-  drawCenteredTextInRect(ctx, title, {
-    x: rect.x + 10,
-    y: rect.y + 19,
-    width: rect.width - 20,
-    height: 11,
-  }, {
-    font: "Helvetica-Bold",
-    maxSize: 7.5,
-    minSize: 5.5,
-    color: "#222222",
-  });
-
-  let y = rect.y + 38;
-  const maxY = rect.y + rect.height - 12;
-  for (const section of populated) {
-    const sectionCards = cards.filter((card) => companionSection(card) === section);
-    if (populated.length > 1) {
-      drawText(ctx, section.toUpperCase(), {
-        x: rect.x + 12,
-        y,
-        width: rect.width - 24,
-        height: 10,
-      }, {
-        font: "Helvetica-Bold",
-        size: 7,
-        color: "#333333",
-      });
-      y += 13;
-    }
-
-    for (const card of sectionCards) {
-      const body = cleanHtmlText(card.summary || card.detail || "");
-      if (y + 18 > maxY) return;
-      drawText(ctx, `${card.title}.`, {
-        x: rect.x + 12,
-        y,
-        width: rect.width - 24,
-        height: 11,
-      }, {
-        font: "Helvetica-Bold",
-        size: 8,
-        color: "#000000",
-      });
-      y += 11;
-
-      ctx.doc.save();
-      ctx.doc.font("Helvetica").fontSize(7.2);
-      const bodyHeight = Math.min(
-        maxY - y,
-        ctx.doc.heightOfString(body, {
-          width: rect.width - 24,
-          lineGap: 1,
-        }),
-      );
-      ctx.doc.restore();
-      drawText(ctx, body, {
-        x: rect.x + 12,
-        y,
-        width: rect.width - 24,
-        height: bodyHeight,
-      }, {
-        font: "Helvetica",
-        size: 7.2,
-        color: "#000000",
-        lineGap: 1,
-      });
-      y += bodyHeight + 10;
-    }
-  }
+  renderCompanionSection(ctx, assets, rect, "ACTIONS", cards);
 }
 
 function formatModifier(value: number) {
@@ -1248,5 +1272,11 @@ export function renderCompanionPage(
   renderCompanionHpAndAc(ctx, assets, rects, hp, getTag("ac"));
   renderCompanionSpeeds(ctx, assets, rects, speed);
   renderCompanionSkills(ctx, assets, rects.skills, skillLines);
-  renderCompanionActions(ctx, assets, rects.actions, companionCards.slice(1));
+
+  const traitCards = companionCards.slice(1).filter((card) => companionSection(card) === "traits");
+  const actionCards = companionCards.slice(1).filter(
+    (card) => companionSection(card) === "actions" || companionSection(card) === "reactions",
+  );
+  renderCompanionTraits(ctx, assets, rects.traits, traitCards);
+  renderCompanionActions(ctx, assets, rects.actions, actionCards);
 }
