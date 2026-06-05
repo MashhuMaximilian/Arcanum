@@ -226,6 +226,19 @@ export function createEmptyCharacterDraft(): CharacterDraft {
   };
 }
 
+export function duplicateCharacterDraft(draft: CharacterDraft): CharacterDraft {
+  const now = new Date().toISOString();
+  const normalized = normalizeCharacterDraft(draft);
+
+  return normalizeCharacterDraft({
+    ...structuredClone(normalized),
+    id: crypto.randomUUID(),
+    name: `${normalized.name || "Untitled Adventurer"} Copy`,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 type LegacyCharacterDraft = Partial<CharacterDraft> & {
   id: string;
   classId?: string;

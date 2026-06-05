@@ -112,7 +112,9 @@ function parseAttributes(tag: string) {
 }
 
 function getTagContent(block: string, tagName: string) {
-  const match = block.match(new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, "i"));
+  const match = block.match(
+    new RegExp(`<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)</${tagName}>`, "i"),
+  );
   return match ? match[1].trim() : "";
 }
 
@@ -317,7 +319,8 @@ export function parseIndexUrls(indexUrl: string, xml: string) {
 
 export function parseAuroraElements(sourceUrl: string, xml: string): ParsedAuroraElement[] {
   const sourceName = stripTags(getTagContent(xml, "name")) || null;
-  const elementMatches = [...xml.matchAll(/<element\s+([^>]*)>([\s\S]*?)<\/element>/g)];
+  const sanitizedXml = stripXmlComments(xml);
+  const elementMatches = [...sanitizedXml.matchAll(/<element\s+([^>]*)>([\s\S]*?)<\/element>/g)];
   const parsedElements: ParsedAuroraElement[] = [];
 
   for (const match of elementMatches) {
@@ -358,6 +361,49 @@ export function parseAuroraElements(sourceUrl: string, xml: string): ParsedAuror
         setters: parseSetters(body),
         rules: parseRules(body),
         sheet,
+      },
+    });
+  }
+
+  for (const match of sanitizedXml.matchAll(/<append\s+([^>]*)>([\s\S]*?)<\/append>/g)) {
+    const attributes = parseAttributes(match[1]);
+    const body = match[2];
+    const targetId = attributes.id;
+
+    if (!targetId) {
+      continue;
+    }
+
+    const supports = parseSupports(body);
+    const setters = parseSetters(body);
+    const rules = parseRules(body);
+    const patchFingerprint = crypto
+      .createHash("sha1")
+      .update(`${sourceUrl}\0${targetId}\0${JSON.stringify({ supports, setters, rules })}`)
+      .digest("hex")
+      .slice(0, 16);
+
+    parsedElements.push({
+      elementId: `APPEND_${patchFingerprint}`,
+      elementType: "Append",
+      name: `Append ${targetId}`,
+      sourceName,
+      sourceUrl,
+      supports,
+      setters,
+      rules,
+      descriptionHtml: null,
+      descriptionText: null,
+      prerequisite: null,
+      requirements: null,
+      sheet: null,
+      multiclass: null,
+      spellcasting: null,
+      rawElement: {
+        appendTargetId: targetId,
+        supports,
+        setters,
+        rules,
       },
     });
   }

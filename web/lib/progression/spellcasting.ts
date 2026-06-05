@@ -786,7 +786,7 @@ export function deriveSpellcastingGroups({
 
     sources.push({
       currentLevel: totalLevel,
-      fallbackListKey: trait.spellcasting?.name || race?.race.name,
+      fallbackListKey: trait.spellcasting?.list || trait.spellcasting?.name || race?.race.name,
       ownerLabel: trait.name,
       ownerType: "race",
       spellcastingAbility: trait.spellcasting?.ability?.toLowerCase(),
@@ -804,7 +804,7 @@ export function deriveSpellcastingGroups({
 
     sources.push({
       currentLevel: totalLevel,
-      fallbackListKey: feat.spellcasting?.name || feat.name,
+      fallbackListKey: feat.spellcasting?.list || feat.spellcasting?.name || feat.name,
       ownerLabel: feat.name,
       ownerType: "feat",
       spellcastingAbility: feat.spellcasting?.ability?.toLowerCase(),
@@ -829,7 +829,7 @@ export function deriveSpellcastingGroups({
 
     sources.push({
       currentLevel: totalLevel,
-      fallbackListKey: option.spellcasting?.name || option.name,
+      fallbackListKey: option.spellcasting?.list || option.spellcasting?.name || option.name,
       forceAllSpellLists: isManualMagicalSecrets,
       forcedMaxSpellLevel: isManualMagicalSecrets
         ? getCasterMaxSpellLevelForCharacterLevel(totalLevel)
@@ -870,7 +870,7 @@ export function deriveSpellcastingGroups({
 
       sources.push({
         currentLevel: entry.level,
-        fallbackListKey: feature.spellcasting?.name || classRecord.class.name,
+        fallbackListKey: feature.spellcasting?.list || feature.spellcasting?.name || classRecord.class.name,
         forceAllSpellLists: isMagicalSecrets,
         forcedMaxSpellLevel: isMagicalSecrets
           ? getCasterMaxSpellLevelForCharacterLevel(entry.level)
@@ -895,7 +895,7 @@ export function deriveSpellcastingGroups({
 
       sources.push({
         currentLevel: entry.level,
-        fallbackListKey: feature.spellcasting?.name || classRecord.class.name,
+        fallbackListKey: feature.spellcasting?.list || feature.spellcasting?.name || classRecord.class.name,
         ownerLabel: feature.name,
         ownerType: "subclass",
         spellcastingAbility: feature.spellcasting?.ability?.toLowerCase(),

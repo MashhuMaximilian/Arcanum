@@ -4,9 +4,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { getBuiltInSrdSpells } from "@/lib/builtins/spells";
-import { deleteRemoteCharacterDraft, listRemoteCharacterDrafts } from "@/lib/characters/repository";
-import { deleteCharacterDraft, listCharacterDrafts } from "@/lib/characters/storage";
-import type { CharacterDraft } from "@/lib/characters/types";
+import {
+  deleteRemoteCharacterDraft,
+  listRemoteCharacterDrafts,
+  saveRemoteCharacterDraft,
+} from "@/lib/characters/repository";
+import {
+  deleteCharacterDraft,
+  listCharacterDrafts,
+  saveCharacterDraft,
+} from "@/lib/characters/storage";
+import { duplicateCharacterDraft, type CharacterDraft } from "@/lib/characters/types";
 import { mergeCharacterDrafts } from "@/lib/characters/storage";
 import { resolveBuilderCatalogs } from "@/lib/content-sources/catalog-resolver";
 import { buildPdfCharacterFromDraft } from "@/lib/pdf/from-builder";
@@ -14,6 +22,7 @@ import { buildPdfCharacterFromDraft } from "@/lib/pdf/from-builder";
 export function CharacterList() {
   const [drafts, setDrafts] = useState<CharacterDraft[]>([]);
   const [exportingDraftId, setExportingDraftId] = useState<string | null>(null);
+  const [duplicatingDraftId, setDuplicatingDraftId] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,6 +50,23 @@ export function CharacterList() {
     setDrafts(mergeCharacterDrafts(listCharacterDrafts(), await listRemoteCharacterDrafts()));
   }
 
+  async function handleDuplicate(draft: CharacterDraft) {
+    setDuplicatingDraftId(draft.id);
+    setExportError(null);
+
+    try {
+      const duplicate = duplicateCharacterDraft(draft);
+      saveCharacterDraft(duplicate);
+      await saveRemoteCharacterDraft(duplicate);
+      setDrafts(mergeCharacterDrafts(listCharacterDrafts(), await listRemoteCharacterDrafts()));
+    } catch (error) {
+      console.error("Failed to duplicate character", error);
+      setExportError("Character duplication failed. Please try again.");
+    } finally {
+      setDuplicatingDraftId(null);
+    }
+  }
+
   async function handleDownloadCharacterSheet(draft: CharacterDraft) {
     setExportingDraftId(draft.id);
     setExportError(null);
@@ -48,7 +74,6 @@ export function CharacterList() {
     try {
       const catalogs = await resolveBuilderCatalogs(getBuiltInSrdSpells());
       const pdfCharacter = buildPdfCharacterFromDraft({ ...catalogs, draft });
-      console.log("[DEBUG] character-list - pdfCharacter.companionCards:", pdfCharacter.companionCards?.map((c) => ({ title: c.title, tags: c.tags })));
       const response = await fetch("/pdf-export", {
         method: "POST",
         headers: {
@@ -124,6 +149,14 @@ export function CharacterList() {
               <Link className="button button--secondary button--compact" href={`/characters/${draft.id}`}>
                 View
               </Link>
+              <button
+                className="button button--secondary button--compact"
+                type="button"
+                disabled={duplicatingDraftId === draft.id}
+                onClick={() => handleDuplicate(draft)}
+              >
+                {duplicatingDraftId === draft.id ? "Duplicating..." : "Duplicate"}
+              </button>
               <button
                 className="button button--secondary button--compact"
                 type="button"

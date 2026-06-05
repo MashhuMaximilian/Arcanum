@@ -1270,7 +1270,7 @@ export function renderCompanionPage(
   ].forEach(([value, label], index) => {
     renderCompanionBonusBox(ctx, assets, rects.bonusBoxes[index], value, label);
   });
-  renderCompanionHpAndAc(ctx, assets, rects, hp, getTag("ac"));
+  renderCompanionHpAndAc(ctx, assets, rects, hp, getTag("ac").match(/\d+/)?.[0] ?? "");
   renderCompanionSpeeds(ctx, assets, rects, speed);
   renderCompanionSkills(ctx, assets, rects.skills, skillLines);
 

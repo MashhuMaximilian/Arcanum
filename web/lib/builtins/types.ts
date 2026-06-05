@@ -94,6 +94,7 @@ export type BuiltInMulticlass = {
 
 export type BuiltInSpellcasting = {
   ability?: string;
+  list?: string;
   name?: string;
   rules?: BuiltInRule[];
   setters?: BuiltInSetter[];

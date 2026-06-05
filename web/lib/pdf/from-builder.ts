@@ -65,6 +65,7 @@ export type BuilderPdfSourceArgs = {
   abilities: Record<AbilityKey, number>;
   allSelectedFeatElements: BuiltInElement[];
   classRecordsByEntry: Array<BuiltInClassRecord | null>;
+  companionDetailElements: BuiltInElement[];
   draft: CharacterDraft;
   effectiveAbilities: Record<AbilityKey, number>;
   manualGrantsByKind: Record<CharacterManualGrant["kind"], CharacterManualGrant[]>;
@@ -641,6 +642,16 @@ function getSelectedProficiencyFacts(args: BuilderPdfSourceArgs): ProficiencyFac
 function isLowSignalFeatureElement(element: BuiltInElement) {
   const title = element.name.trim();
   const haystack = `${element.name} ${element.type} ${element.description ?? ""}`.toLowerCase();
+
+  if (
+    element.type === "Spell" ||
+    element.type === "Companion" ||
+    element.type === "Companion Trait" ||
+    element.type === "Companion Action" ||
+    element.type === "Companion Reaction"
+  ) {
+    return true;
+  }
 
   if (
     /\b(proficiency|language)\b/.test(element.type) ||
@@ -2052,7 +2063,10 @@ function buildFeatureCards(args: BuilderPdfSourceArgs) {
 }
 
 function buildCompanionCards(args: BuilderPdfSourceArgs) {
-  const companionSubElements = getBuiltInSrdCompanionSubElements();
+  const companionSubElements = uniqueById([
+    ...getBuiltInSrdCompanionSubElements(),
+    ...args.companionDetailElements,
+  ]);
   const companionSubElementsById = new Map(companionSubElements.map((element) => [element.id, element] as const));
   const isTemporaryFormOrSummon = (element: BuiltInElement) =>
     /\bwild shape\b|\bconjure\b|\bsummon\b/i.test(`${element.name} ${element.description ?? ""} ${element.type}`);
@@ -2712,6 +2726,9 @@ export function buildPdfCharacterFromDraft(args: BuilderPdfDraftCatalogs & { dra
     abilities: draft.abilities,
     allSelectedFeatElements,
     classRecordsByEntry,
+    companionDetailElements: progressionElements.filter((element) =>
+      ["Companion Trait", "Companion Action", "Companion Reaction"].includes(element.type),
+    ),
     draft,
     effectiveAbilities,
     manualGrantsByKind,

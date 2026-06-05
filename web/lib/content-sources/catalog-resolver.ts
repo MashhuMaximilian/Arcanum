@@ -261,6 +261,7 @@ function toBuiltInSpellcasting(value: unknown) {
   const candidate = value as Record<string, unknown>;
   return {
     ability: typeof candidate.ability === "string" ? candidate.ability : undefined,
+    list: typeof candidate.list === "string" ? candidate.list : undefined,
     name: typeof candidate.name === "string" ? candidate.name : undefined,
     rules: Array.isArray(candidate.rules)
       ? candidate.rules.map((rule) => toBuiltInRule(rule)).filter((rule): rule is BuiltInRule => Boolean(rule))
@@ -271,6 +272,68 @@ function toBuiltInSpellcasting(value: unknown) {
           .filter((setter): setter is BuiltInSetter => Boolean(setter))
       : undefined,
   };
+}
+
+function getAppendTargetId(element: ImportedElement) {
+  if (element.element_type !== "Append") {
+    return "";
+  }
+
+  const rawElement = element.raw_element as { appendTargetId?: unknown } | null;
+  return typeof rawElement?.appendTargetId === "string" ? rawElement.appendTargetId : "";
+}
+
+function applyImportedAppends(elements: BuiltInElement[], importedRows: ImportedElement[]) {
+  const patchesByTarget = new Map<string, ImportedElement[]>();
+
+  importedRows.forEach((row) => {
+    const targetId = getAppendTargetId(row);
+    if (!targetId) {
+      return;
+    }
+
+    patchesByTarget.set(targetId, [...(patchesByTarget.get(targetId) ?? []), row]);
+  });
+
+  return elements.map((element) => {
+    const patches = patchesByTarget.get(element.id);
+    if (!patches?.length) {
+      return element;
+    }
+
+    const appendedSetters = patches.flatMap((patch) =>
+      Array.isArray(patch.setters)
+        ? patch.setters
+            .map((setter) => toBuiltInSetter(setter))
+            .filter((setter): setter is BuiltInSetter => Boolean(setter))
+        : [],
+    );
+    const appendedRules = patches.flatMap((patch) =>
+      Array.isArray(patch.rules)
+        ? patch.rules
+            .map((rule) => toBuiltInRule(rule))
+            .filter((rule): rule is BuiltInRule => Boolean(rule))
+        : [],
+    );
+
+    return {
+      ...element,
+      supports: [...new Set([
+        ...element.supports,
+        ...patches.flatMap((patch) =>
+          Array.isArray(patch.supports)
+            ? patch.supports.filter((entry): entry is string => typeof entry === "string")
+            : [],
+        ),
+      ])],
+      setters: [...new Map(
+        [...element.setters, ...appendedSetters].map((setter) => [JSON.stringify(setter), setter]),
+      ).values()],
+      rules: [...new Map(
+        [...element.rules, ...appendedRules].map((rule) => [JSON.stringify(rule), rule]),
+      ).values()],
+    };
+  });
 }
 
 function toBuiltInElement(element: ImportedElement): BuiltInElement | null {
@@ -545,41 +608,49 @@ export async function resolveBuilderCatalogs(initialSpellElements: BuiltInElemen
   const builtInCompanionElements = getBuiltInSrdCompanions();
   const builtInCompanionSubElements = getBuiltInSrdCompanionSubElements();
   const cachedImported = await listCachedElements();
-  const importedElements = cachedImported
+  const rawImportedElements = cachedImported
     .map((element) => toBuiltInElement(element))
     .filter((element): element is BuiltInElement => Boolean(element));
+  const importedElements = applyImportedAppends(rawImportedElements, cachedImported);
+  const patchedBuiltInRaceElements = applyImportedAppends(builtInRaceElements, cachedImported);
+  const patchedBuiltInClassElements = applyImportedAppends(builtInClassElements, cachedImported);
+  const patchedBuiltInBackgroundElements = applyImportedAppends(builtInBackgroundElements, cachedImported);
+  const patchedBuiltInFeatElements = applyImportedAppends(builtInFeatElements, cachedImported);
+  const patchedBuiltInSpellElements = applyImportedAppends(builtInSpellElements, cachedImported);
+  const patchedBuiltInCompanionElements = applyImportedAppends(builtInCompanionElements, cachedImported);
+  const patchedBuiltInCompanionSubElements = applyImportedAppends(builtInCompanionSubElements, cachedImported);
 
   const raceElements = dedupeElements([
-    ...builtInRaceElements,
+    ...patchedBuiltInRaceElements,
     ...importedElements.filter((element) =>
       ["Race", "Sub Race", "Racial Trait", "Race Variant"].includes(element.type),
     ),
   ]);
   const classElements = dedupeElements([
-    ...builtInClassElements,
+    ...patchedBuiltInClassElements,
     ...importedElements.filter((element) =>
       ["Class", "Class Feature", "Archetype", "Archetype Feature"].includes(element.type),
     ),
   ]);
   const backgroundElements = dedupeElements([
-    ...builtInBackgroundElements,
+    ...patchedBuiltInBackgroundElements,
     ...importedElements.filter((element) =>
       ["Background", "Background Feature", "Background Variant"].includes(element.type),
     ),
   ]);
   const companionElements = dedupeElements([
-    ...builtInCompanionElements,
-    ...builtInCompanionSubElements,
+    ...patchedBuiltInCompanionElements,
+    ...patchedBuiltInCompanionSubElements,
     ...importedElements.filter((element) =>
       ["Companion", "Companion Trait", "Companion Action", "Companion Reaction"].includes(element.type),
     ),
   ]);
   const featElements = dedupeElements([
-    ...builtInFeatElements,
+    ...patchedBuiltInFeatElements,
     ...importedElements.filter((element) => ["Feat"].includes(element.type)),
   ]);
   const spellElements = dedupeElements([
-    ...builtInSpellElements,
+    ...patchedBuiltInSpellElements,
     ...importedElements.filter((element) => ["Spell"].includes(element.type)),
   ]);
   const progressionElements = dedupeElements([
