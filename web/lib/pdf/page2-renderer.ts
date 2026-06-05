@@ -904,17 +904,19 @@ function renderCompanionBonusBox(
   label: string,
 ) {
   drawSvg(ctx, assets.bonusBox, rect, "contain");
+  const valueHeight = 17;
+  const labelHeight = 14;
   maskRect(ctx, {
     x: rect.x + 5,
-    y: rect.y + 4,
+    y: rect.y + Math.max(0, (rect.height - valueHeight) / 2) - 1,
     width: rect.width - 10,
-    height: rect.height - 7,
+    height: valueHeight + 2,
   });
   drawCenteredTextInRect(ctx, value, {
     x: rect.x + 5,
-    y: rect.y + 7,
+    y: rect.y + Math.max(0, (rect.height - valueHeight) / 2),
     width: rect.width - 10,
-    height: 17,
+    height: valueHeight,
   }, {
     font: "Helvetica-Bold",
     maxSize: 12,
@@ -923,9 +925,9 @@ function renderCompanionBonusBox(
   });
   drawCenteredTextInRect(ctx, label, {
     x: rect.x + 3,
-    y: rect.y + 27,
+    y: rect.y + rect.height - labelHeight - 1,
     width: rect.width - 6,
-    height: rect.height - 30,
+    height: labelHeight,
   }, {
     font: "Helvetica",
     maxSize: 5.1,
@@ -967,7 +969,7 @@ function renderCompanionHpAndAc(
   drawSvg(ctx, assets.ac, rects.ac, "contain");
   drawCenteredTextInRect(ctx, ac, {
     x: rects.ac.x + 5,
-    y: rects.ac.y + 10,
+    y: rects.ac.y + Math.max(0, (rects.ac.height - 18) / 2),
     width: rects.ac.width - 10,
     height: 18,
   }, {
@@ -1008,7 +1010,7 @@ function renderCompanionSpeeds(
     drawSvg(ctx, assets.passiveBox, rect, "contain");
     drawCenteredTextInRect(ctx, entries[index].value, {
       x: rect.x + 3,
-      y: rect.y + 8,
+      y: rect.y + Math.max(0, (rect.height - 10) / 2),
       width: rect.width - 6,
       height: 10,
     }, {
@@ -1019,7 +1021,7 @@ function renderCompanionSpeeds(
     });
     drawCenteredTextInRect(ctx, entries[index].label, {
       x: rect.x + 1,
-      y: rect.y + 25,
+      y: rect.y + rect.height - 9,
       width: rect.width - 2,
       height: 7,
     }, {
