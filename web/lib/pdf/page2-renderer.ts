@@ -928,6 +928,8 @@ function renderCompanionBonusBox(
   drawSvg(ctx, assets.bonusBox, rect, "contain");
   const valueHeight = 17;
   const labelHeight = 14;
+  // Mask #1 — covers the value's centered band so the renderer-drawn value
+  // sits cleanly on a white field.
   maskRect(ctx, {
     x: rect.x + 5,
     y: rect.y + Math.max(0, (rect.height - valueHeight) / 2) - 1,
@@ -944,6 +946,15 @@ function renderCompanionBonusBox(
     maxSize: 12,
     minSize: 7,
     color: "#000000",
+  });
+  // Mask #2 — covers the SVG's baked-in "PROFICIENCY BONUS" footer text so
+  // the renderer-drawn label below sits cleanly on white instead of
+  // overlapping the baked-in label.
+  maskRect(ctx, {
+    x: rect.x + 3,
+    y: rect.y + rect.height - 14,
+    width: rect.width - 6,
+    height: 12,
   });
   drawCenteredTextInRect(ctx, label, {
     x: rect.x + 3,
