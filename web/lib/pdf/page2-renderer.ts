@@ -91,10 +91,27 @@ const LABEL_STRIP_HEIGHT = 12;
 // ============================================================
 
 function drawSectionTitle(ctx: PdfRenderContext, title: string, rect: PdfRect) {
-  drawText(ctx, title, { x: rect.x + 2, y: rect.y + 1, width: rect.width, height: 14 }, {
+  // Inset the title comfortably below the upper frame edge so it never
+  // overlaps the container's top border. This is the canonical title
+  // position used by every framed section on the inventory page.
+  drawText(ctx, title, { x: rect.x + 6, y: rect.y + 6, width: rect.width - 12, height: 12 }, {
     font: "Helvetica-Bold",
     size: TYPOGRAPHY.sectionTitle.maxSize,
     color: COLORS.textPrimary,
+    lineBreak: false,
+  });
+}
+
+function drawCenteredSectionTitle(ctx: PdfRenderContext, title: string, rect: PdfRect, options: { maxSize?: number; minSize?: number; topOffset?: number } = {}) {
+  const maxSize = options.maxSize ?? TYPOGRAPHY.sectionTitle.maxSize;
+  const minSize = options.minSize ?? TYPOGRAPHY.small.maxSize;
+  const topOffset = options.topOffset ?? 7;
+  drawCenteredTextInRect(ctx, title, { x: rect.x, y: rect.y + topOffset, width: rect.width, height: 12 }, {
+    font: "Helvetica-Bold",
+    maxSize,
+    minSize,
+    color: COLORS.textPrimary,
+    lineBreak: false,
   });
 }
 
@@ -133,15 +150,10 @@ function renderInventoryIndex(
   const rect = PAGE2_INVENTORY_REGIONS.inventoryIndex;
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredTextInRect(ctx, "EQUIPPED", { x: rect.x, y: rect.y + 2, width: rect.width, height: INDEX_HEADER_HEIGHT }, {
-    font: "Helvetica-Bold",
-    maxSize: TYPOGRAPHY.sectionTitle.maxSize,
-    minSize: TYPOGRAPHY.small.maxSize,
-    color: COLORS.textPrimary,
-  });
+  drawCenteredSectionTitle(ctx, "EQUIPPED", rect, { topOffset: 7 });
 
   const colX = [rect.x + 4, rect.x + 18, rect.x + 132, rect.x + 160];
-  const headerY = rect.y + 14;
+  const headerY = rect.y + 22;
 
   const headers = ["#", "Name", "Qty", "lb"];
   headers.forEach((h, i) => {
@@ -201,12 +213,7 @@ function renderItemDescriptions(
   const rect = PAGE2_INVENTORY_REGIONS.itemDescriptions;
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredTextInRect(ctx, "ITEM DESCRIPTIONS", { x: rect.x, y: rect.y + 2, width: rect.width, height: INDEX_HEADER_HEIGHT }, {
-    font: "Helvetica-Bold",
-    maxSize: TYPOGRAPHY.sectionTitle.maxSize,
-    minSize: TYPOGRAPHY.small.maxSize,
-    color: COLORS.textPrimary,
-  });
+  drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 7 });
 
   const magicItems = items.filter(
     (item) => item.rarity || item.attuned || item.detailHtml,
@@ -216,13 +223,13 @@ function renderItemDescriptions(
     drawText(
       ctx,
       "No items requiring description.",
-      { x: rect.x + 6, y: rect.y + 24, width: rect.width - 12, height: 12 },
+      { x: rect.x + 6, y: rect.y + 26, width: rect.width - 12, height: 12 },
       { font: "Helvetica-Oblique", size: TYPOGRAPHY.small.maxSize, color: COLORS.textTertiary },
     );
     return;
   }
 
-  const contentStartY = rect.y + 16;
+  const contentStartY = rect.y + 24;
   const contentBottomY = rect.y + rect.height - 4;
   let currentY = contentStartY;
 
@@ -299,20 +306,18 @@ function renderAttuned(
   maxAttuned: number,
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.attuned;
+  // Single framed card — no grey header strip, title is just a label
+  // sitting comfortably inside the frame.
   drawSvg(ctx, assets.generalContainer, rect);
 
-  // Tiny label strip (≤12pt) at top of section
-  const labelRect: PdfRect = { x: rect.x + 2, y: rect.y + 2, width: rect.width - 4, height: LABEL_STRIP_HEIGHT };
-  drawSvg(ctx, assets.greyBackground, labelRect);
-  drawCenteredTextInRect(ctx, "ATTUNED", labelRect, {
-    font: "Helvetica-Bold",
-    maxSize: 6,
-    minSize: 4.5,
-    color: COLORS.textPrimary,
-  });
+  drawCenteredSectionTitle(ctx, "ATTUNED", rect, { topOffset: 6, maxSize: 8, minSize: 6 });
 
-  // Bottom: [ 0 ] / [ 3 ] using bonusBox (clean, no baked-in "INSIGHT" text)
-  const boxY = rect.y + 2 + LABEL_STRIP_HEIGHT + 4;
+  // Two small _Proficiency box 1.svg values with a "/" between.
+  // Reuses the same visual language as the currency boxes in the
+  // middle utility row so the whole band feels like one system.
+  // Center the two-box row vertically below the title within the card.
+  const titleBottom = rect.y + 20;
+  const boxY = titleBottom + (rect.y + rect.height - titleBottom - ATTUNED_BOX_SIZE) / 2;
   const totalBoxesWidth = 2 * ATTUNED_BOX_SIZE + ATTUNED_BOX_GAP;
   const startX = rect.x + (rect.width - totalBoxesWidth) / 2;
 
@@ -324,19 +329,19 @@ function renderAttuned(
     height: ATTUNED_BOX_SIZE,
   };
 
-  drawSvg(ctx, assets.bonusBox, leftBox);
+  drawSvg(ctx, assets.proficiencyBox1, leftBox);
   drawCenteredTextInRect(ctx, String(attunedCount), leftBox, {
     font: "Helvetica-Bold",
     maxSize: 10,
-    minSize: 7,
+    minSize: 6,
     color: COLORS.textPrimary,
   });
 
-  drawSvg(ctx, assets.bonusBox, rightBox);
+  drawSvg(ctx, assets.proficiencyBox1, rightBox);
   drawCenteredTextInRect(ctx, String(maxAttuned), rightBox, {
     font: "Helvetica-Bold",
     maxSize: 10,
-    minSize: 7,
+    minSize: 6,
     color: COLORS.textPrimary,
   });
 
@@ -350,7 +355,7 @@ function renderAttuned(
     height: ATTUNED_BOX_SIZE - 4,
   }, {
     font: "Helvetica-Bold",
-    size: 10,
+    size: 11,
     color: COLORS.textSecondary,
     align: "center",
     lineBreak: false,
@@ -363,20 +368,16 @@ function renderValuables(
   valuables: string[],
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.valuables;
+  // Proper 1/3-width container — same main frame as Equipment / Stored
+  // Items / Quest Items. No grey header strip; title sits comfortably
+  // inside the top of the frame.
   drawSvg(ctx, assets.generalContainer, rect);
 
-  const labelRect: PdfRect = { x: rect.x + 2, y: rect.y + 2, width: rect.width - 4, height: LABEL_STRIP_HEIGHT };
-  drawSvg(ctx, assets.greyBackground, labelRect);
-  drawCenteredTextInRect(ctx, "VALUABLES", labelRect, {
-    font: "Helvetica-Bold",
-    maxSize: 6,
-    minSize: 4.5,
-    color: COLORS.textPrimary,
-  });
+  drawCenteredSectionTitle(ctx, "VALUABLES", rect, { topOffset: 7 });
 
-  const contentY = rect.y + 2 + LABEL_STRIP_HEIGHT + 2;
-  const contentHeight = rect.y + rect.height - contentY - 2;
-  const contentRect: PdfRect = { x: rect.x + 4, y: contentY, width: rect.width - 8, height: contentHeight };
+  const contentY = rect.y + 22;
+  const contentHeight = rect.y + rect.height - contentY - 4;
+  const contentRect: PdfRect = { x: rect.x + 6, y: contentY, width: rect.width - 12, height: contentHeight };
 
   if (valuables.length === 0) {
     drawCenteredTextInRect(ctx, "—", contentRect, {
@@ -388,7 +389,7 @@ function renderValuables(
     return;
   }
 
-  const displayText = valuables.slice(0, 4).join(", ");
+  const displayText = valuables.slice(0, 6).join(", ");
   drawText(ctx, displayText, contentRect, {
     font: "Helvetica",
     size: TYPOGRAPHY.body.maxSize,
@@ -445,40 +446,39 @@ function renderEncumbrance(
   capacity: number,
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.encumbrance;
+  // Compact framed card — no grey header strip. Title sits at the top
+  // of the frame like the other utility-row sections. Three plain-text
+  // label/value pairs. No bar, no fill, no infographic.
   drawSvg(ctx, assets.generalContainer, rect);
 
-  const labelRect: PdfRect = { x: rect.x + 2, y: rect.y + 2, width: rect.width - 4, height: LABEL_STRIP_HEIGHT };
-  drawSvg(ctx, assets.greyBackground, labelRect);
-  drawCenteredTextInRect(ctx, "ENCUMBRANCE", labelRect, {
-    font: "Helvetica-Bold",
-    maxSize: 6,
-    minSize: 4.5,
-    color: COLORS.textPrimary,
-  });
+  drawCenteredSectionTitle(ctx, "ENCUMBRANCE", rect, { topOffset: 6, maxSize: 8, minSize: 6 });
 
-  // Three plain-text label/value pairs. NO bar, NO fill.
-  const contentY = rect.y + 2 + LABEL_STRIP_HEIGHT + 4;
-  const valueFontSize = TYPOGRAPHY.body.maxSize;
-  const lineHeight = 9;
+  // Three label/value pairs in a compact column, sized to fit the
+  // 65pt utility-row band. Each pair is ~12pt tall (label 5pt + value 7pt
+  // with minimal breathing room).
+  const contentY = rect.y + 20;
+  const pairHeight = 14;
   const pushDragLift = capacity * 2;
+  const values: Array<{ label: string; value: string }> = [
+    { label: "Carried", value: `${carriedWeight} lb` },
+    { label: "Capacity", value: `${capacity} lb` },
+    { label: "Push/Drag/Lift", value: `${pushDragLift} lb` },
+  ];
 
-  drawText(ctx, `Carried: ${carriedWeight} lb`, { x: rect.x + 4, y: contentY, width: rect.width - 8, height: lineHeight }, {
-    font: "Helvetica-Bold",
-    size: TYPOGRAPHY.small.maxSize,
-    color: COLORS.textPrimary,
-    lineGap: 0,
-  });
-  drawText(ctx, `Capacity: ${capacity} lb`, { x: rect.x + 4, y: contentY + lineHeight, width: rect.width - 8, height: lineHeight }, {
-    font: "Helvetica",
-    size: valueFontSize,
-    color: COLORS.textSecondary,
-    lineGap: 0,
-  });
-  drawText(ctx, `Push/Drag/Lift: ${pushDragLift} lb`, { x: rect.x + 4, y: contentY + 2 * lineHeight, width: rect.width - 8, height: lineHeight }, {
-    font: "Helvetica",
-    size: valueFontSize,
-    color: COLORS.textSecondary,
-    lineGap: 0,
+  values.forEach((pair, i) => {
+    const pairY = contentY + i * pairHeight;
+    drawText(ctx, pair.label, { x: rect.x + 6, y: pairY, width: rect.width - 12, height: 5 }, {
+      font: "Helvetica",
+      size: 5,
+      color: COLORS.textTertiary,
+      lineGap: 0,
+    });
+    drawText(ctx, pair.value, { x: rect.x + 6, y: pairY + 5, width: rect.width - 12, height: 7 }, {
+      font: "Helvetica-Bold",
+      size: 7,
+      color: COLORS.textPrimary,
+      lineGap: 0,
+    });
   });
 }
 
@@ -493,10 +493,40 @@ function renderLinedSection(
   drawSvg(ctx, assets.generalContainer, rect);
   drawSectionTitle(ctx, title, rect);
 
-  const contentStartY = rect.y + 14;
+  // Title sits at y+6 (height 12), so body content starts comfortably
+  // below it.
+  const contentStartY = rect.y + 22;
   const lineGap = (rect.height - (contentStartY - rect.y) - 4) / lineCount;
 
   for (let i = 0; i < lineCount; i++) {
+    const lineY = contentStartY + i * lineGap;
+    const lineRect: PdfRect = { x: rect.x + 2, y: lineY, width: rect.width - 4, height: LINE_HEIGHT };
+    drawSvg(ctx, assets.line, lineRect);
+
+    if (lines[i]) {
+      drawText(ctx, lines[i], { x: rect.x + 4, y: lineY + 1, width: rect.width - 8, height: 8 }, {
+        font: "Helvetica",
+        size: TYPOGRAPHY.body.maxSize,
+        color: COLORS.textSecondary,
+      });
+    }
+  }
+}
+
+function renderAdditionalTreasure(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  additionalTreasureText: string,
+) {
+  const rect = PAGE2_INVENTORY_REGIONS.additionalTreasure;
+  drawSvg(ctx, assets.generalContainer, rect);
+  drawSectionTitle(ctx, "ADDITIONAL TREASURE", rect);
+
+  const lines = additionalTreasureText ? additionalTreasureText.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+  const contentStartY = rect.y + 22;
+  const lineGap = (rect.height - (contentStartY - rect.y) - 4) / ADDITIONAL_TREASURE_ROWS;
+
+  for (let i = 0; i < ADDITIONAL_TREASURE_ROWS; i++) {
     const lineY = contentStartY + i * lineGap;
     const lineRect: PdfRect = { x: rect.x + 2, y: lineY, width: rect.width - 4, height: LINE_HEIGHT };
     drawSvg(ctx, assets.line, lineRect);
@@ -516,64 +546,51 @@ function renderStoredItems(
   assets: PdfSvgAssetBundle,
   items: Array<{ name: string; quantity: number; weight?: string }>,
 ) {
-  const leftRect = PAGE2_INVENTORY_REGIONS.storedItemsLeft;
-  const middleRect = PAGE2_INVENTORY_REGIONS.storedItemsMiddle;
+  // Single "Stored Items" column — not split across #1/#2.
+  // The bottom row now has 3 equal-width columns: Stored / Additional
+  // Treasure / Quest Items, so each has its own clean framed section.
+  const rect = PAGE2_INVENTORY_REGIONS.storedItems;
+  drawSvg(ctx, assets.generalContainer, rect);
+  drawCenteredSectionTitle(ctx, "STORED ITEMS", rect, { topOffset: 7 });
 
-  // Distribute stored items across the two equal stored columns
-  const perColumn = Math.ceil(items.length / 2);
-  const columns: Array<{ rect: PdfRect; title: string; colItems: typeof items; isLast: boolean }> = [
-    { rect: leftRect, title: "STORED ITEMS #1", colItems: items.slice(0, perColumn), isLast: false },
-    { rect: middleRect, title: "STORED ITEMS #2", colItems: items.slice(perColumn), isLast: true },
-  ];
+  const contentStartY = rect.y + 22;
+  const lineGap = STORED_ROW_HEIGHT + STORED_ROW_GAP;
 
-  columns.forEach(({ rect, title, colItems }) => {
-    drawSvg(ctx, assets.generalContainer, rect);
-    drawCenteredTextInRect(ctx, title, { x: rect.x, y: rect.y + 4, width: rect.width, height: 10 }, {
-      font: "Helvetica-Bold",
-      maxSize: TYPOGRAPHY.sectionTitle.maxSize,
-      minSize: 5,
+  items.slice(0, STORED_MAX_ROWS).forEach((item, i) => {
+    const lineY = contentStartY + i * lineGap;
+    const lineRect: PdfRect = { x: rect.x + 2, y: lineY, width: rect.width - 4, height: STORED_ROW_HEIGHT };
+    drawSvg(ctx, assets.line, lineRect);
+
+    const itemLabel = `${item.quantity > 1 ? `${item.quantity}x ` : ""}${item.name}`;
+    const maxNameChars = Math.floor((rect.width - 44) / (TYPOGRAPHY.body.maxSize * 0.5));
+    const displayName = itemLabel.length > maxNameChars ? itemLabel.slice(0, maxNameChars - 1) + "…" : itemLabel;
+    drawText(ctx, displayName, { x: rect.x + 4, y: lineY + 1, width: rect.width - 40, height: STORED_ROW_HEIGHT - 2 }, {
+      font: "Helvetica",
+      size: TYPOGRAPHY.body.maxSize,
       color: COLORS.textPrimary,
+      lineGap: 0,
     });
 
-    const contentStartY = rect.y + 16;
-    const lineGap = STORED_ROW_HEIGHT + STORED_ROW_GAP;
-
-    colItems.slice(0, STORED_MAX_ROWS).forEach((item, i) => {
-      const lineY = contentStartY + i * lineGap;
-      const lineRect: PdfRect = { x: rect.x + 2, y: lineY, width: rect.width - 4, height: STORED_ROW_HEIGHT };
-      drawSvg(ctx, assets.line, lineRect);
-
-      const itemLabel = `${item.quantity > 1 ? `${item.quantity}x ` : ""}${item.name}`;
-      const maxNameChars = Math.floor((rect.width - 44) / (TYPOGRAPHY.body.maxSize * 0.5));
-      const displayName = itemLabel.length > maxNameChars ? itemLabel.slice(0, maxNameChars - 1) + "…" : itemLabel;
-      drawText(ctx, displayName, { x: rect.x + 4, y: lineY + 1, width: rect.width - 40, height: STORED_ROW_HEIGHT - 2 }, {
+    if (item.weight) {
+      drawText(ctx, `${item.weight} lb`, { x: rect.x + rect.width - 32, y: lineY + 1, width: 28, height: STORED_ROW_HEIGHT - 2 }, {
         font: "Helvetica",
-        size: TYPOGRAPHY.body.maxSize,
-        color: COLORS.textPrimary,
-        lineGap: 0,
-      });
-
-      if (item.weight) {
-        drawText(ctx, `${item.weight} lb`, { x: rect.x + rect.width - 32, y: lineY + 1, width: 28, height: STORED_ROW_HEIGHT - 2 }, {
-          font: "Helvetica",
-          size: TYPOGRAPHY.small.minSize,
-          color: COLORS.textTertiary,
-          align: "right",
-          lineGap: 0,
-        });
-      }
-    });
-
-    if (colItems.length > STORED_MAX_ROWS) {
-      const moreCount = colItems.length - STORED_MAX_ROWS;
-      const lastLineY = contentStartY + STORED_MAX_ROWS * lineGap;
-      drawText(ctx, `…${moreCount} more`, { x: rect.x + 4, y: lastLineY + 1, width: rect.width - 8, height: 7 }, {
-        font: "Helvetica-Oblique",
         size: TYPOGRAPHY.small.minSize,
         color: COLORS.textTertiary,
+        align: "right",
+        lineGap: 0,
       });
     }
   });
+
+  if (items.length > STORED_MAX_ROWS) {
+    const moreCount = items.length - STORED_MAX_ROWS;
+    const lastLineY = contentStartY + STORED_MAX_ROWS * lineGap;
+    drawText(ctx, `…${moreCount} more`, { x: rect.x + 4, y: lastLineY + 1, width: rect.width - 8, height: 7 }, {
+      font: "Helvetica-Oblique",
+      size: TYPOGRAPHY.small.minSize,
+      color: COLORS.textTertiary,
+    });
+  }
 }
 
 function renderQuestItems(
@@ -583,12 +600,7 @@ function renderQuestItems(
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.questItems;
   drawSvg(ctx, assets.generalContainer, rect);
-  drawCenteredTextInRect(ctx, "QUEST ITEMS & TRINKETS", { x: rect.x, y: rect.y + 4, width: rect.width, height: 10 }, {
-    font: "Helvetica-Bold",
-    maxSize: TYPOGRAPHY.sectionTitle.maxSize,
-    minSize: 5,
-    color: COLORS.textPrimary,
-  });
+  drawCenteredSectionTitle(ctx, "QUEST ITEMS & TRINKETS", rect, { topOffset: 7 });
 
   const lines = questItemsText ? questItemsText.split("\n").map((l) => l.trim()).filter(Boolean) : [];
 
@@ -596,7 +608,7 @@ function renderQuestItems(
     drawCenteredTextInRect(
       ctx,
       "—",
-      { x: rect.x, y: rect.y + 16, width: rect.width, height: rect.height - 24 },
+      { x: rect.x, y: rect.y + 26, width: rect.width, height: rect.height - 30 },
       {
         font: "Helvetica-Oblique",
         maxSize: TYPOGRAPHY.body.maxSize,
@@ -607,7 +619,7 @@ function renderQuestItems(
     return;
   }
 
-  const contentStartY = rect.y + 16;
+  const contentStartY = rect.y + 22;
   const lineGap = STORED_ROW_HEIGHT + STORED_ROW_GAP;
   const visibleLines = lines.slice(0, QUEST_MAX_ROWS);
 
@@ -689,25 +701,36 @@ export function renderInventoryPage(
 
   const data = extractInventoryData(character);
 
+  // 1. Top: Inventory/Equipped (left) | Item Descriptions (right)
   renderInventoryHeader(ctx, assets);
   renderInventoryIndex(ctx, assets, data.equipment);
   renderItemDescriptions(ctx, assets, data.equipment);
 
-  // Utility row: attuned, valuables, currency, encumbrance
+  // 2. Middle utility row: Attuned | Currency | Encumbrance
+  //    One coordinated band — no grey headers, consistent framing.
   renderAttuned(ctx, assets, data.attunedCount, data.maxAttuned);
-  renderValuables(ctx, assets, data.valuables);
   renderCurrency(ctx, assets, data.currency);
   renderEncumbrance(ctx, assets, Math.round(data.carriedWeight), data.capacity);
 
-  // Bottom 3 columns
-  renderStoredItems(ctx, assets, data.storedItems);
-  renderQuestItems(ctx, assets, data.questItems);
+  // 3. Valuables as a proper 1/3-width container (left aligned)
+  renderValuables(ctx, assets, data.valuables);
 
-  // Additional treasure — only when the player has something written here.
+  // 4. Bottom 3 equal columns: Stored Items | Additional Treasure | Quest Items
+  renderStoredItems(ctx, assets, data.storedItems);
+
+  // Additional treasure only renders when the player has content. Otherwise
+  // the slot stays empty (Quest Items takes the 3rd column position).
   if (data.additionalTreasure && data.additionalTreasure.trim().length > 0) {
-    const treasureLines = data.additionalTreasure.split("\n");
-    renderLinedSection(ctx, assets, PAGE2_INVENTORY_REGIONS.additionalTreasure, "ADDITIONAL TREASURE", treasureLines, ADDITIONAL_TREASURE_ROWS);
+    renderAdditionalTreasure(ctx, assets, data.additionalTreasure);
+  } else {
+    // Render an empty placeholder so the 3 bottom columns stay balanced
+    // visually even when no additional treasure exists.
+    const rect = PAGE2_INVENTORY_REGIONS.additionalTreasure;
+    drawSvg(ctx, assets.generalContainer, rect);
+    drawSectionTitle(ctx, "ADDITIONAL TREASURE", rect);
   }
+
+  renderQuestItems(ctx, assets, data.questItems);
 
   doc.restore();
 }
