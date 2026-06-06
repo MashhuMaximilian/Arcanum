@@ -94,7 +94,7 @@ function drawSectionTitle(ctx: PdfRenderContext, title: string, rect: PdfRect) {
   // Inset the title comfortably below the upper frame edge so it never
   // overlaps the container's top border. This is the canonical title
   // position used by every framed section on the inventory page.
-  drawText(ctx, title, { x: rect.x + 6, y: rect.y + 6, width: rect.width - 12, height: 12 }, {
+  drawText(ctx, title, { x: rect.x + 6, y: rect.y + 9, width: rect.width - 12, height: 12 }, {
     font: "Helvetica-Bold",
     size: TYPOGRAPHY.sectionTitle.maxSize,
     color: COLORS.textPrimary,
@@ -105,7 +105,7 @@ function drawSectionTitle(ctx: PdfRenderContext, title: string, rect: PdfRect) {
 function drawCenteredSectionTitle(ctx: PdfRenderContext, title: string, rect: PdfRect, options: { maxSize?: number; minSize?: number; topOffset?: number } = {}) {
   const maxSize = options.maxSize ?? TYPOGRAPHY.sectionTitle.maxSize;
   const minSize = options.minSize ?? TYPOGRAPHY.small.maxSize;
-  const topOffset = options.topOffset ?? 7;
+  const topOffset = options.topOffset ?? 9;
   drawCenteredTextInRect(ctx, title, { x: rect.x, y: rect.y + topOffset, width: rect.width, height: 12 }, {
     font: "Helvetica-Bold",
     maxSize,
@@ -125,6 +125,38 @@ function cleanHtmlText(html: string): string {
     .replace(/&amp;/gi, "&")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * Strip the leading mechanics <ul>...</ul> block from an item's
+ * detailHtml so we can show the actual rules/description text below
+ * the item name. The mechanics bullets are redundant — rarity, weight,
+ * attunement, etc. are already shown in the compact inline metadata.
+ */
+function extractItemDescription(detailHtml: string | undefined, fallback: string): string {
+  if (!detailHtml) return fallback;
+  // Drop the first <ul>...</ul> block if present.
+  const stripped = detailHtml.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/i, "").trim();
+  const cleaned = cleanHtmlText(stripped);
+  return cleaned || fallback;
+}
+
+/**
+ * Build the compact inline metadata line shown beneath an item name
+ * in the description column. Mirrors the example format the user
+ * asked for: "{rarity} | {category/type} | {weight} | {attunement}".
+ */
+function buildItemMetadataLine(item: CharacterInventoryItem): string {
+  const parts: string[] = [];
+  if (item.rarity) parts.push(item.rarity);
+  if (item.itemType || item.family || item.category) {
+    parts.push(item.itemType || item.family || item.category);
+  }
+  if (item.weight) parts.push(item.weight);
+  if (item.attunable || item.attuned) {
+    parts.push(item.attuned ? "Attuned" : "Attunement Required");
+  }
+  return parts.join(" · ");
 }
 
 // ============================================================
@@ -150,10 +182,10 @@ function renderInventoryIndex(
   const rect = PAGE2_INVENTORY_REGIONS.inventoryIndex;
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredSectionTitle(ctx, "EQUIPPED", rect, { topOffset: 7 });
+  drawCenteredSectionTitle(ctx, "EQUIPPED", rect, { topOffset: 9 });
 
   const colX = [rect.x + 4, rect.x + 18, rect.x + 132, rect.x + 160];
-  const headerY = rect.y + 22;
+  const headerY = rect.y + 26;
 
   const headers = ["#", "Name", "Qty", "lb"];
   headers.forEach((h, i) => {
@@ -213,7 +245,7 @@ function renderItemDescriptions(
   const rect = PAGE2_INVENTORY_REGIONS.itemDescriptions;
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 7 });
+  drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 9 });
 
   const magicItems = items.filter(
     (item) => item.rarity || item.attuned || item.detailHtml,
@@ -223,79 +255,80 @@ function renderItemDescriptions(
     drawText(
       ctx,
       "No items requiring description.",
-      { x: rect.x + 6, y: rect.y + 26, width: rect.width - 12, height: 12 },
+      { x: rect.x + 6, y: rect.y + 30, width: rect.width - 12, height: 12 },
       { font: "Helvetica-Oblique", size: TYPOGRAPHY.small.maxSize, color: COLORS.textTertiary },
     );
     return;
   }
 
-  const contentStartY = rect.y + 24;
+  const contentStartY = rect.y + 28;
   const contentBottomY = rect.y + rect.height - 4;
   let currentY = contentStartY;
 
   const innerWidth = rect.width - 8;
   const textFont = "Helvetica";
   const textSize = TYPOGRAPHY.body.maxSize;
-  const lineGap = 0.6;
+  const lineGap = 0.4;
 
   for (const item of magicItems) {
-    // Name: bold, one line
+    // Name (bold) + inline metadata on the same row when space allows.
     const nameHeight = 8;
     if (currentY + nameHeight > contentBottomY) break;
     drawText(ctx, item.name, { x: rect.x + 4, y: currentY, width: innerWidth, height: nameHeight }, {
       font: "Helvetica-Bold",
-      size: TYPOGRAPHY.body.maxSize,
+      size: textSize,
       color: COLORS.textPrimary,
       lineGap: 0,
     });
-    currentY += nameHeight;
+    currentY += nameHeight - 1;
 
-    // Rarity + Source: italic, inline on one line
-    const raritySourceParts: string[] = [];
-    if (item.rarity) raritySourceParts.push(item.rarity);
-    if (item.sourceLabel) raritySourceParts.push(item.sourceLabel);
-    if (raritySourceParts.length > 0) {
+    // Compact inline metadata line: "{rarity} | {category/type} | {weight} | {attunement}"
+    const metaLine = buildItemMetadataLine(item);
+    if (metaLine) {
       const metaHeight = 6;
       if (currentY + metaHeight > contentBottomY) break;
-      drawText(ctx, raritySourceParts.join(" · "), { x: rect.x + 4, y: currentY, width: innerWidth, height: metaHeight }, {
-        font: "Helvetica-Oblique",
+      drawText(ctx, metaLine, { x: rect.x + 4, y: currentY, width: innerWidth, height: metaHeight }, {
+        font: "Helvetica",
         size: TYPOGRAPHY.small.minSize,
-        color: COLORS.textSecondary,
+        color: COLORS.textTertiary,
         lineGap: 0,
       });
       currentY += metaHeight;
     }
 
-    // Description body: wrap with heightOfString, cap at ~5 lines
-    if (item.detailHtml) {
-      const cleanDesc = cleanHtmlText(item.detailHtml);
-      if (cleanDesc) {
-        ctx.doc.save();
-        ctx.doc.font(textFont).fontSize(textSize);
-        const bodyHeight = ctx.doc.heightOfString(cleanDesc, {
-          width: innerWidth,
-          lineBreak: true,
-          lineGap,
-        });
-        ctx.doc.restore();
+    // Actual item description text (rules text from the item sheet).
+    // The detailHtml field is "{mechanics <ul>}{description}"; we strip
+    // the mechanics block and show only the real rules text.
+    const description = extractItemDescription(item.detailHtml, item.notes ?? item.name);
+    if (description) {
+      ctx.doc.save();
+      ctx.doc.font(textFont).fontSize(textSize);
+      const bodyHeight = ctx.doc.heightOfString(description, {
+        width: innerWidth,
+        lineBreak: true,
+        lineGap,
+      });
+      ctx.doc.restore();
 
-        const maxBodyHeight = 50; // ~5 lines at body.maxSize with 0.6pt line gap
-        const renderedHeight = Math.min(maxBodyHeight, bodyHeight, contentBottomY - currentY - 6);
-        if (renderedHeight > 6) {
-          drawText(ctx, cleanDesc, { x: rect.x + 4, y: currentY, width: innerWidth, height: renderedHeight }, {
-            font: textFont,
-            size: textSize,
-            color: COLORS.textPrimary,
-            lineGap,
-            lineBreak: true,
-            ellipsis: true,
-          });
-          currentY += renderedHeight;
-        }
+      // Leave at least 4pt of breathing room before the next item so
+      // entries stay visually separated without big gaps.
+      const remainingForBody = contentBottomY - currentY - 4;
+      const maxBodyHeight = Math.min(50, remainingForBody);
+      const renderedHeight = Math.min(maxBodyHeight, bodyHeight);
+      if (renderedHeight > 6) {
+        drawText(ctx, description, { x: rect.x + 4, y: currentY, width: innerWidth, height: renderedHeight }, {
+          font: textFont,
+          size: textSize,
+          color: COLORS.textPrimary,
+          lineGap,
+          lineBreak: true,
+          ellipsis: true,
+        });
+        currentY += renderedHeight;
       }
     }
 
-    currentY += 6; // breathing room between items
+    currentY += 4; // tight breathing room between items
   }
 }
 
@@ -306,60 +339,29 @@ function renderAttuned(
   maxAttuned: number,
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.attuned;
-  // Single framed card — no grey header strip, title is just a label
-  // sitting comfortably inside the frame.
+  // Single clean framed card. NO mini-boxes inside — the value is a
+  // single unified "0/3" displayed as one piece of bold text, exactly
+  // like the user spec asks for. Same height as the other utility-row
+  // sections, same visual language.
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredSectionTitle(ctx, "ATTUNED", rect, { topOffset: 6, maxSize: 8, minSize: 6 });
+  drawCenteredSectionTitle(ctx, "ATTUNED", rect, { topOffset: 8, maxSize: 8, minSize: 6 });
 
-  // Two small _Proficiency box 1.svg values with a "/" between.
-  // Reuses the same visual language as the currency boxes in the
-  // middle utility row so the whole band feels like one system.
-  // Center the two-box row vertically below the title within the card.
-  const titleBottom = rect.y + 20;
-  const boxY = titleBottom + (rect.y + rect.height - titleBottom - ATTUNED_BOX_SIZE) / 2;
-  const totalBoxesWidth = 2 * ATTUNED_BOX_SIZE + ATTUNED_BOX_GAP;
-  const startX = rect.x + (rect.width - totalBoxesWidth) / 2;
-
-  const leftBox: PdfRect = { x: startX, y: boxY, width: ATTUNED_BOX_SIZE, height: ATTUNED_BOX_SIZE };
-  const rightBox: PdfRect = {
-    x: startX + ATTUNED_BOX_SIZE + ATTUNED_BOX_GAP,
-    y: boxY,
-    width: ATTUNED_BOX_SIZE,
-    height: ATTUNED_BOX_SIZE,
-  };
-
-  drawSvg(ctx, assets.proficiencyBox1, leftBox);
-  drawCenteredTextInRect(ctx, String(attunedCount), leftBox, {
-    font: "Helvetica-Bold",
-    maxSize: 10,
-    minSize: 6,
-    color: COLORS.textPrimary,
-  });
-
-  drawSvg(ctx, assets.proficiencyBox1, rightBox);
-  drawCenteredTextInRect(ctx, String(maxAttuned), rightBox, {
-    font: "Helvetica-Bold",
-    maxSize: 10,
-    minSize: 6,
-    color: COLORS.textPrimary,
-  });
-
-  // "/" separator between the two boxes
-  const slashX = startX + ATTUNED_BOX_SIZE + 0.5;
-  const slashWidth = ATTUNED_BOX_GAP - 1;
-  drawText(ctx, "/", {
-    x: slashX,
-    y: boxY + 2,
-    width: slashWidth,
-    height: ATTUNED_BOX_SIZE - 4,
-  }, {
-    font: "Helvetica-Bold",
-    size: 11,
-    color: COLORS.textSecondary,
-    align: "center",
-    lineBreak: false,
-  });
+  // Unified value centered in the lower half of the card.
+  const valueY = rect.y + 32;
+  const valueHeight = rect.y + rect.height - valueY - 4;
+  drawCenteredTextInRect(
+    ctx,
+    `${attunedCount}/${maxAttuned}`,
+    { x: rect.x + 4, y: valueY, width: rect.width - 8, height: valueHeight },
+    {
+      font: "Helvetica-Bold",
+      maxSize: 22,
+      minSize: 14,
+      color: COLORS.textPrimary,
+      lineBreak: false,
+    },
+  );
 }
 
 function renderValuables(
@@ -368,16 +370,15 @@ function renderValuables(
   valuables: string[],
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.valuables;
-  // Proper 1/3-width container — same main frame as Equipment / Stored
-  // Items / Quest Items. No grey header strip; title sits comfortably
-  // inside the top of the frame.
+  // Compact utility-row card. Same height as Attuned / Currency /
+  // Encumbrance. No grey header strip; title sits comfortably at the top.
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredSectionTitle(ctx, "VALUABLES", rect, { topOffset: 7 });
+  drawCenteredSectionTitle(ctx, "VALUABLES", rect, { topOffset: 8, maxSize: 8, minSize: 6 });
 
-  const contentY = rect.y + 22;
+  const contentY = rect.y + 24;
   const contentHeight = rect.y + rect.height - contentY - 4;
-  const contentRect: PdfRect = { x: rect.x + 6, y: contentY, width: rect.width - 12, height: contentHeight };
+  const contentRect: PdfRect = { x: rect.x + 4, y: contentY, width: rect.width - 8, height: contentHeight };
 
   if (valuables.length === 0) {
     drawCenteredTextInRect(ctx, "—", contentRect, {
@@ -389,7 +390,7 @@ function renderValuables(
     return;
   }
 
-  const displayText = valuables.slice(0, 6).join(", ");
+  const displayText = valuables.slice(0, 4).join(", ");
   drawText(ctx, displayText, contentRect, {
     font: "Helvetica",
     size: TYPOGRAPHY.body.maxSize,
@@ -446,38 +447,61 @@ function renderEncumbrance(
   capacity: number,
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.encumbrance;
-  // Compact framed card — no grey header strip. Title sits at the top
-  // of the frame like the other utility-row sections. Three plain-text
-  // label/value pairs. No bar, no fill, no infographic.
+  // Same visual language as currency: 3 standalone _Proficiency box 1.svg
+  // boxes, one per value, with labels above. No grey header strip, no
+  // bar, no infographic.
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredSectionTitle(ctx, "ENCUMBRANCE", rect, { topOffset: 6, maxSize: 8, minSize: 6 });
+  // Small "ENCUMBRANCE" caption above the boxes (acts as the section
+  // title; no grey header strip).
+  const labelY = rect.y + 6;
+  drawCenteredTextInRect(ctx, "ENCUMBRANCE", { x: rect.x, y: labelY, width: rect.width, height: 8 }, {
+    font: "Helvetica-Bold",
+    maxSize: 7,
+    minSize: 5,
+    color: COLORS.textPrimary,
+    lineBreak: false,
+  });
 
-  // Three label/value pairs in a compact column, sized to fit the
-  // 65pt utility-row band. Each pair is ~12pt tall (label 5pt + value 7pt
-  // with minimal breathing room).
-  const contentY = rect.y + 20;
-  const pairHeight = 14;
   const pushDragLift = capacity * 2;
   const values: Array<{ label: string; value: string }> = [
-    { label: "Carried", value: `${carriedWeight} lb` },
-    { label: "Capacity", value: `${capacity} lb` },
-    { label: "Push/Drag/Lift", value: `${pushDragLift} lb` },
+    { label: "CARRIED", value: `${carriedWeight} lb` },
+    { label: "CAPACITY", value: `${capacity} lb` },
+    { label: "PUSH/DRAG/LIFT", value: `${pushDragLift} lb` },
   ];
 
-  values.forEach((pair, i) => {
-    const pairY = contentY + i * pairHeight;
-    drawText(ctx, pair.label, { x: rect.x + 6, y: pairY, width: rect.width - 12, height: 5 }, {
-      font: "Helvetica",
-      size: 5,
-      color: COLORS.textTertiary,
-      lineGap: 0,
-    });
-    drawText(ctx, pair.value, { x: rect.x + 6, y: pairY + 5, width: rect.width - 12, height: 7 }, {
+  // 3 boxes side by side, centered in the card width.
+  const boxY = rect.y + 18;
+  const boxH = rect.y + rect.height - boxY - 4;
+  const boxW = Math.min(36, (rect.width - 2 * 2 - 2 * 2) / 3); // 2pt side padding + 2pt gaps
+  const totalWidth = 3 * boxW + 2 * 2;
+  const startX = rect.x + (rect.width - totalWidth) / 2;
+
+  values.forEach((entry, i) => {
+    const boxX = startX + i * (boxW + 2);
+
+    // Per-box label sits above the box (compact, 4pt high)
+    drawCenteredTextInRect(ctx, entry.label, {
+      x: boxX,
+      y: rect.y + 16,
+      width: boxW,
+      height: 4,
+    }, {
       font: "Helvetica-Bold",
-      size: 7,
+      maxSize: 4.5,
+      minSize: 3.5,
+      color: COLORS.textSecondary,
+      lineBreak: false,
+    });
+
+    const boxRect: PdfRect = { x: boxX, y: boxY, width: boxW, height: boxH };
+    drawSvg(ctx, assets.proficiencyBox1, boxRect);
+    drawCenteredTextInRect(ctx, entry.value, boxRect, {
+      font: "Helvetica-Bold",
+      maxSize: 7,
+      minSize: 5,
       color: COLORS.textPrimary,
-      lineGap: 0,
+      lineBreak: false,
     });
   });
 }
@@ -493,9 +517,9 @@ function renderLinedSection(
   drawSvg(ctx, assets.generalContainer, rect);
   drawSectionTitle(ctx, title, rect);
 
-  // Title sits at y+6 (height 12), so body content starts comfortably
+  // Title sits at y+9 (height 12), so body content starts comfortably
   // below it.
-  const contentStartY = rect.y + 22;
+  const contentStartY = rect.y + 26;
   const lineGap = (rect.height - (contentStartY - rect.y) - 4) / lineCount;
 
   for (let i = 0; i < lineCount; i++) {
@@ -523,7 +547,7 @@ function renderAdditionalTreasure(
   drawSectionTitle(ctx, "ADDITIONAL TREASURE", rect);
 
   const lines = additionalTreasureText ? additionalTreasureText.split("\n").map((l) => l.trim()).filter(Boolean) : [];
-  const contentStartY = rect.y + 22;
+  const contentStartY = rect.y + 26;
   const lineGap = (rect.height - (contentStartY - rect.y) - 4) / ADDITIONAL_TREASURE_ROWS;
 
   for (let i = 0; i < ADDITIONAL_TREASURE_ROWS; i++) {
@@ -551,9 +575,9 @@ function renderStoredItems(
   // Treasure / Quest Items, so each has its own clean framed section.
   const rect = PAGE2_INVENTORY_REGIONS.storedItems;
   drawSvg(ctx, assets.generalContainer, rect);
-  drawCenteredSectionTitle(ctx, "STORED ITEMS", rect, { topOffset: 7 });
+  drawCenteredSectionTitle(ctx, "STORED ITEMS", rect, { topOffset: 9 });
 
-  const contentStartY = rect.y + 22;
+  const contentStartY = rect.y + 26;
   const lineGap = STORED_ROW_HEIGHT + STORED_ROW_GAP;
 
   items.slice(0, STORED_MAX_ROWS).forEach((item, i) => {
@@ -600,7 +624,7 @@ function renderQuestItems(
 ) {
   const rect = PAGE2_INVENTORY_REGIONS.questItems;
   drawSvg(ctx, assets.generalContainer, rect);
-  drawCenteredSectionTitle(ctx, "QUEST ITEMS & TRINKETS", rect, { topOffset: 7 });
+  drawCenteredSectionTitle(ctx, "QUEST ITEMS & TRINKETS", rect, { topOffset: 9 });
 
   const lines = questItemsText ? questItemsText.split("\n").map((l) => l.trim()).filter(Boolean) : [];
 
@@ -608,7 +632,7 @@ function renderQuestItems(
     drawCenteredTextInRect(
       ctx,
       "—",
-      { x: rect.x, y: rect.y + 26, width: rect.width, height: rect.height - 30 },
+      { x: rect.x, y: rect.y + 30, width: rect.width, height: rect.height - 34 },
       {
         font: "Helvetica-Oblique",
         maxSize: TYPOGRAPHY.body.maxSize,
@@ -619,7 +643,7 @@ function renderQuestItems(
     return;
   }
 
-  const contentStartY = rect.y + 22;
+  const contentStartY = rect.y + 26;
   const lineGap = STORED_ROW_HEIGHT + STORED_ROW_GAP;
   const visibleLines = lines.slice(0, QUEST_MAX_ROWS);
 
@@ -706,16 +730,15 @@ export function renderInventoryPage(
   renderInventoryIndex(ctx, assets, data.equipment);
   renderItemDescriptions(ctx, assets, data.equipment);
 
-  // 2. Middle utility row: Attuned | Currency | Encumbrance
+  // 2. Middle utility row: 4 sections on the same row, same height
+  //    Attuned | Valuables | Currency | Encumbrance
   //    One coordinated band — no grey headers, consistent framing.
   renderAttuned(ctx, assets, data.attunedCount, data.maxAttuned);
+  renderValuables(ctx, assets, data.valuables);
   renderCurrency(ctx, assets, data.currency);
   renderEncumbrance(ctx, assets, Math.round(data.carriedWeight), data.capacity);
 
-  // 3. Valuables as a proper 1/3-width container (left aligned)
-  renderValuables(ctx, assets, data.valuables);
-
-  // 4. Bottom 3 equal columns: Stored Items | Additional Treasure | Quest Items
+  // 3. Bottom 3 equal columns: Stored Items | Additional Treasure | Quest Items
   renderStoredItems(ctx, assets, data.storedItems);
 
   // Additional treasure only renders when the player has content. Otherwise
