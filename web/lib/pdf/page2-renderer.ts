@@ -137,7 +137,10 @@ function extractItemDescription(detailHtml: string | undefined, fallback: string
   if (!detailHtml) return fallback;
   // Drop the first <ul>...</ul> block if present.
   const stripped = detailHtml.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/i, "").trim();
-  const cleaned = cleanHtmlText(stripped);
+  let cleaned = cleanHtmlText(stripped);
+  // Clean up stray "TM™" placeholder artifacts that some imported
+  // catalog entries emit when their description is partially templated.
+  cleaned = cleaned.replace(/\bTM™?\s*/g, "").replace(/\b™\s*/g, "");
   return cleaned || fallback;
 }
 
@@ -182,12 +185,14 @@ function renderInventoryIndex(
   const rect = PAGE2_INVENTORY_REGIONS.inventoryIndex;
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredSectionTitle(ctx, "EQUIPPED", rect, { topOffset: 14 });
+  // Use a generous top offset (20pt) so the title sits clearly below
+  // the generalContainer's decorative upper border ornament.
+  drawCenteredSectionTitle(ctx, "EQUIPPED", rect, { topOffset: 20 });
 
   // Column headers sit well below the title so the title's decorative
   // border doesn't visually crowd the first row of data.
   const colX = [rect.x + 4, rect.x + 18, rect.x + 132, rect.x + 160];
-  const headerY = rect.y + 34;
+  const headerY = rect.y + 42;
 
   const headers = ["#", "Name", "Qty", "lb"];
   headers.forEach((h, i) => {
@@ -201,7 +206,7 @@ function renderInventoryIndex(
   const sepDoc = ctx.doc as { moveTo: (x: number, y: number) => { lineTo: (x: number, y: number) => { stroke: () => void } } };
   sepDoc.moveTo(rect.x + 2, headerY + 3).lineTo(rect.x + rect.width - 2, headerY + 3).stroke();
 
-  const rowStartY = headerY + 5;
+  const rowStartY = headerY + 8;
   const visibleItems = items.slice(0, INDEX_MAX_ROWS);
   const hasMore = items.length > INDEX_MAX_ROWS;
 
@@ -247,7 +252,7 @@ function renderItemDescriptions(
   const rect = PAGE2_INVENTORY_REGIONS.itemDescriptions;
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 14 });
+  drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 18 });
 
   const magicItems = items.filter(
     (item) => item.rarity || item.attuned || item.detailHtml,
@@ -257,13 +262,13 @@ function renderItemDescriptions(
     drawText(
       ctx,
       "No items requiring description.",
-      { x: rect.x + 6, y: rect.y + 36, width: rect.width - 12, height: 12 },
+      { x: rect.x + 6, y: rect.y + 40, width: rect.width - 12, height: 12 },
       { font: "Helvetica-Oblique", size: TYPOGRAPHY.small.maxSize, color: COLORS.textTertiary },
     );
     return;
   }
 
-  const contentStartY = rect.y + 34;
+  const contentStartY = rect.y + 38;
   const contentBottomY = rect.y + rect.height - 4;
   let currentY = contentStartY;
 
@@ -371,7 +376,7 @@ function renderAttuned(
   const rect = PAGE2_INVENTORY_REGIONS.attuned;
 
   // Small "ATTUNED" label above the box (no card frame, no grey strip)
-  const labelY = rect.y + 4;
+  const labelY = rect.y + 5;
   drawCenteredTextInRect(ctx, "ATTUNED", { x: rect.x, y: labelY, width: rect.width, height: 8 }, {
     font: "Helvetica-Bold",
     maxSize: 7,
@@ -381,10 +386,10 @@ function renderAttuned(
   });
 
   // Single _Proficiency box 1.svg with the "0/3" value inside.
-  const boxW = 32;
+  const boxW = 30;
   const boxH = 22;
   const boxX = rect.x + (rect.width - boxW) / 2;
-  const boxY = rect.y + 16;
+  const boxY = rect.y + 18;
   const boxRect: PdfRect = { x: boxX, y: boxY, width: boxW, height: boxH };
   drawSvg(ctx, assets.proficiencyBox1, boxRect);
   drawCenteredTextInRect(ctx, `${attunedCount}/${maxAttuned}`, boxRect, {
@@ -468,10 +473,11 @@ function renderCurrency(
     const boxY = rect.y + CURRENCY_LABEL_HEIGHT + CURRENCY_LABEL_GAP;
 
     // Per-box label sits above the box (the per-box label acts as the title,
-    // so we don't need a "CURRENCY" section header).
+    // so we don't need a "CURRENCY" section header). Inset slightly so
+    // the label doesn't crowd the very top of the section.
     drawCenteredTextInRect(ctx, CURRENCY_LABELS[type], {
       x: boxX,
-      y: rect.y,
+      y: rect.y + 3,
       width: CURRENCY_BOX_WIDTH,
       height: CURRENCY_LABEL_HEIGHT,
     }, {
@@ -612,8 +618,7 @@ function renderAdditionalTreasure(
   additionalTreasureText: string,
 ) {
   // Show ALL content. Small font (5.5pt) so the full text fits without
-  // truncation. Black text (with grey tones for any line that starts
-  // with a recognized label marker like "Item:" / "Qty:" / "Value:").
+  // truncation. Black text for the content.
   const rect = PAGE2_INVENTORY_REGIONS.additionalTreasure;
   drawSvg(ctx, assets.generalContainer, rect);
   drawSectionTitle(ctx, "ADDITIONAL TREASURE", rect);
@@ -622,30 +627,29 @@ function renderAdditionalTreasure(
     ? additionalTreasureText.split("\n").map((l) => l.trim()).filter(Boolean)
     : [];
 
-  const contentStartY = rect.y + 28;
-  const rowHeight = 8;
+  const contentStartY = rect.y + 32;
+  const rowHeight = 7;
   const availableHeight = rect.y + rect.height - contentStartY - 4;
   const maxRows = Math.max(1, Math.floor(availableHeight / rowHeight));
 
   lines.slice(0, maxRows).forEach((line, i) => {
     const lineY = contentStartY + i * rowHeight;
-    const lineRect: PdfRect = { x: rect.x + 2, y: lineY, width: rect.width - 4, height: rowHeight - 2 };
+    const lineRect: PdfRect = { x: rect.x + 2, y: lineY, width: rect.width - 4, height: rowHeight - 1 };
     drawSvg(ctx, assets.line, lineRect);
 
-    // Black text for the actual content (same as the rest of the page).
-    // No truncation — if the line is too long, drawFittedText will
-    // shrink to fit within the row width.
+    // Black text for the actual content. drawFittedText shrinks the
+    // font so long lines fit within the row width.
     drawFittedText(ctx, line, {
       x: rect.x + 4,
-      y: lineY + 1,
+      y: lineY + 0.5,
       width: rect.width - 8,
-      height: rowHeight - 3,
+      height: rowHeight - 2,
     }, {
       font: "Helvetica",
-      maxSize: 6,
-      minSize: 4.5,
+      maxSize: 5.5,
+      minSize: 4,
       color: COLORS.textPrimary,
-      lineBreak: false,
+      lineBreak: true,
     });
   });
 }
@@ -656,17 +660,25 @@ function renderStoredItems(
   items: Array<{ name: string; quantity: number; weight?: string }>,
 ) {
   // Stored Items: 2 columns within the card. All items shown — no
-  // "X more" truncation. Smaller font (~5pt) so both columns fit
-  // comfortably in the card height.
+  // "X more" truncation. Distribute items evenly between the two
+  // columns regardless of the available card height.
   const rect = PAGE2_INVENTORY_REGIONS.storedItems;
   drawSvg(ctx, assets.generalContainer, rect);
-  drawCenteredSectionTitle(ctx, "STORED ITEMS", rect, { topOffset: 14 });
+  drawCenteredSectionTitle(ctx, "STORED ITEMS", rect, { topOffset: 18 });
 
-  const contentStartY = rect.y + 30;
+  const contentStartY = rect.y + 34;
   const contentEndY = rect.y + rect.height - 4;
   const availableHeight = contentEndY - contentStartY;
   const rowHeight = 8;
-  const perColumn = Math.max(1, Math.floor(availableHeight / rowHeight));
+  // Distribute items so the two columns are roughly balanced.
+  // perColumn caps at how many rows fit in the available height.
+  const perColumn = Math.max(
+    1,
+    Math.min(
+      Math.ceil(items.length / 2),
+      Math.floor(availableHeight / rowHeight),
+    ),
+  );
   const colWidth = (rect.width - 12) / 2; // 6pt total padding
   const colGap = 4;
 
@@ -716,37 +728,38 @@ function renderQuestItems(
   questItemsText: string,
 ) {
   // Show ALL content from the quest items field. No truncation.
-  // Small font (6pt) for readability; black text throughout.
+  // Small font (5.5pt) for readability; black text throughout.
   const rect = PAGE2_INVENTORY_REGIONS.questItems;
   drawSvg(ctx, assets.generalContainer, rect);
-  drawCenteredSectionTitle(ctx, "QUEST ITEMS & TRINKETS", rect, { topOffset: 14 });
+  drawCenteredSectionTitle(ctx, "QUEST ITEMS & TRINKETS", rect, { topOffset: 18 });
 
   const lines = questItemsText
     ? questItemsText.split("\n").map((l) => l.trim()).filter(Boolean)
     : [];
 
-  const contentStartY = rect.y + 30;
-  const rowHeight = 8;
+  const contentStartY = rect.y + 34;
+  const rowHeight = 7;
   const availableHeight = rect.y + rect.height - contentStartY - 4;
   const maxRows = Math.max(1, Math.floor(availableHeight / rowHeight));
 
   lines.slice(0, maxRows).forEach((line, i) => {
     const lineY = contentStartY + i * rowHeight;
-    const lineRect: PdfRect = { x: rect.x + 2, y: lineY, width: rect.width - 4, height: rowHeight - 2 };
+    const lineRect: PdfRect = { x: rect.x + 2, y: lineY, width: rect.width - 4, height: rowHeight - 1 };
     drawSvg(ctx, assets.line, lineRect);
 
-    // Black text, no truncation — drawFittedText shrinks to fit.
+    // Black text, no truncation — drawFittedText shrinks to fit and
+    // wraps long lines to the next line within the row.
     drawFittedText(ctx, line, {
       x: rect.x + 4,
-      y: lineY + 1,
+      y: lineY + 0.5,
       width: rect.width - 8,
-      height: rowHeight - 3,
+      height: rowHeight - 2,
     }, {
       font: "Helvetica",
-      maxSize: 6,
-      minSize: 4.5,
+      maxSize: 5.5,
+      minSize: 4,
       color: COLORS.textPrimary,
-      lineBreak: false,
+      lineBreak: true,
     });
   });
 }

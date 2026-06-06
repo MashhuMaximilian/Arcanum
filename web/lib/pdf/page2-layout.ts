@@ -7,7 +7,7 @@ export const PAGE2_PRINT_SAFE_OFFSET = {
   y: (PAGE_SIZE.height * (1 - PAGE2_PRINT_SAFE_SCALE)) / 2,
 } as const;
 
-// Page 2 regions for inventory (page 2A) — v5 layout:
+// Page 2 regions for inventory (page 2A) — v6 layout:
 //   y=0..18     INVENTORY header (full width)
 //   y=18..440   TOP AREA (422pt) — 2 columns, descriptions dominant on right
 //   y=445..510  UTILITY ROW (65pt) — 4 sections on the same row, same height:
@@ -19,10 +19,10 @@ export const PAGE2_INVENTORY_REGIONS = {
   inventoryHeader: { x: 10, y: 0, width: 575, height: 18 },
   inventoryIndex: { x: 10, y: 18, width: 180, height: 422 },
   itemDescriptions: { x: 195, y: 18, width: 380, height: 422 },
-  attuned: { x: 10, y: 445, width: 65, height: 65 },
-  currency: { x: 80, y: 445, width: 200, height: 65 },
-  encumbrance: { x: 285, y: 445, width: 105, height: 65 },
-  valuables: { x: 395, y: 445, width: 190, height: 65 },
+  attuned: { x: 10, y: 445, width: 60, height: 65 },
+  currency: { x: 75, y: 445, width: 190, height: 65 },
+  encumbrance: { x: 270, y: 445, width: 100, height: 65 },
+  valuables: { x: 375, y: 445, width: 210, height: 65 },
   storedItems: { x: 10, y: 515, width: 185, height: 280 },
   additionalTreasure: { x: 200, y: 515, width: 185, height: 280 },
   questItems: { x: 390, y: 515, width: 185, height: 280 },
