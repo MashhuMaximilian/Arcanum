@@ -7,25 +7,24 @@ export const PAGE2_PRINT_SAFE_OFFSET = {
   y: (PAGE_SIZE.height * (1 - PAGE2_PRINT_SAFE_SCALE)) / 2,
 } as const;
 
-// Page 2 regions for inventory (page 2A) — v6 layout:
+// Page 2 regions for inventory (page 2A) — v7 layout:
 //   y=0..18     INVENTORY header (full width)
-//   y=18..440   TOP AREA (422pt) — 2 columns, descriptions dominant on right
-//   y=445..510  UTILITY ROW (65pt) — 4 sections on the same row, same height:
-//                  Attuned | Currency | Encumbrance | Valuables (1/3 page width)
-//   y=515..795  BOTTOM 3 COLUMNS (280pt) — stored, additional treasure, quest items
+//   y=18..420   TOP AREA (402pt) — 2 columns: Equipped (compact) | Item Descriptions
+//   y=425..475  UTILITY ROW (50pt slim) — 4 sections on the same row, same height
+//   y=480..795  BOTTOM 3 COLUMNS (315pt) — stored, additional treasure, quest items
 //                  (3 equal-width columns, same style)
 export const PAGE2_INVENTORY_REGIONS = {
   outer: { x: 10, y: 10, width: 575, height: 822 },
   inventoryHeader: { x: 10, y: 0, width: 575, height: 18 },
-  inventoryIndex: { x: 10, y: 18, width: 180, height: 422 },
-  itemDescriptions: { x: 195, y: 18, width: 380, height: 422 },
-  attuned: { x: 10, y: 445, width: 60, height: 65 },
-  currency: { x: 75, y: 445, width: 190, height: 65 },
-  encumbrance: { x: 270, y: 445, width: 100, height: 65 },
-  valuables: { x: 375, y: 445, width: 210, height: 65 },
-  storedItems: { x: 10, y: 515, width: 185, height: 280 },
-  additionalTreasure: { x: 200, y: 515, width: 185, height: 280 },
-  questItems: { x: 390, y: 515, width: 185, height: 280 },
+  inventoryIndex: { x: 10, y: 18, width: 180, height: 402 },
+  itemDescriptions: { x: 195, y: 18, width: 380, height: 402 },
+  attuned: { x: 10, y: 425, width: 60, height: 50 },
+  currency: { x: 75, y: 425, width: 190, height: 50 },
+  encumbrance: { x: 270, y: 425, width: 100, height: 50 },
+  valuables: { x: 375, y: 425, width: 210, height: 50 },
+  storedItems: { x: 10, y: 480, width: 185, height: 315 },
+  additionalTreasure: { x: 200, y: 480, width: 185, height: 315 },
+  questItems: { x: 390, y: 480, width: 185, height: 315 },
 } satisfies Record<string, PdfRect>;
 
 // Page 2 regions for companion (page 2B)
