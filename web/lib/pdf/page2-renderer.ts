@@ -128,30 +128,71 @@ function cleanHtmlText(html: string): string {
 }
 
 /**
- * Strip basic markdown markers (** for bold, ### for headings) from
- * the text. Used as a final pass after the rich-text renderer has
- * already extracted the bold spans.
+ * Strip basic markdown markers from the text. Used as a final pass
+ * after the rich-text renderer has already extracted the inline
+ * spans. Supports: **bold**, *italic*, `code`, [link](url).
  */
 function stripMarkdown(text: string): string {
   return text
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/__([^_]+)__/g, "$1");
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
 }
 
-type FreeformSegment = { kind: "heading" | "paragraph" | "blank"; text: string };
+type InlineRun = { text: string; bold: boolean; italic: boolean };
+
+/**
+ * Tokenize a text line into inline runs of bold/italic/regular text
+ * based on markdown markers (**bold**, *italic*).
+ */
+function tokenizeInlineRuns(text: string): InlineRun[] {
+  const runs: InlineRun[] = [];
+  // Combined regex: **bold** | *italic*
+  const regex = /(\*\*([^*\n][^*]*?)\*\*)|((?<!\*)\*([^*\n]+)\*(?!\*))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      runs.push({ text: text.slice(lastIndex, match.index), bold: false, italic: false });
+    }
+    if (match[2] !== undefined) {
+      // **bold**
+      runs.push({ text: match[2], bold: true, italic: false });
+    } else if (match[4] !== undefined) {
+      // *italic*
+      runs.push({ text: match[4], bold: false, italic: true });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    runs.push({ text: text.slice(lastIndex), bold: false, italic: false });
+  }
+  return runs;
+}
+
+type FreeformSegment = {
+  kind: "heading" | "paragraph" | "blockquote" | "list" | "blank";
+  text: string;
+};
 
 /**
  * Parse a freeform text block (used by Additional Treasure and Quest
- * Items) into markdown-aware segments. Lines starting with `### `
- * become headings; blank lines become spacers; everything else
- * becomes a paragraph.
+ * Items) into markdown-aware segments. Recognizes:
+ * - # / ## / ### headings
+ * - > blockquote lines
+ * - - or * list items
+ * - blank lines as paragraph spacers
  */
 function parseFreeformText(text: string): FreeformSegment[] {
   if (!text) return [];
   const lines = text.split("\n");
   const segments: FreeformSegment[] = [];
   let currentPara: string[] = [];
+  let currentQuote: string[] = [];
+  let currentList: string[] = [];
 
   const flushPara = () => {
     if (currentPara.length > 0) {
@@ -160,65 +201,88 @@ function parseFreeformText(text: string): FreeformSegment[] {
       currentPara = [];
     }
   };
+  const flushQuote = () => {
+    if (currentQuote.length > 0) {
+      segments.push({ kind: "blockquote", text: currentQuote.join(" ") });
+      currentQuote = [];
+    }
+  };
+  const flushList = () => {
+    if (currentList.length > 0) {
+      segments.push({ kind: "list", text: currentList.join("\n") });
+      currentList = [];
+    }
+  };
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) {
       flushPara();
+      flushQuote();
+      flushList();
       segments.push({ kind: "blank", text: "" });
       continue;
     }
     if (/^#{1,6}\s+/.test(line)) {
       flushPara();
+      flushQuote();
+      flushList();
       segments.push({ kind: "heading", text: line });
       continue;
     }
+    if (/^>\s?/.test(line)) {
+      flushPara();
+      flushList();
+      currentQuote.push(line.replace(/^>\s?/, ""));
+      continue;
+    }
+    if (/^[-*]\s+/.test(line)) {
+      flushPara();
+      flushQuote();
+      currentList.push(line.replace(/^[-*]\s+/, "• "));
+      continue;
+    }
+    flushQuote();
+    flushList();
     currentPara.push(line);
   }
   flushPara();
+  flushQuote();
+  flushList();
 
   return segments;
 }
 
 /**
- * Render a paragraph of text with inline **bold** spans. The text is
- * wrapped to fit the available width, and the bold spans are rendered
- * in Helvetica-Bold. Returns the total vertical height used.
+ * Render a paragraph of text with inline **bold** and *italic* spans.
+ * The text is wrapped to fit the available width. Returns the total
+ * vertical height used.
  */
 function drawRichParagraph(
   ctx: PdfRenderContext,
   text: string,
   rect: { x: number; y: number; width: number; maxHeight: number },
-  options: { font: string; size: number; color: string; lineGap: number },
+  options: { font: string; size: number; color: string; lineGap: number; italic?: boolean },
 ): number {
   if (!text) return 0;
 
-  // Split the text into runs of regular and bold text.
-  const runs: Array<{ text: string; bold: boolean }> = [];
-  const boldRegex = /\*\*([^*]+?)\*\*/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = boldRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      runs.push({ text: text.slice(lastIndex, match.index), bold: false });
-    }
-    runs.push({ text: match[1], bold: true });
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) {
-    runs.push({ text: text.slice(lastIndex), bold: false });
-  }
-
-  // Use a slightly smaller bold font so the bold runs line up with the
-  // regular text on the same baseline.
-  const boldFont = options.font === "Times-Bold" ? "Times-Bold" : "Helvetica-Bold";
+  const runs = tokenizeInlineRuns(text);
 
   let y = rect.y;
   let cursorX = rect.x;
 
   for (const run of runs) {
     if (!run.text) continue;
-    const font = run.bold ? boldFont : options.font;
+    const isBold = run.bold;
+    const isItalic = run.italic || options.italic;
+    const font = isBold && isItalic
+      ? "Helvetica-BoldOblique"
+      : isBold
+        ? "Helvetica-Bold"
+        : isItalic
+          ? "Helvetica-Oblique"
+          : options.font;
+
     // Split on spaces so we can wrap.
     const words = run.text.split(/(\s+)/); // keep spaces
     for (const word of words) {
@@ -250,30 +314,47 @@ function drawRichParagraph(
   return y + options.size + options.lineGap - rect.y;
 }
 
+// (FreeformSegment type is defined earlier in the file.)
+
+
 /**
- * Strip the leading mechanics <ul>...</ul> block from an item's
- * detailHtml so we can show the actual rules/description text below
- * the item name. The mechanics bullets are redundant — rarity, weight,
- * attunement, etc. are already shown in the compact inline metadata.
+ * Strip the leading mechanics <ul>...</ul> block AND any <table> blocks
+ * from an item's detailHtml so we can show just the rules/description
+ * prose below the item name. Tables flatten into unreadable wall-of-
+ * text when HTML is stripped (e.g. Cube of Force faces / charges lost
+ * tables), so we drop them entirely.
  *
  * Also cleans up:
- * - Stray "TM™" placeholder artifacts
+ * - Stray "TM™" placeholder artifacts (any 2+ char run of TM/™)
  * - Garbled character runs (e.g. mojibake from imported catalog
  *   entries with mismatched encoding) — sequences of 3+ non-ASCII
  *   characters that look like encoding garbage are replaced with "…"
+ * - Stray non-ASCII chars that are alone (e.g. "™" with nothing
+ *   before/after that makes sense in English prose)
  */
 function extractItemDescription(detailHtml: string | undefined, fallback: string): string {
   if (!detailHtml) return fallback;
-  // Drop the first <ul>...</ul> block if present.
-  const stripped = detailHtml.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/i, "").trim();
+  // Drop the first <ul>...</ul> block (mechanics bullets).
+  let stripped = detailHtml.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/i, "").trim();
+  // Drop all <table>...</table> blocks (e.g. Cube of Force faces /
+  // charges lost tables) — they flatten into unreadable prose.
+  stripped = stripped.replace(/<table\b[^>]*>[\s\S]*?<\/table>/gi, "").trim();
+
   let cleaned = cleanHtmlText(stripped);
-  // Clean up stray "TM™" placeholder artifacts.
-  cleaned = cleaned.replace(/\bTM™?\s*/g, "").replace(/\b™\s*/g, "");
-  // Collapse sequences of non-ASCII "garbled" characters (mojibake
-  // from imported catalogs) — they render poorly and obscure the real
-  // description text. A run of 3+ non-ASCII chars in a row gets
-  // collapsed to a single ellipsis.
+
+  // Strip stray TM/™ placeholder artifacts. The user's imported
+  // catalog emits things like "TM™" or "™™" as leftover templating
+  // markers; drop them entirely (any run of TM/™ chars).
+  cleaned = cleaned.replace(/(?:TM\s*)*™\s*/g, " ");
+  cleaned = cleaned.replace(/\bTM\b\s*/g, " ");
+
+  // Collapse runs of non-ASCII "garbled" characters (mojibake from
+  // imported catalogs with mismatched encoding) to a single ellipsis.
   cleaned = cleaned.replace(/[^\x00-\x7F]{3,}/g, "…");
+
+  // Collapse whitespace created by the above removals.
+  cleaned = cleaned.replace(/[ \t]{2,}/g, " ").replace(/\n[ \t]+/g, "\n").trim();
+
   return cleaned || fallback;
 }
 
@@ -381,8 +462,16 @@ function renderItemDescriptions(
 
   drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 18 });
 
+  // Show all items that have any meaningful description content.
+  // Custom items (which may not have rarity or detailHtml) are included
+  // so the player can see their hand-entered descriptions / notes.
   const magicItems = items.filter(
-    (item) => item.rarity || item.attuned || item.detailHtml,
+    (item) =>
+      item.rarity ||
+      item.attuned ||
+      item.detailHtml ||
+      item.notes ||
+      item.baseItemId,
   );
 
   if (magicItems.length === 0) {
@@ -739,7 +828,6 @@ function renderAdditionalTreasure(
     if (y + lineHeight > rect.y + rect.height - 4) break;
 
     if (seg.kind === "heading") {
-      // Heading — bold, slightly larger. Reserves an extra line.
       if (linesDrawn + 1 > maxLines) break;
       drawText(ctx, stripMarkdown(seg.text), {
         x: rect.x + 4,
@@ -756,9 +844,28 @@ function renderAdditionalTreasure(
       linesDrawn += 1;
     } else if (seg.kind === "blank") {
       y += lineHeight * 0.5;
+    } else if (seg.kind === "blockquote") {
+      // Indented, italic, grey
+      if (linesDrawn + 1 > maxLines) break;
+      const quoteHeight = drawRichParagraph(
+        ctx,
+        seg.text,
+        { x: rect.x + 8, y, width: rect.width - 16, maxHeight: availableHeight - (y - contentStartY) },
+        { font: "Helvetica", size: 5.5, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
+      );
+      y += quoteHeight;
+      linesDrawn += Math.max(1, Math.round(quoteHeight / lineHeight));
+    } else if (seg.kind === "list") {
+      if (linesDrawn + 1 > maxLines) break;
+      const listHeight = drawRichParagraph(
+        ctx,
+        seg.text,
+        { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
+        { font: "Helvetica", size: 5.5, color: COLORS.textPrimary, lineGap: 0.4 },
+      );
+      y += listHeight;
+      linesDrawn += Math.max(1, Math.round(listHeight / lineHeight));
     } else {
-      // Paragraph with inline bold spans. Render the full paragraph so
-      // wrapping is consistent.
       const paraHeight = drawRichParagraph(
         ctx,
         stripMarkdown(seg.text),
@@ -881,6 +988,26 @@ function renderQuestItems(
       linesDrawn += 1;
     } else if (seg.kind === "blank") {
       y += lineHeight * 0.5;
+    } else if (seg.kind === "blockquote") {
+      if (linesDrawn + 1 > maxLines) break;
+      const quoteHeight = drawRichParagraph(
+        ctx,
+        seg.text,
+        { x: rect.x + 8, y, width: rect.width - 16, maxHeight: availableHeight - (y - contentStartY) },
+        { font: "Helvetica", size: 5.5, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
+      );
+      y += quoteHeight;
+      linesDrawn += Math.max(1, Math.round(quoteHeight / lineHeight));
+    } else if (seg.kind === "list") {
+      if (linesDrawn + 1 > maxLines) break;
+      const listHeight = drawRichParagraph(
+        ctx,
+        seg.text,
+        { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
+        { font: "Helvetica", size: 5.5, color: COLORS.textPrimary, lineGap: 0.4 },
+      );
+      y += listHeight;
+      linesDrawn += Math.max(1, Math.round(listHeight / lineHeight));
     } else {
       const paraHeight = drawRichParagraph(
         ctx,
