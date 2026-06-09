@@ -465,13 +465,15 @@ function renderItemDescriptions(
   // Show all items that have any meaningful description content.
   // Custom items (which may not have rarity or detailHtml) are included
   // so the player can see their hand-entered descriptions / notes.
-  const magicItems = items.filter(
-    (item) =>
+  const magicItems = items.filter((item) =>
+    Boolean(
       item.rarity ||
       item.attuned ||
       item.detailHtml ||
       item.notes ||
-      item.baseItemId,
+      item.baseItemId ||
+      item.source === "manual",
+    ),
   );
 
   if (magicItems.length === 0) {
@@ -586,7 +588,7 @@ function renderAttuned(
   const rect = PAGE2_INVENTORY_REGIONS.attuned;
 
   // Small "ATTUNED" label above the box.
-  const labelY = rect.y + 4;
+  const labelY = rect.y + 3;
   drawCenteredTextInRect(ctx, "ATTUNED", { x: rect.x, y: labelY, width: rect.width, height: 7 }, {
     font: "Helvetica-Bold",
     maxSize: 6.5,
@@ -599,7 +601,7 @@ function renderAttuned(
   const boxW = 28;
   const boxH = 18;
   const boxX = rect.x + (rect.width - boxW) / 2;
-  const boxY = rect.y + 14;
+  const boxY = rect.y + 13;
   const boxRect: PdfRect = { x: boxX, y: boxY, width: boxW, height: boxH };
   drawSvg(ctx, assets.proficiencyBox1, boxRect);
   drawCenteredTextInRect(ctx, `${attunedCount}/${maxAttuned}`, boxRect, {
@@ -675,17 +677,18 @@ function renderCurrency(
 
   const totalBoxesWidth = 5 * CURRENCY_BOX_WIDTH + 4 * CURRENCY_BOX_GAP;
   const startOffset = Math.max(0, (rect.width - totalBoxesWidth) / 2);
+  const labelY = rect.y + 3;
+  const boxY = rect.y + 13;
 
   CURRENCY_TYPES.forEach((type, index) => {
     const boxX = rect.x + startOffset + index * (CURRENCY_BOX_WIDTH + CURRENCY_BOX_GAP);
-    const boxY = rect.y + CURRENCY_LABEL_HEIGHT + CURRENCY_LABEL_GAP;
 
     // Per-box label sits above the box (the per-box label acts as the title,
     // so we don't need a "CURRENCY" section header). Inset slightly so
     // the label doesn't crowd the very top of the section.
     drawCenteredTextInRect(ctx, CURRENCY_LABELS[type], {
       x: boxX,
-      y: rect.y + 3,
+      y: labelY,
       width: CURRENCY_BOX_WIDTH,
       height: CURRENCY_LABEL_HEIGHT,
     }, {
@@ -718,7 +721,7 @@ function renderEncumbrance(
   const rect = PAGE2_INVENTORY_REGIONS.encumbrance;
 
   // Small "ENCUMBRANCE" label above the row.
-  const labelY = rect.y + 4;
+  const labelY = rect.y + 3;
   drawCenteredTextInRect(ctx, "ENCUMBRANCE", { x: rect.x, y: labelY, width: rect.width, height: 7 }, {
     font: "Helvetica-Bold",
     maxSize: 6.5,
@@ -740,8 +743,8 @@ function renderEncumbrance(
   const boxGap = 3;
   const totalWidth = 3 * boxW + 2 * boxGap;
   const startX = rect.x + (rect.width - totalWidth) / 2;
-  const boxY = rect.y + 18;
-  const labelBoxY = rect.y + 12;
+  const boxY = rect.y + 13;
+  const labelBoxY = rect.y + 11;
 
   values.forEach((entry, i) => {
     const boxX = startX + i * (boxW + boxGap);
