@@ -4,15 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getDetailMarkup } from "@/components/catalog-selector";
 import { sortTableRows, toggleTableSort, type TableSortState } from "@/components/table-sort";
+import {
+  isUnifiedLedgerGroup,
+  type LockedChoiceEntry,
+  UnifiedChoiceLedger,
+} from "@/components/unified-choice-ledger";
 import type { BuiltInElement, BuiltInRule } from "@/lib/builtins/types";
 import { formatSupportLabel, type ProgressionChoiceGroup } from "@/lib/progression/choices";
 import { cleanReadablePrerequisite } from "@/lib/progression/requirements";
+import { getSelectionSemanticKey } from "@/lib/progression/selection-identity";
 
 type ProgressionChoicesStepProps = {
   elements: BuiltInElement[];
   groups: ProgressionChoiceGroup[];
   selections: Record<string, string[]>;
   onSelectionChange: (groupId: string, optionIds: string[]) => void;
+  lockedEntries?: LockedChoiceEntry[];
 };
 
 function getCompanionSetter(element: BuiltInElement, name: string) {
@@ -171,10 +178,11 @@ export function ProgressionChoicesStep({
   groups,
   selections,
   onSelectionChange,
+  lockedEntries = [],
 }: ProgressionChoicesStepProps) {
   const isOptionalSpellcastingAbilityGroup = (group: ProgressionChoiceGroup | null) =>
     Boolean(getOptionalSpellcastingAbilityHint(group));
-  const orderedGroups = useMemo(() => {
+  const allOrderedGroups = useMemo(() => {
     const getPriority = (group: ProgressionChoiceGroup) => {
       const title = group.title.toLowerCase();
       if (title.includes("pact boon")) {
@@ -195,11 +203,19 @@ export function ProgressionChoicesStep({
         left.title.localeCompare(right.title),
     );
   }, [groups]);
+  const ledgerGroups = useMemo(
+    () => allOrderedGroups.filter(isUnifiedLedgerGroup),
+    [allOrderedGroups],
+  );
+  const orderedGroups = useMemo(
+    () => allOrderedGroups.filter((group) => !isUnifiedLedgerGroup(group)),
+    [allOrderedGroups],
+  );
   const [activeGroupId, setActiveGroupId] = useState(orderedGroups[0]?.id ?? "");
   const [previewIds, setPreviewIds] = useState<Record<string, string>>({});
   const [queries, setQueries] = useState<Record<string, string>>({});
   const [activePane, setActivePane] = useState<"filters" | "list" | "detail">("list");
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
   const [showEligibleOnly, setShowEligibleOnly] = useState(true);
   const [interactionWarning, setInteractionWarning] = useState("");
   const [tableSort, setTableSort] = useState<TableSortState<"name" | "source" | "summary" | "impact">>({
@@ -207,6 +223,18 @@ export function ProgressionChoicesStep({
     direction: "asc",
   });
   const elementsById = useMemo(() => new Map(elements.map((element) => [element.id, element])), [elements]);
+  const selectedSemanticOwners = useMemo(() => {
+    const owners = new Map<string, string>();
+    orderedGroups.forEach((group) => {
+      (selections[group.id] ?? []).forEach((id) => {
+        const element = group.options.find((option) => option.element.id === id)?.element;
+        if (element) {
+          owners.set(getSelectionSemanticKey(element), group.title);
+        }
+      });
+    });
+    return owners;
+  }, [orderedGroups, selections]);
 
   useEffect(() => {
     if (!orderedGroups.some((group) => group.id === activeGroupId)) {
@@ -292,7 +320,14 @@ export function ProgressionChoicesStep({
   }, [activeGroup, previewOption]);
 
   if (!orderedGroups.length) {
-    return (
+    return ledgerGroups.length ? (
+      <UnifiedChoiceLedger
+        groups={ledgerGroups}
+        lockedEntries={lockedEntries}
+        selections={selections}
+        onSelectionChange={onSelectionChange}
+      />
+    ) : (
       <section className="builder-panel">
         <span className="builder-panel__label">Choices</span>
         <p className="route-shell__copy">
@@ -321,12 +356,18 @@ export function ProgressionChoicesStep({
 
     const current = selections[activeGroup.id] ?? [];
     const alreadySelected = current.includes(optionId);
+    const duplicateOwner = selectedSemanticOwners.get(getSelectionSemanticKey(option.element));
 
     if (alreadySelected) {
       onSelectionChange(
         activeGroup.id,
         current.filter((id) => id !== optionId),
       );
+      return;
+    }
+
+    if (duplicateOwner) {
+      setInteractionWarning(`${option.element.name} is already granted or selected by ${duplicateOwner}.`);
       return;
     }
 
@@ -344,6 +385,14 @@ export function ProgressionChoicesStep({
 
   return (
     <section className="builder-panel progression-step">
+      {ledgerGroups.length ? (
+        <UnifiedChoiceLedger
+          groups={ledgerGroups}
+          lockedEntries={lockedEntries}
+          selections={selections}
+          onSelectionChange={onSelectionChange}
+        />
+      ) : null}
       <div className="builder-stepPanel__intro">
         <span className="route-shell__tag">Choices</span>
         <h2 className="route-shell__title">Resolve unlocked choice families and nested picks</h2>
@@ -574,6 +623,9 @@ export function ProgressionChoicesStep({
                     <div className="catalog-selector__tableBody" role="rowgroup">
                       {sortedOptions.map((option) => {
                         const isSelected = selectedIds.includes(option.element.id);
+                        const duplicateOwner = isSelected
+                          ? ""
+                          : selectedSemanticOwners.get(getSelectionSemanticKey(option.element)) ?? "";
                         const summary = getOptionSummary(activeGroup, option.element.description, option.element.prerequisite);
                         return (
                           <button
@@ -596,7 +648,7 @@ export function ProgressionChoicesStep({
                             <span className="catalog-selector__tableCell" role="cell">{option.element.source}</span>
                             <span className="catalog-selector__tableCell" role="cell">{summary}</span>
                             <span className="catalog-selector__tableCell" role="cell">
-                              {option.requirementFailures.length ? option.requirementFailures[0] : `Adds ${activeGroup.optionType.toLowerCase()} option`}
+                              {duplicateOwner || (option.requirementFailures.length ? option.requirementFailures[0] : `Adds ${activeGroup.optionType.toLowerCase()} option`)}
                             </span>
                           </button>
                         );
@@ -607,6 +659,9 @@ export function ProgressionChoicesStep({
                   <div className="catalog-selector__list">
                     {sortedOptions.map((option) => {
                       const isSelected = selectedIds.includes(option.element.id);
+                      const duplicateOwner = isSelected
+                        ? ""
+                        : selectedSemanticOwners.get(getSelectionSemanticKey(option.element)) ?? "";
                       return (
                         <button
                           key={option.element.id}
@@ -623,6 +678,7 @@ export function ProgressionChoicesStep({
                           <div className="catalog-selector__rowHeader">
                             <strong>{option.element.name}</strong>
                             {isSelected ? <span className="catalog-selector__selectedBadge">Selected</span> : null}
+                            {duplicateOwner ? <span className="catalog-selector__impactChip">From {duplicateOwner}</span> : null}
                           </div>
                           <span className="catalog-selector__source">{option.element.source}</span>
                           <div className="catalog-selector__summaryList">

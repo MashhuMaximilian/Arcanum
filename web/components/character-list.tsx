@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { getBuiltInSrdSpells } from "@/lib/builtins/spells";
 import {
@@ -9,6 +10,10 @@ import {
   listRemoteCharacterDrafts,
   saveRemoteCharacterDraft,
 } from "@/lib/characters/repository";
+import {
+  downloadPortableCharacter,
+  importPortableCharacterFile,
+} from "@/lib/characters/portable";
 import {
   deleteCharacterDraft,
   listCharacterDrafts,
@@ -20,10 +25,13 @@ import { resolveBuilderCatalogs } from "@/lib/content-sources/catalog-resolver";
 import { buildPdfCharacterFromDraft } from "@/lib/pdf/from-builder";
 
 export function CharacterList() {
+  const router = useRouter();
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [drafts, setDrafts] = useState<CharacterDraft[]>([]);
   const [exportingDraftId, setExportingDraftId] = useState<string | null>(null);
   const [duplicatingDraftId, setDuplicatingDraftId] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,34 +113,77 @@ export function CharacterList() {
     }
   }
 
-  if (!drafts.length) {
-    return (
-      <section className="builder-panel">
-        <span className="builder-panel__label">Saved drafts</span>
-        <p className="route-shell__copy">
-          No saved characters yet. Start a character in the builder and save the draft
-          to see it here.
-        </p>
-        <Link className="button" href="/builder/new">
-          Start a character
-        </Link>
-      </section>
-    );
+  async function handleImport(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    setIsImporting(true);
+    setExportError(null);
+    try {
+      const imported = await importPortableCharacterFile(file);
+      saveCharacterDraft(imported);
+      await saveRemoteCharacterDraft(imported);
+      router.push(`/builder/${imported.id}`);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Character import failed.");
+    } finally {
+      setIsImporting(false);
+      if (importInputRef.current) {
+        importInputRef.current.value = "";
+      }
+    }
   }
 
   return (
-    <section className="builder-panel">
-      <span className="builder-panel__label">Saved drafts</span>
+    <section className="builder-panel character-library">
+      <div className="character-library__header">
+        <div>
+          <span className="builder-panel__label">Saved drafts</span>
+          <h2 className="character-library__title">Your character library</h2>
+        </div>
+        <div className="character-library__actions">
+          <input
+            ref={importInputRef}
+            className="visually-hidden"
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => void handleImport(event.target.files?.[0])}
+          />
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={isImporting}
+            onClick={() => importInputRef.current?.click()}
+          >
+            {isImporting ? "Importing..." : "Import JSON"}
+          </button>
+          <Link className="button" href="/builder/new">
+            New character
+          </Link>
+        </div>
+      </div>
       {exportError ? <p className="builder-summary__meta">{exportError}</p> : null}
-      <div className="draft-list">
+      {drafts.length ? <div className="draft-list">
         {drafts.map((draft) => (
           <article className="draft-card" key={draft.id}>
-            <div className="draft-card__meta">
-              <strong>{draft.name || "Untitled Adventurer"}</strong>
-              <span>
-                {draft.playerName || "Unknown player"} · Updated{" "}
-                {new Date(draft.updatedAt).toLocaleString()}
-              </span>
+            <div className="draft-card__identity">
+              <div className="draft-card__portrait">
+                {draft.characterPortraitUrl ? (
+                  // User-provided remote URLs cannot use next/image without a domain allowlist.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt="" src={draft.characterPortraitUrl} referrerPolicy="no-referrer" />
+                ) : (
+                  <span>{(draft.name || "A").slice(0, 1).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="draft-card__meta">
+                <strong>{draft.name || "Untitled Adventurer"}</strong>
+                <span>
+                  {draft.playerName || "Unknown player"} · Updated{" "}
+                  {new Date(draft.updatedAt).toLocaleString()}
+                </span>
+              </div>
             </div>
             <div className="draft-card__actions">
               <button
@@ -152,6 +203,13 @@ export function CharacterList() {
               <button
                 className="button button--secondary button--compact"
                 type="button"
+                onClick={() => downloadPortableCharacter(draft)}
+              >
+                Export JSON
+              </button>
+              <button
+                className="button button--secondary button--compact"
+                type="button"
                 disabled={duplicatingDraftId === draft.id}
                 onClick={() => handleDuplicate(draft)}
               >
@@ -167,7 +225,13 @@ export function CharacterList() {
             </div>
           </article>
         ))}
-      </div>
+      </div> : (
+        <div className="character-library__empty">
+          <p className="route-shell__copy">
+            No saved characters yet. Start a new build or import an Arcanum JSON backup.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

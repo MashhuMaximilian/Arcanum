@@ -18,6 +18,7 @@ type BuilderCatalogShellProps = {
   initialProgressionElements?: readonly BuiltInElement[];
   initialRaces?: BuiltInRaceRecord[];
   initialSpells?: BuiltInElement[];
+  mode?: "builder" | "view";
 };
 
 export function BuilderCatalogShell({
@@ -28,6 +29,7 @@ export function BuilderCatalogShell({
   initialProgressionElements = [],
   initialRaces = [],
   initialSpells = [],
+  mode = "builder",
 }: BuilderCatalogShellProps) {
   const [isHydratingCatalogs, setIsHydratingCatalogs] = useState(true);
   // Track current builder step so we can fetch only what each step needs
@@ -143,6 +145,7 @@ export function BuilderCatalogShell({
       progressionElements={catalogs.progressionElements}
       races={catalogs.races}
       spells={catalogs.spells}
+      mode={mode}
     />
   );
 }

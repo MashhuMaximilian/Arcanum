@@ -10,9 +10,11 @@ import { CatalogSelector, type CatalogItem } from "@/components/catalog-selector
 import { EquipmentStep } from "@/components/equipment-step";
 import { FeatsAsiStep } from "@/components/feats-asi-step";
 import { LevelingStep } from "@/components/leveling-step";
+import { PortraitField } from "@/components/portrait-field";
 import { ProgressionChoicesStep } from "@/components/progression-choices-step";
 import { ReviewSheetStep } from "@/components/review-sheet-step";
 import { SpellcastingStep } from "@/components/spellcasting-step";
+import type { LockedChoiceEntry } from "@/components/unified-choice-ledger";
 import type { BuiltInBackgroundRecord } from "@/lib/builtins/backgrounds";
 import type {
   BuiltInClassRecord,
@@ -78,6 +80,7 @@ type BuilderEditorProps = {
   progressionElements: BuiltInElement[];
   races: BuiltInRaceRecord[];
   spells: BuiltInElement[];
+  mode?: "builder" | "view";
 };
 
 function getCatalogMechanicValue(lines: string[], label: string) {
@@ -196,6 +199,45 @@ type BuilderStep = {
   description: string;
   classEntryIndex?: number;
 };
+
+type BuilderPillarId = "origins" | "progression" | "capabilities" | "finalize";
+
+const BUILDER_PILLARS: Array<{
+  id: BuilderPillarId;
+  label: string;
+  shortLabel: string;
+  description: string;
+  kinds: BuilderStepId[];
+}> = [
+  {
+    id: "origins",
+    label: "Origins & Identity",
+    shortLabel: "Origins",
+    description: "Identity, ability scores, ancestry, and background.",
+    kinds: ["foundation", "race", "subrace", "background"],
+  },
+  {
+    id: "progression",
+    label: "Class & Progression",
+    shortLabel: "Progression",
+    description: "Class tracks, subclasses, levels, feats, and ASIs.",
+    kinds: ["class", "subclass", "feats"],
+  },
+  {
+    id: "capabilities",
+    label: "Capabilities",
+    shortLabel: "Capabilities",
+    description: "Repeatable choices, spells, and granted capabilities.",
+    kinds: ["progression", "spellcasting"],
+  },
+  {
+    id: "finalize",
+    label: "Review & Finalize",
+    shortLabel: "Finalize",
+    description: "Equipment, narrative, review, and portable exports.",
+    kinds: ["equipment", "backstory", "review"],
+  },
+];
 
 const BASE_RACE_BRANCH_PREFIX = "__base-race__:";
 
@@ -1133,6 +1175,7 @@ export function BuilderEditor({
   progressionElements,
   races,
   spells,
+  mode = "builder",
 }: BuilderEditorProps) {
   const router = useRouter();
   const [draft, setDraft] = useState<CharacterDraft>(() => {
@@ -1146,7 +1189,7 @@ export function BuilderEditor({
   const [statusTone, setStatusTone] = useState<"error" | "success">("success");
   const [isSaving, setIsSaving] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [currentStep, setCurrentStep] = useState("foundation");
+  const [currentStep, setCurrentStep] = useState(mode === "view" ? "review" : "foundation");
   const [showNavigationWarnings, setShowNavigationWarnings] = useState(false);
   const [activeClassEntryIndex, setActiveClassEntryIndex] = useState(0);
 
@@ -1828,6 +1871,102 @@ export function BuilderEditor({
     ],
     [allSelectedFeatElements, selectedBackground, selectedManualFeatureElements, selectedRace, selectedSubrace],
   );
+  const lockedChoiceLedgerEntries = useMemo<LockedChoiceEntry[]>(() => {
+    const entries = new Map<string, LockedChoiceEntry>();
+    const addEntries = (
+      ids: string[],
+      family: LockedChoiceEntry["family"],
+      source: string,
+    ) => {
+      ids.forEach((id) => {
+        const label = elementPool.get(id)?.name ?? humanizeGrantedId(id);
+        const key = `${family === "Languages" ? "language" : "proficiency"}:${label
+          .toLowerCase()
+          .replace(/&/g, " and ")
+          .replace(/[^a-z0-9]+/g, " ")
+          .trim()}`;
+        const existing = entries.get(key);
+        entries.set(key, {
+          key,
+          label,
+          family,
+          sources: [...new Set([...(existing?.sources ?? []), source])],
+        });
+      });
+    };
+
+    if (selectedRace) {
+      addEntries(
+        collectGrantedIds(selectedRace.race.rules, "Proficiency"),
+        "Proficiencies",
+        `Race: ${selectedRace.race.name}`,
+      );
+      addEntries(
+        collectGrantedIds(selectedRace.race.rules, "Language"),
+        "Languages",
+        `Race: ${selectedRace.race.name}`,
+      );
+    }
+    if (selectedSubrace) {
+      addEntries(
+        collectGrantedIds(selectedSubrace.rules, "Proficiency"),
+        "Proficiencies",
+        `Subrace: ${selectedSubrace.name}`,
+      );
+      addEntries(
+        collectGrantedIds(selectedSubrace.rules, "Language"),
+        "Languages",
+        `Subrace: ${selectedSubrace.name}`,
+      );
+    }
+    classRecordsByEntry.forEach((record, index) => {
+      const entry = draft.classEntries[index];
+      if (!record || !entry) return;
+      addEntries(
+        collectGrantedIdsAtLevel(record.class.rules, "Proficiency", entry.level),
+        "Proficiencies",
+        `${record.class.name} Lvl ${entry.level}`,
+      );
+    });
+    if (selectedBackground) {
+      addEntries(
+        collectGrantedIds(selectedBackground.background.rules, "Proficiency"),
+        "Proficiencies",
+        `Background: ${selectedBackground.background.name}`,
+      );
+      addEntries(
+        collectGrantedIds(selectedBackground.background.rules, "Language"),
+        "Languages",
+        `Background: ${selectedBackground.background.name}`,
+      );
+    }
+
+    selectedBaseProficiencyIds.forEach((id) => {
+      const label = elementPool.get(id)?.name ?? humanizeGrantedId(id);
+      const key = `proficiency:${label.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim()}`;
+      if (!entries.has(key)) {
+        addEntries([id], "Proficiencies", "Granted by build");
+      }
+    });
+    selectedBaseLanguageIds.forEach((id) => {
+      const label = elementPool.get(id)?.name ?? humanizeGrantedId(id);
+      const key = `language:${label.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim()}`;
+      if (!entries.has(key)) {
+        addEntries([id], "Languages", "Granted by build");
+      }
+    });
+
+    return [...entries.values()];
+  }, [
+    classRecordsByEntry,
+    draft.classEntries,
+    elementPool,
+    selectedBackground,
+    selectedBaseLanguageIds,
+    selectedBaseProficiencyIds,
+    selectedRace,
+    selectedSubrace,
+  ]);
   const selectedSubclassNames = useMemo(
     () =>
       classRecordsByEntry.flatMap((record, index) => {
@@ -2679,8 +2818,17 @@ export function BuilderEditor({
     0,
   );
   const activeStep = steps[currentStepIndex] ?? steps[0];
-  const previousStep = currentStepIndex > 0 ? steps[currentStepIndex - 1] : null;
-  const nextStep = currentStepIndex < steps.length - 1 ? steps[currentStepIndex + 1] : null;
+  const pillars = BUILDER_PILLARS.map((pillar) => ({
+    ...pillar,
+    sections: steps.filter((step) => pillar.kinds.includes(step.kind)),
+  }));
+  const activePillarIndex = Math.max(
+    pillars.findIndex((pillar) => pillar.kinds.includes(activeStep.kind)),
+    0,
+  );
+  const activePillar = pillars[activePillarIndex] ?? pillars[0];
+  const previousPillar = activePillarIndex > 0 ? pillars[activePillarIndex - 1] : null;
+  const nextPillar = activePillarIndex < pillars.length - 1 ? pillars[activePillarIndex + 1] : null;
 
   useEffect(() => {
     if (!steps.some((step) => step.id === currentStep)) {
@@ -3022,38 +3170,6 @@ export function BuilderEditor({
     return unresolvedStepWarnings.map(({ step, message }) => `${step}: ${message}`);
   }, [currentStepWarnings, unresolvedStepWarnings]);
 
-  const canAdvance = (() => {
-    switch (activeStep.kind) {
-      case "foundation":
-        return Boolean(draft.name.trim()) && !abilityValidationMessage && !levelingValidationMessage;
-      case "race":
-        return Boolean(draft.raceId);
-      case "subrace":
-        return selectedRace?.subraces.length ? Boolean(draft.subraceId) : true;
-      case "class":
-        return draft.classEntries.every((entry) => Boolean(entry.classId));
-      case "subclass": {
-        return unlockedSubclassEntryIndexes.every((index) => Boolean(draft.classEntries[index]?.subclassId));
-      }
-      case "background":
-        return Boolean(draft.backgroundId);
-      case "backstory":
-        return true;
-      case "progression":
-        return progressionValidationMessages.length === 0;
-      case "feats":
-        return improvementValidationMessages.length === 0;
-      case "spellcasting":
-        return spellValidationMessages.length === 0;
-      case "equipment":
-        return missingEquipmentChoices === 0 && equipmentValidationMessages.length === 0;
-      case "review":
-        return canSave;
-      default:
-        return true;
-    }
-  })();
-
   function isStepComplete(step: BuilderStep) {
     switch (step.kind) {
       case "foundation":
@@ -3086,16 +3202,9 @@ export function BuilderEditor({
     }
   }
 
-  const firstBlockedIndex = steps.findIndex((step) => !isStepComplete(step));
-  const furthestUnlockedIndex =
-    firstBlockedIndex === -1 ? steps.length - 1 : Math.min(firstBlockedIndex + 1, steps.length - 1);
-
-  useEffect(() => {
-    const activeIndex = steps.findIndex((step) => step.id === currentStep);
-    if (activeIndex > furthestUnlockedIndex) {
-      setCurrentStep(steps[furthestUnlockedIndex]?.id ?? "foundation");
-    }
-  }, [currentStep, furthestUnlockedIndex, steps]);
+  const hasActiveCompanion =
+    selectedProgressionElements.some((element) => element.type === "Companion") ||
+    selectedSpellNames.some((name) => name.toLowerCase() === "find familiar");
 
   function renderStepBody() {
     switch (activeStep.kind) {
@@ -3129,6 +3238,22 @@ export function BuilderEditor({
                   placeholder="Max"
                 />
               </label>
+            </div>
+            <div className="portrait-field-grid">
+              <PortraitField
+                label="Character portrait"
+                name="character-portrait-url"
+                value={draft.characterPortraitUrl}
+                onChange={(characterPortraitUrl) => updateDraft({ characterPortraitUrl })}
+              />
+              {hasActiveCompanion ? (
+                <PortraitField
+                  label="Companion portrait"
+                  name="companion-portrait-url"
+                  value={draft.companionPortraitUrl}
+                  onChange={(companionPortraitUrl) => updateDraft({ companionPortraitUrl })}
+                />
+              ) : null}
             </div>
             <article className="builder-panel builder-panel--compact">
               <div className="builder-panel__headerRow">
@@ -3481,6 +3606,7 @@ export function BuilderEditor({
             <ProgressionChoicesStep
               groups={progressionGroups}
               elements={progressionElements}
+              lockedEntries={lockedChoiceLedgerEntries}
               selections={draft.progressionSelections}
               onSelectionChange={(groupId, optionIds) =>
                 updateDraft({
@@ -3802,15 +3928,31 @@ export function BuilderEditor({
     }
   }
 
+  if (mode === "view") {
+    return (
+      <div className="builder-shell character-view">
+        <div className="character-view__toolbar">
+          <div>
+            <span className="route-shell__tag">Character sheet</span>
+            <h2 className="character-view__title">{draft.name || "Untitled Adventurer"}</h2>
+          </div>
+          <div className="character-view__actions">
+            <Link className="button button--secondary" href="/characters">Back to library</Link>
+            <Link className="button" href={`/builder/${draft.id}`}>Edit character</Link>
+          </div>
+        </div>
+        {renderStepBody()}
+      </div>
+    );
+  }
+
   return (
     <div className="builder-shell">
       <section className="builder-hero">
         <div className="builder-hero__copy">
-          <span className="route-shell__tag">Character Builder</span>
-          <h2 className="route-shell__title">Build the character in guided steps</h2>
-          <p className="route-shell__copy">
-            This builder now uses a guided workbench: wizard progression on the outside, structured comparison on the inside.
-          </p>
+          <span className="route-shell__tag">Character Builder · Pillar {activePillarIndex + 1} of {pillars.length}</span>
+          <h2 className="route-shell__title">{activePillar.label}</h2>
+          <p className="route-shell__copy">{activePillar.description}</p>
         </div>
         <div className="builder-summary">
           <span className="builder-summary__label">Current draft</span>
@@ -3846,36 +3988,75 @@ export function BuilderEditor({
         </div>
       </section>
 
-      <section className="builder-stepper">
-        {steps.map((step, index) => {
-          const isComplete = isStepComplete(step);
-          const isLocked = index > furthestUnlockedIndex;
+      <label className="builder-mobilePillarSelect">
+        <span>Pillar {activePillarIndex + 1} of {pillars.length}</span>
+        <select
+          value={activePillar.id}
+          onChange={(event) => {
+            const pillar = pillars.find((candidate) => candidate.id === event.target.value);
+            if (pillar?.sections.length) {
+              setCurrentStep(pillar.sections[0].id);
+            }
+          }}
+        >
+          {pillars.map((pillar) => (
+            <option disabled={!pillar.sections.length} key={pillar.id} value={pillar.id}>
+              {pillar.label}{pillar.sections.length ? "" : " (unlocks with class)"}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <section className="builder-pillarNav" aria-label="Character builder pillars">
+        {pillars.map((pillar, index) => {
+          const isComplete = pillar.sections.every((step) => isStepComplete(step));
+          const isActive = pillar.id === activePillar.id;
           const state =
-            step.id === activeStep.id
+            isActive
               ? "active"
-              : isLocked
-                ? "locked"
-                : isComplete
-                  ? "complete"
-                  : "available";
+              : isComplete
+                ? "complete"
+                : "available";
 
           return (
             <button
-              key={step.id}
-              className={`builder-stepper__item builder-stepper__item--${state}`}
+              key={pillar.id}
+              className={`builder-pillarNav__item builder-pillarNav__item--${state}`}
               type="button"
-              disabled={isLocked}
-              onClick={() => setCurrentStep(step.id)}
+              disabled={!pillar.sections.length}
+              onClick={() => setCurrentStep(pillar.sections[0]?.id ?? "foundation")}
             >
-              <span className="builder-stepper__index">{index + 1}</span>
-              <span className="builder-stepper__text">
-                <strong>{step.label}</strong>
-                <span>{step.description}</span>
+              <span className="builder-pillarNav__index">{index + 1}</span>
+              <span className="builder-pillarNav__text">
+                <strong>{pillar.shortLabel}</strong>
+                <span>
+                  {!pillar.sections.length
+                    ? "Unlocks with class"
+                    : isComplete
+                      ? "Complete"
+                      : `${pillar.sections.filter(isStepComplete).length}/${pillar.sections.length}`}
+                </span>
               </span>
             </button>
           );
         })}
       </section>
+
+      {activePillar.sections.length > 1 ? (
+        <nav className="builder-sectionTabs" aria-label={`${activePillar.label} sections`}>
+          {activePillar.sections.map((section) => (
+            <button
+              className={`builder-sectionTabs__item${section.id === activeStep.id ? " is-active" : ""}${isStepComplete(section) ? " is-complete" : ""}`}
+              key={section.id}
+              type="button"
+              onClick={() => setCurrentStep(section.id)}
+            >
+              <span>{section.label}</span>
+              {getStepWarnings(section).length ? <small>{getStepWarnings(section).length} issues</small> : <small>Ready</small>}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       {renderStepBody()}
 
@@ -3883,12 +4064,12 @@ export function BuilderEditor({
         <div className="builder-navigation__meta">
           <span className="builder-panel__label">Current step</span>
           <div className={`builder-navigation__summary${navigationWarnings.length ? " builder-navigation__summary--warning" : ""}`}>
-            <strong>{activeStep.label}</strong>
+            <strong>{activePillar.label} · {activeStep.label}</strong>
             <p>{activeStep.description}</p>
             {(showNavigationWarnings || activeStep.kind === "equipment") && navigationWarnings.length ? (
               <div className="builder-navigation__warningList">
-                {navigationWarnings.map((warning) => (
-                  <p className="auth-card__status auth-card__status--error builder-navigation__warningItem" key={warning}>
+                {navigationWarnings.map((warning, index) => (
+                  <p className="auth-card__status auth-card__status--error builder-navigation__warningItem" key={`${warning}-${index}`}>
                     {warning}
                   </p>
                 ))}
@@ -3909,36 +4090,28 @@ export function BuilderEditor({
               {isExportingPdf ? "Generating Character Sheet..." : "Download Character Sheet"}
             </button>
           ) : null}
-          {previousStep ? (
+          {previousPillar ? (
             <button
               className="button button--secondary"
               type="button"
               onClick={() => {
                 setShowNavigationWarnings(false);
-                setCurrentStep(previousStep.id);
+                setCurrentStep(previousPillar.sections[0]?.id ?? "foundation");
               }}
             >
-              Back to {previousStep.label}
+              Back
             </button>
           ) : null}
-          {nextStep ? (
+          {nextPillar ? (
             <button
               className="button"
               type="button"
               onClick={() => {
-                const nextStepIndex = steps.findIndex((step) => step.id === nextStep.id);
-                const isNextUnlocked = nextStepIndex <= furthestUnlockedIndex;
-
-                if (!canAdvance || !isNextUnlocked) {
-                  setShowNavigationWarnings(true);
-                  return;
-                }
-
                 setShowNavigationWarnings(false);
-                setCurrentStep(nextStep.id);
+                setCurrentStep(nextPillar.sections[0]?.id ?? "review");
               }}
             >
-              Continue to {nextStep.label}
+              Next pillar
             </button>
           ) : (
             <button

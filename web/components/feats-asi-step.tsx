@@ -234,7 +234,7 @@ export function FeatsAsiStep({
           const selection = selections[opportunity.id] ?? getEmptyAsiSelection();
           const isAsi = selection.mode === "asi";
           const featQuery = queries[opportunity.id]?.trim().toLowerCase() ?? "";
-          const viewMode = viewModes[opportunity.id] ?? "cards";
+          const viewMode = viewModes[opportunity.id] ?? "table";
           const sourceScope = sourceScopes[opportunity.id] ?? "all";
           const selectedSourceFilters = selectedSources[opportunity.id] ?? [];
           const showEligibleOnly = eligibleOnlyFilters[opportunity.id] ?? true;

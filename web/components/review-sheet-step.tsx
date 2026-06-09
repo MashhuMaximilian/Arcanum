@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 
 import { hasMarkdownContent, MarkdownRenderer } from "@/components/markdown-editor";
+import { downloadPortableCharacter } from "@/lib/characters/portable";
 import type { BuiltInBackgroundRecord } from "@/lib/builtins/backgrounds";
 import type { BuiltInClassRecord } from "@/lib/builtins/classes";
 import type { BuiltInRaceRecord } from "@/lib/builtins/races";
@@ -1433,6 +1434,8 @@ export function ReviewSheetStep(props: ReviewSheetProps) {
       return entry.classId && record ? [`${record.class.name} ${entry.level}`] : [];
     })
     .join(" / ");
+  const activeCompanion =
+    props.selectedProgressionElements.find((element) => element.type === "Companion") ?? null;
 
   const readinessWarnings = [
     ...(props.saveValidationMessage ? [props.saveValidationMessage] : []),
@@ -1571,18 +1574,27 @@ export function ReviewSheetStep(props: ReviewSheetProps) {
             This is the web-first sheet surface: stats, resources, actions, spells, features, inventory, and personality in one place without waiting for PDF export.
           </p>
         </div>
-        {props.onExportPdf ? (
+        <div className="review-sheet__actions">
           <button
             className="button button--secondary review-sheet__exportButton"
             type="button"
-            onClick={props.onExportPdf}
-            disabled={props.isExportingPdf}
-            aria-busy={props.isExportingPdf}
+            onClick={() => downloadPortableCharacter(props.draft)}
           >
-            {props.isExportingPdf ? <span className="button__spinner" aria-hidden="true" /> : null}
-            {props.isExportingPdf ? "Generating Character Sheet..." : "Download Character Sheet"}
+            Export JSON
           </button>
-        ) : null}
+          {props.onExportPdf ? (
+            <button
+              className="button button--secondary review-sheet__exportButton"
+              type="button"
+              onClick={props.onExportPdf}
+              disabled={props.isExportingPdf}
+              aria-busy={props.isExportingPdf}
+            >
+              {props.isExportingPdf ? <span className="button__spinner" aria-hidden="true" /> : null}
+              {props.isExportingPdf ? "Generating Character Sheet..." : "Download Character Sheet"}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="review-sheet__tabBar">
@@ -1627,8 +1639,8 @@ export function ReviewSheetStep(props: ReviewSheetProps) {
             </details>
             {readinessWarnings.length ? (
               <div className="review-sheet__warningBlock">
-                {readinessWarnings.map((warning) => (
-                  <p className="auth-card__status auth-card__status--error builder-navigation__warningItem" key={warning}>
+                {readinessWarnings.map((warning, index) => (
+                  <p className="auth-card__status auth-card__status--error builder-navigation__warningItem" key={`${warning}-${index}`}>
                     {warning}
                   </p>
                 ))}
@@ -1636,16 +1648,49 @@ export function ReviewSheetStep(props: ReviewSheetProps) {
             ) : null}
           </article>
 
-          <article className="builder-review__card">
+          <article className="builder-review__card review-sheet__identityCard">
             <span className="builder-panel__label">Identity</span>
-            <strong className="builder-summary__name">{props.draft.name || "Untitled Adventurer"}</strong>
-            <p className="builder-summary__meta">Player: {props.draft.playerName || "Unassigned"}</p>
-            <p className="builder-summary__meta">Race: {props.selectedRace?.race.name ?? "Missing"}</p>
-            <p className="builder-summary__meta">Lineage: {props.selectedSubrace?.name ?? (props.selectedRace?.subraces.length ? "Missing" : "Not required")}</p>
-            <p className="builder-summary__meta">Background: {props.selectedBackground?.background.name ?? "Missing"}</p>
-            <p className="builder-summary__meta">Class split: {classSplit || "Missing"}</p>
-            <p className="builder-summary__meta">Level {props.draft.level}</p>
+            <div className="review-sheet__identity">
+              <div className="review-sheet__portrait">
+                {props.draft.characterPortraitUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt={`${props.draft.name || "Character"} portrait`} src={props.draft.characterPortraitUrl} referrerPolicy="no-referrer" />
+                ) : (
+                  <span>{(props.draft.name || "A").slice(0, 1).toUpperCase()}</span>
+                )}
+              </div>
+              <div>
+                <strong className="builder-summary__name">{props.draft.name || "Untitled Adventurer"}</strong>
+                <p className="builder-summary__meta">Player: {props.draft.playerName || "Unassigned"}</p>
+                <p className="builder-summary__meta">Race: {props.selectedRace?.race.name ?? "Missing"}</p>
+                <p className="builder-summary__meta">Lineage: {props.selectedSubrace?.name ?? (props.selectedRace?.subraces.length ? "Missing" : "Not required")}</p>
+                <p className="builder-summary__meta">Background: {props.selectedBackground?.background.name ?? "Missing"}</p>
+                <p className="builder-summary__meta">Class split: {classSplit || "Missing"}</p>
+                <p className="builder-summary__meta">Level {props.draft.level}</p>
+              </div>
+            </div>
           </article>
+
+          {activeCompanion ? (
+            <article className="builder-review__card review-sheet__identityCard">
+              <span className="builder-panel__label">Companion</span>
+              <div className="review-sheet__identity">
+                <div className="review-sheet__portrait review-sheet__portrait--companion">
+                  {props.draft.companionPortraitUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt={`${activeCompanion.name} portrait`} src={props.draft.companionPortraitUrl} referrerPolicy="no-referrer" />
+                  ) : (
+                    <span>{activeCompanion.name.slice(0, 1).toUpperCase()}</span>
+                  )}
+                </div>
+                <div>
+                  <strong className="builder-summary__name">{activeCompanion.name}</strong>
+                  <p className="builder-summary__meta">{activeCompanion.source || "Rules-backed companion"}</p>
+                  <p className="builder-summary__meta">Full traits and actions are available under Features.</p>
+                </div>
+              </div>
+            </article>
+          ) : null}
 
           <article className="builder-review__card">
             <span className="builder-panel__label">Sheet essentials</span>

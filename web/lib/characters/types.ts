@@ -109,11 +109,14 @@ export type CharacterInventoryItem = {
 };
 
 export type CharacterDraft = {
+  schemaVersion: number;
   id: string;
   createdAt: string;
   updatedAt: string;
   name: string;
   playerName: string;
+  characterPortraitUrl: string;
+  companionPortraitUrl: string;
   raceId: string;
   subraceId: string;
   level: number;
@@ -146,6 +149,8 @@ export const ABILITY_KEYS: AbilityKey[] = [
   "charisma",
 ];
 
+export const CHARACTER_DRAFT_SCHEMA_VERSION = 2;
+
 export const ABILITY_LABELS: Record<AbilityKey, string> = {
   strength: "STR",
   dexterity: "DEX",
@@ -159,11 +164,14 @@ export function createEmptyCharacterDraft(): CharacterDraft {
   const now = new Date().toISOString();
 
   return {
+    schemaVersion: CHARACTER_DRAFT_SCHEMA_VERSION,
     id: crypto.randomUUID(),
     createdAt: now,
     updatedAt: now,
     name: "",
     playerName: "",
+    characterPortraitUrl: "",
+    companionPortraitUrl: "",
     raceId: "",
     subraceId: "",
     level: 1,
@@ -289,6 +297,11 @@ export function normalizeCharacterDraft(draft: CharacterDraft | LegacyCharacterD
   return {
     ...empty,
     ...draft,
+    schemaVersion: CHARACTER_DRAFT_SCHEMA_VERSION,
+    characterPortraitUrl:
+      typeof draft.characterPortraitUrl === "string" ? draft.characterPortraitUrl.trim() : "",
+    companionPortraitUrl:
+      typeof draft.companionPortraitUrl === "string" ? draft.companionPortraitUrl.trim() : "",
     level,
     classEntries,
     abilities: {

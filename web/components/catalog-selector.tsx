@@ -342,7 +342,7 @@ export function CatalogSelector({
     defaultDetailView ?? getDefaultDetailView(label),
   );
   const [activePane, setActivePane] = useState<"filters" | "list" | "detail">("list");
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
   const [showTableFilters, setShowTableFilters] = useState(false);
   const [tableSort, setTableSort] = useState<TableSortState<"name" | "source" | "summary" | "impact">>({
     key: "name",

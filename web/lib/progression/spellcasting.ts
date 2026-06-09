@@ -1007,7 +1007,19 @@ export function getSpellValidationMessages(
   groups: SpellSelectionGroup[],
   selections: Record<string, string[]>,
 ) {
-  return groups.flatMap((group) => {
+  const selectedOwners = new Map<string, string[]>();
+  groups.forEach((group) => {
+    (selections[group.id] ?? []).forEach((spellId) => {
+      selectedOwners.set(spellId, [...(selectedOwners.get(spellId) ?? []), group.title]);
+    });
+  });
+  const duplicateMessages = [...selectedOwners.entries()]
+    .filter(([, owners]) => owners.length > 1)
+    .map(([, owners]) => `A spell is selected more than once (${owners.join(", ")}).`);
+
+  return [
+    ...duplicateMessages,
+    ...groups.flatMap((group) => {
     const selectedCount = selections[group.id]?.length ?? 0;
 
     if (group.kind === "granted") {
@@ -1027,5 +1039,6 @@ export function getSpellValidationMessages(
     }
 
     return [];
-  });
+    }),
+  ];
 }

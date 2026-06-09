@@ -7,6 +7,7 @@ import { getSourcePrecedenceScore } from "@/lib/content-sources/source-precedenc
 import type { RequirementContext } from "@/lib/progression/requirements";
 import { getRequirementFailures } from "@/lib/progression/requirements";
 import { getSpellLevel } from "@/lib/progression/spellcasting";
+import { getSelectionSemanticKey } from "@/lib/progression/selection-identity";
 
 const SYNTHETIC_OPTION_SOURCE = "Core option registry";
 const SYNTHETIC_OPTION_SOURCE_URL = "internal://option-registry";
@@ -1259,7 +1260,29 @@ export function getProgressionValidationMessages(
   groups: ProgressionChoiceGroup[],
   selections: Record<string, string[]>,
 ) {
-  return groups.flatMap((group) => {
+  const selectedOwners = new Map<string, string[]>();
+  groups.forEach((group) => {
+    (selections[group.id] ?? []).forEach((id) => {
+      const element = group.options.find((option) => option.element.id === id)?.element;
+      if (!element) {
+        return;
+      }
+      const key = getSelectionSemanticKey(element);
+      selectedOwners.set(key, [...(selectedOwners.get(key) ?? []), group.title]);
+    });
+  });
+  const duplicateMessages = [...selectedOwners.entries()]
+    .filter(([, owners]) => owners.length > 1)
+    .map(([key, owners]) => {
+      const element = groups
+        .flatMap((group) => group.options)
+        .find((option) => getSelectionSemanticKey(option.element) === key)?.element;
+      return `${element?.name ?? "Choice"} is selected more than once (${owners.join(", ")}).`;
+    });
+
+  return [
+    ...duplicateMessages,
+    ...groups.flatMap((group) => {
     const validOptionIds = new Set(
       group.options.filter((option) => option.requirementFailures.length === 0).map((option) => option.element.id),
     );
@@ -1278,5 +1301,6 @@ export function getProgressionValidationMessages(
     }
 
     return [];
-  });
+    }),
+  ];
 }

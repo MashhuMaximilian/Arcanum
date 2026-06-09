@@ -17,6 +17,7 @@ import {
   isSpellRitual,
   type SpellSelectionGroup,
 } from "@/lib/progression/spellcasting";
+import { getSelectionSemanticKey } from "@/lib/progression/selection-identity";
 
 type SpellcastingStepProps = {
   groups: SpellSelectionGroup[];
@@ -62,7 +63,7 @@ export function SpellcastingStep({
   const [levelFilters, setLevelFilters] = useState<Record<string, number | null>>({});
   const [schoolFilters, setSchoolFilters] = useState<Record<string, string | null>>({});
   const [activePane, setActivePane] = useState<"filters" | "list" | "detail">("list");
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
   const [showTableFilters, setShowTableFilters] = useState(false);
   const [tableSort, setTableSort] = useState<TableSortState<"name" | "school" | "source" | "level">>({
     key: "level",
@@ -76,6 +77,18 @@ export function SpellcastingStep({
   }, [activeGroupId, groups]);
 
   const spellsById = useMemo(() => new Map(spells.map((spell) => [spell.id, spell])), [spells]);
+  const selectedSpellOwners = useMemo(() => {
+    const owners = new Map<string, string>();
+    groups.forEach((group) => {
+      [...(group.grantedSpellIds ?? []), ...(selections[group.id] ?? [])].forEach((id) => {
+        const spell = spellsById.get(id);
+        if (spell) {
+          owners.set(getSelectionSemanticKey(spell), group.title);
+        }
+      });
+    });
+    return owners;
+  }, [groups, selections, spellsById]);
   const activeGroup = groups.find((group) => group.id === activeGroupId) ?? null;
   const selectedSpellIds = activeGroup ? selections[activeGroup.id] ?? [] : [];
   const availableSpells = activeGroup
@@ -226,12 +239,18 @@ export function SpellcastingStep({
 
     const current = selections[activeGroup.id] ?? [];
     const alreadySelected = current.includes(spellId);
+    const spell = spellsById.get(spellId);
+    const duplicateOwner = spell ? selectedSpellOwners.get(getSelectionSemanticKey(spell)) : "";
 
     if (alreadySelected) {
       onSelectionChange(
         activeGroup.id,
         current.filter((entry) => entry !== spellId),
       );
+      return;
+    }
+
+    if (duplicateOwner) {
       return;
     }
 
@@ -743,6 +762,9 @@ export function SpellcastingStep({
                     <div className="catalog-selector__tableBody" role="rowgroup">
                       {sortedSpells.map((spell) => {
                         const isSelected = selectedSpellIds.includes(spell.id);
+                        const duplicateOwner = isSelected
+                          ? ""
+                          : selectedSpellOwners.get(getSelectionSemanticKey(spell)) ?? "";
                         const level = getSpellLevel(spell);
                         return (
                           <button
@@ -761,6 +783,7 @@ export function SpellcastingStep({
                             <span className="catalog-selector__tableCell catalog-selector__tableCell--name" role="cell">
                               <strong>{spell.name}</strong>
                               {isSelected ? <span className="catalog-selector__selectedBadge">Selected</span> : null}
+                              {duplicateOwner ? <span className="catalog-selector__impactChip">From {duplicateOwner}</span> : null}
                             </span>
                             <span className="catalog-selector__tableCell" role="cell">
                               {getSpellSchool(spell)}
@@ -780,6 +803,9 @@ export function SpellcastingStep({
                   <div className="catalog-selector__list spellcasting-step__table">
                     {sortedSpells.map((spell) => {
                       const isSelected = selectedSpellIds.includes(spell.id);
+                      const duplicateOwner = isSelected
+                        ? ""
+                        : selectedSpellOwners.get(getSelectionSemanticKey(spell)) ?? "";
                       const level = getSpellLevel(spell);
 
                       return (
@@ -807,6 +833,7 @@ export function SpellcastingStep({
                             {isSpellConcentration(spell) ? <span className="catalog-selector__impactChip">Concentration</span> : null}
                             {isSpellRitual(spell) ? <span className="catalog-selector__impactChip">Ritual</span> : null}
                             {isSelected ? <span className="catalog-selector__selectedBadge">Selected</span> : null}
+                            {duplicateOwner ? <span className="catalog-selector__impactChip">From {duplicateOwner}</span> : null}
                           </div>
                         </button>
                       );
