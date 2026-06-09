@@ -1263,7 +1263,11 @@ function ReviewDetailDrawer({
             </div>
           ) : null}
         </div>
-        {detail.item.detailHtml ? (
+        {detail.item.sheetDescription ? (
+          <div className="review-sheet__detailBody">
+            <MarkdownRenderer compact value={detail.item.sheetDescription} />
+          </div>
+        ) : detail.item.detailHtml ? (
           <div className="review-sheet__detailBody" dangerouslySetInnerHTML={{ __html: detail.item.detailHtml }} />
         ) : detail.item.notes ? (
           <div className="review-sheet__detailBody">

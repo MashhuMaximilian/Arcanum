@@ -314,7 +314,7 @@ export function toPdfCardFromGrant(grant: CharacterManualGrant) {
 }
 
 export function toPdfCardFromInventoryItem(item: CharacterInventoryItem) {
-  const detail = item.detailHtml ?? item.notes ?? "";
+  const detail = item.sheetDescription ?? item.detailHtml ?? item.notes ?? "";
   const contentKind = getContentKindFromDetail(detail);
   return {
     id: item.id,

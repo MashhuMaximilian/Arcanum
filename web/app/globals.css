@@ -1988,6 +1988,37 @@ a {
   background: rgba(255, 248, 236, 0.88);
 }
 
+.equipment-step__itemToggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.equipment-step__itemToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.equipment-step__itemToggle:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--foreground);
+}
+
+.equipment-step__itemToggle input {
+  accent-color: var(--accent);
+}
+
 .builder-summary__meta--warning {
   color: var(--accent-strong);
   font-weight: 700;

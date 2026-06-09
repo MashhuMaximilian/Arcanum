@@ -3750,11 +3750,13 @@ export function BuilderEditor({
                           baseItemName: patch.baseItemName || undefined,
                           baseDamage: patch.baseDamage || undefined,
                           damage: patch.damage || undefined,
+                          sheetDescription: patch.sheetDescription || undefined,
                           notes: patch.notes || undefined,
-                          equippable: ["weapon", "armor", "shield", "focus", "instrument", "tool", "clothing"].includes(patch.category),
-                          equipped: ["weapon", "armor", "shield", "focus", "instrument", "tool", "clothing"].includes(patch.category)
-                            ? item.equipped
-                            : false,
+                          equippable: patch.equippable,
+                          equipped: patch.equippable ? item.equipped : false,
+                          attunable: patch.attunable,
+                          attuned: patch.attunable ? item.attuned : false,
+                          includeInItemDescriptions: patch.includeInItemDescriptions,
                         })
                       : item,
                   ),
@@ -3809,11 +3811,26 @@ export function BuilderEditor({
                           baseDamage: baseWeaponDetails.baseDamage || undefined,
                           damage: damage || undefined,
                           detailHtml: entry.detailHtml,
+                          includeInItemDescriptions: Boolean(entry.detailHtml || entry.rarity || entry.attunable),
                         }),
                       ],
                 });
               }}
-              onAddCustomItem={({ name, category, quantity, attackBonus, baseItemId, baseItemName, baseDamage, damage, notes }) => {
+              onAddCustomItem={({
+                name,
+                category,
+                quantity,
+                attackBonus,
+                baseItemId,
+                baseItemName,
+                baseDamage,
+                damage,
+                sheetDescription,
+                notes,
+                equippable,
+                attunable,
+                includeInItemDescriptions,
+              }) => {
                 const normalizedName = name.trim();
                 if (!normalizedName) {
                   return;
@@ -3834,7 +3851,13 @@ export function BuilderEditor({
                               baseItemName: baseItemName || item.baseItemName,
                               baseDamage: baseDamage || item.baseDamage,
                               damage: damage || item.damage,
+                              sheetDescription: sheetDescription || item.sheetDescription,
                               notes: notes || item.notes,
+                              equippable,
+                              equipped: equippable ? item.equipped : false,
+                              attunable,
+                              attuned: attunable ? item.attuned : false,
+                              includeInItemDescriptions,
                             })
                           : item,
                       )
@@ -3849,16 +3872,18 @@ export function BuilderEditor({
                           itemType: "Item",
                           source: "manual",
                           sourceLabel: "Custom addition",
-                          equippable: ["weapon", "armor", "shield", "focus", "instrument", "tool", "clothing"].includes(category),
+                          equippable,
                           equipped: false,
-                          attunable: false,
+                          attunable,
                           attuned: false,
                           attackBonus: attackBonus || undefined,
                           baseItemId: baseItemId || undefined,
                           baseItemName: baseItemName || undefined,
                           baseDamage: baseDamage || undefined,
                           damage: damage || undefined,
+                          sheetDescription: sheetDescription || undefined,
                           notes: notes || undefined,
+                          includeInItemDescriptions,
                         }),
                       ],
                 });

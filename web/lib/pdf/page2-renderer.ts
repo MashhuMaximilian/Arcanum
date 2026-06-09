@@ -355,7 +355,7 @@ function extractItemDescription(detailHtml: string | undefined, fallback: string
   // Collapse whitespace created by the above removals.
   cleaned = cleaned.replace(/[ \t]{2,}/g, " ").replace(/\n[ \t]+/g, "\n").trim();
 
-  return cleaned || fallback;
+  return stripMarkdown(cleaned || fallback);
 }
 
 /**
@@ -462,21 +462,9 @@ function renderItemDescriptions(
 
   drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 18 });
 
-  // Show all items that have any meaningful description content.
-  // Custom items (which may not have rarity or detailHtml) are included
-  // so the player can see their hand-entered descriptions / notes.
-  const magicItems = items.filter((item) =>
-    Boolean(
-      item.rarity ||
-      item.attuned ||
-      item.detailHtml ||
-      item.notes ||
-      item.baseItemId ||
-      item.source === "manual",
-    ),
-  );
+  const describedItems = items.filter((item) => item.includeInItemDescriptions);
 
-  if (magicItems.length === 0) {
+  if (describedItems.length === 0) {
     drawText(
       ctx,
       "No items requiring description.",
@@ -499,7 +487,7 @@ function renderItemDescriptions(
   const bodySize = 5.5;
   const titleSize = 7;
 
-  for (const item of magicItems) {
+  for (const item of describedItems) {
     // Item name (bold, primary color) on the same line as inline
     // metadata (gray, same font size as the name).
     const metaLine = buildItemMetadataLine(item);
@@ -548,7 +536,10 @@ function renderItemDescriptions(
     // Item description from the item's <sheet> description. Fixed
     // body size so all items share the same font and the description
     // fits within the remaining vertical space.
-    const description = extractItemDescription(item.detailHtml, item.notes ?? item.name);
+    const description = extractItemDescription(
+      item.sheetDescription || item.detailHtml,
+      item.notes ?? item.name,
+    );
     if (description) {
       ctx.doc.save();
       ctx.doc.font(textFont).fontSize(bodySize);

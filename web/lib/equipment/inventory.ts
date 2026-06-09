@@ -1245,8 +1245,12 @@ export function buildStartingInventoryFromPlan(
       baseItemName: previous?.baseItemName,
       baseDamage: previous?.baseDamage,
       damage: previous?.damage,
+      sheetDescription: previous?.sheetDescription,
       notes: previous?.notes,
       detailHtml: previous?.detailHtml,
+      includeInItemDescriptions:
+        previous?.includeInItemDescriptions ??
+        Boolean(previous?.detailHtml || previous?.notes || previous?.rarity || previous?.attunable),
     }));
   }
 

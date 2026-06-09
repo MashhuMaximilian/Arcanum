@@ -61,7 +61,11 @@ type EquipmentStepProps = {
       baseItemName: string;
       baseDamage: string;
       damage: string;
+      sheetDescription: string;
       notes: string;
+      equippable: boolean;
+      attunable: boolean;
+      includeInItemDescriptions: boolean;
     },
   ) => void;
   onAddManualItem: (entry: EquipmentCatalogEntry) => void;
@@ -74,7 +78,11 @@ type EquipmentStepProps = {
     baseItemName: string;
     baseDamage: string;
     damage: string;
+    sheetDescription: string;
     notes: string;
+    equippable: boolean;
+    attunable: boolean;
+    includeInItemDescriptions: boolean;
   }) => void;
   onEquipmentNotesChange: (notes: CharacterEquipmentNotes) => void;
   onAddManualGrant: (grant: CharacterManualGrant) => void;
@@ -232,7 +240,11 @@ export function EquipmentStep({
   const [customItemAttackBonus, setCustomItemAttackBonus] = useState("");
   const [customItemBaseId, setCustomItemBaseId] = useState("");
   const [customItemDamage, setCustomItemDamage] = useState("");
+  const [customItemSheetDescription, setCustomItemSheetDescription] = useState("");
   const [customItemNotes, setCustomItemNotes] = useState("");
+  const [customItemEquippable, setCustomItemEquippable] = useState(false);
+  const [customItemAttunable, setCustomItemAttunable] = useState(false);
+  const [customItemIncludeInDescriptions, setCustomItemIncludeInDescriptions] = useState(true);
   const [editingItemId, setEditingItemId] = useState("");
   const [editingItemName, setEditingItemName] = useState("");
   const [editingItemCategory, setEditingItemCategory] = useState<InventoryCategory>("misc");
@@ -242,7 +254,11 @@ export function EquipmentStep({
   const [editingItemBaseName, setEditingItemBaseName] = useState("");
   const [editingItemBaseDamage, setEditingItemBaseDamage] = useState("");
   const [editingItemDamage, setEditingItemDamage] = useState("");
+  const [editingItemSheetDescription, setEditingItemSheetDescription] = useState("");
   const [editingItemNotes, setEditingItemNotes] = useState("");
+  const [editingItemEquippable, setEditingItemEquippable] = useState(false);
+  const [editingItemAttunable, setEditingItemAttunable] = useState(false);
+  const [editingItemIncludeInDescriptions, setEditingItemIncludeInDescriptions] = useState(false);
   const [manualAsiAbility, setManualAsiAbility] = useState<AbilityKey>("strength");
   const [manualAsiMode, setManualAsiMode] = useState<"increase" | "set">("increase");
   const [manualAsiAmount, setManualAsiAmount] = useState("1");
@@ -378,7 +394,11 @@ export function EquipmentStep({
     setEditingItemBaseName(item.baseItemName ?? "");
     setEditingItemBaseDamage(item.baseDamage ?? "");
     setEditingItemDamage(item.damage ?? "");
+    setEditingItemSheetDescription(item.sheetDescription ?? "");
     setEditingItemNotes(item.notes ?? "");
+    setEditingItemEquippable(item.equippable);
+    setEditingItemAttunable(item.attunable);
+    setEditingItemIncludeInDescriptions(item.includeInItemDescriptions);
   }
 
   function clearEditingItem() {
@@ -391,7 +411,11 @@ export function EquipmentStep({
     setEditingItemBaseName("");
     setEditingItemBaseDamage("");
     setEditingItemDamage("");
+    setEditingItemSheetDescription("");
     setEditingItemNotes("");
+    setEditingItemEquippable(false);
+    setEditingItemAttunable(false);
+    setEditingItemIncludeInDescriptions(false);
   }
 
   return (
@@ -740,18 +764,16 @@ export function EquipmentStep({
                             Limit {effectSummary.attunedCount}/{effectSummary.attunementLimit}
                           </span>
                         ) : null}
-                        {item.source === "manual" ? (
-                          <button
-                            aria-label={`Edit ${item.name}`}
-                            className="choice-chip equipment-step__actionButton"
-                            data-label="Edit"
-                            title="Edit"
-                            type="button"
-                            onClick={() => startEditingItem(item)}
-                          >
-                            <span aria-hidden="true">✎</span>
-                          </button>
-                        ) : null}
+                        <button
+                          aria-label={`Edit ${item.name}`}
+                          className="choice-chip equipment-step__actionButton"
+                          data-label="Edit"
+                          title="Edit"
+                          type="button"
+                          onClick={() => startEditingItem(item)}
+                        >
+                          <span aria-hidden="true">✎</span>
+                        </button>
                         <button
                           aria-label={`Delete ${item.name}`}
                           className="choice-chip equipment-step__actionButton"
@@ -763,12 +785,13 @@ export function EquipmentStep({
                           <span aria-hidden="true">×</span>
                         </button>
                       </div>
-                      {item.attackBonus || item.baseItemName || item.baseDamage || item.damage || item.notes ? (
+                      {item.attackBonus || item.baseItemName || item.baseDamage || item.damage || item.sheetDescription || item.notes ? (
                         <div className="equipment-step__inventoryNote">
                           {item.attackBonus ? <span>Modifier: {item.attackBonus}</span> : null}
                           {item.baseItemName ? <span>Base: {item.baseItemName}</span> : null}
                           {item.baseDamage ? <span>Base damage: {item.baseDamage}</span> : null}
                           {item.damage ? <span>Damage: {item.damage}</span> : null}
+                          {item.sheetDescription ? <span>Character-sheet description override set</span> : null}
                           {item.notes ? <span>{item.notes}</span> : null}
                         </div>
                       ) : null}
@@ -867,6 +890,42 @@ export function EquipmentStep({
                             />
                           </label>
                           <label className="builder-field">
+                            <span className="builder-summary__meta">Character-sheet description</span>
+                            <MarkdownEditor
+                              compact
+                              placeholder="Optional short override for the PDF. Leave blank to use the item's original description."
+                              slashContext="Character sheet item description"
+                              value={editingItemSheetDescription}
+                              onChange={setEditingItemSheetDescription}
+                            />
+                          </label>
+                          <div className="equipment-step__itemToggles">
+                            <label className="equipment-step__itemToggle">
+                              <input
+                                type="checkbox"
+                                checked={editingItemEquippable}
+                                onChange={(event) => setEditingItemEquippable(event.target.checked)}
+                              />
+                              <span>Equippable</span>
+                            </label>
+                            <label className="equipment-step__itemToggle">
+                              <input
+                                type="checkbox"
+                                checked={editingItemAttunable}
+                                onChange={(event) => setEditingItemAttunable(event.target.checked)}
+                              />
+                              <span>Requires attunement</span>
+                            </label>
+                            <label className="equipment-step__itemToggle">
+                              <input
+                                type="checkbox"
+                                checked={editingItemIncludeInDescriptions}
+                                onChange={(event) => setEditingItemIncludeInDescriptions(event.target.checked)}
+                              />
+                              <span>Include in PDF item descriptions</span>
+                            </label>
+                          </div>
+                          <label className="builder-field">
                             <span className="builder-summary__meta">Notes</span>
                             <MarkdownEditor
                               compact
@@ -894,7 +953,11 @@ export function EquipmentStep({
                                   baseItemName: editingItemBaseName,
                                   baseDamage: editingItemBaseDamage,
                                   damage: editingItemDamage.trim(),
+                                  sheetDescription: editingItemSheetDescription.trim(),
                                   notes: editingItemNotes.trim(),
+                                  equippable: editingItemEquippable,
+                                  attunable: editingItemAttunable,
+                                  includeInItemDescriptions: editingItemIncludeInDescriptions,
                                 });
                                 clearEditingItem();
                               }}
@@ -1061,6 +1124,42 @@ export function EquipmentStep({
               />
             </label>
             <label className="builder-field">
+              <span className="builder-summary__meta">Character-sheet description</span>
+              <MarkdownEditor
+                compact
+                placeholder="Short description for the PDF item description area."
+                slashContext="Custom item character sheet description"
+                value={customItemSheetDescription}
+                onChange={setCustomItemSheetDescription}
+              />
+            </label>
+            <div className="equipment-step__itemToggles">
+              <label className="equipment-step__itemToggle">
+                <input
+                  type="checkbox"
+                  checked={customItemEquippable}
+                  onChange={(event) => setCustomItemEquippable(event.target.checked)}
+                />
+                <span>Equippable</span>
+              </label>
+              <label className="equipment-step__itemToggle">
+                <input
+                  type="checkbox"
+                  checked={customItemAttunable}
+                  onChange={(event) => setCustomItemAttunable(event.target.checked)}
+                />
+                <span>Requires attunement</span>
+              </label>
+              <label className="equipment-step__itemToggle">
+                <input
+                  type="checkbox"
+                  checked={customItemIncludeInDescriptions}
+                  onChange={(event) => setCustomItemIncludeInDescriptions(event.target.checked)}
+                />
+                <span>Include in PDF item descriptions</span>
+              </label>
+            </div>
+            <label className="builder-field">
               <span className="builder-summary__meta">Notes</span>
               <MarkdownEditor
                 compact
@@ -1088,7 +1187,11 @@ export function EquipmentStep({
                     baseItemName: selectedCustomBaseWeapon?.name ?? "",
                     baseDamage: selectedCustomBaseWeapon?.damage ?? "",
                     damage: customItemDamage.trim(),
+                    sheetDescription: customItemSheetDescription.trim(),
                     notes: customItemNotes.trim(),
+                    equippable: customItemEquippable,
+                    attunable: customItemAttunable,
+                    includeInItemDescriptions: customItemIncludeInDescriptions,
                   });
                   setCustomItemName("");
                   setCustomItemCategory("misc");
@@ -1096,7 +1199,11 @@ export function EquipmentStep({
                   setCustomItemAttackBonus("");
                   setCustomItemBaseId("");
                   setCustomItemDamage("");
+                  setCustomItemSheetDescription("");
                   setCustomItemNotes("");
+                  setCustomItemEquippable(false);
+                  setCustomItemAttunable(false);
+                  setCustomItemIncludeInDescriptions(true);
                 }}
               >
                 Add custom item

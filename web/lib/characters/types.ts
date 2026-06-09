@@ -104,8 +104,10 @@ export type CharacterInventoryItem = {
   baseItemName?: string;
   baseDamage?: string;
   damage?: string;
+  sheetDescription?: string;
   notes?: string;
   detailHtml?: string;
+  includeInItemDescriptions: boolean;
 };
 
 export type CharacterDraft = {
@@ -149,7 +151,7 @@ export const ABILITY_KEYS: AbilityKey[] = [
   "charisma",
 ];
 
-export const CHARACTER_DRAFT_SCHEMA_VERSION = 2;
+export const CHARACTER_DRAFT_SCHEMA_VERSION = 3;
 
 export const ABILITY_LABELS: Record<AbilityKey, string> = {
   strength: "STR",
@@ -378,8 +380,13 @@ export function normalizeCharacterDraft(draft: CharacterDraft | LegacyCharacterD
             baseItemName: typeof item.baseItemName === "string" ? item.baseItemName : undefined,
             baseDamage: typeof item.baseDamage === "string" ? item.baseDamage : undefined,
             damage: typeof item.damage === "string" ? item.damage : undefined,
+            sheetDescription: typeof item.sheetDescription === "string" ? item.sheetDescription : undefined,
             notes: typeof item.notes === "string" ? item.notes : undefined,
             detailHtml: typeof item.detailHtml === "string" ? item.detailHtml : undefined,
+            includeInItemDescriptions:
+              typeof item.includeInItemDescriptions === "boolean"
+                ? item.includeInItemDescriptions
+                : Boolean(item.detailHtml || item.notes || item.rarity || item.attunable || item.source === "manual"),
           }))
       : [],
     equipmentNotes: {
