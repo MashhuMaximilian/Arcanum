@@ -23,6 +23,7 @@ import type {
 import type { BuiltInRaceRecord } from "@/lib/builtins/races";
 import type { BuiltInElement, BuiltInRule } from "@/lib/builtins/types";
 import { saveRemoteCharacterDraft } from "@/lib/characters/repository";
+import { importPortableCharacterFile } from "@/lib/characters/portable";
 import {
   ABILITY_KEYS,
   createEmptyCharacterDraft,
@@ -1189,6 +1190,7 @@ export function BuilderEditor({
   const [statusTone, setStatusTone] = useState<"error" | "success">("success");
   const [isSaving, setIsSaving] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isImportingCharacter, setIsImportingCharacter] = useState(false);
   const [currentStep, setCurrentStep] = useState(mode === "view" ? "review" : "foundation");
   const [showNavigationWarnings, setShowNavigationWarnings] = useState(false);
   const [activeClassEntryIndex, setActiveClassEntryIndex] = useState(0);
@@ -3058,6 +3060,23 @@ export function BuilderEditor({
     router.refresh();
   }
 
+  async function handleImportCharacter(file: File) {
+    setIsImportingCharacter(true);
+    setStatus("");
+
+    try {
+      const imported = await importPortableCharacterFile(file);
+      saveCharacterDraft(imported);
+      await saveRemoteCharacterDraft(imported);
+      router.push(`/builder/${imported.id}`);
+    } catch (error) {
+      setStatusTone("error");
+      setStatus(error instanceof Error ? error.message : "Character import failed.");
+    } finally {
+      setIsImportingCharacter(false);
+    }
+  }
+
   const canSave = Boolean(
     draft.raceId && primaryClassEntry?.classId && draft.backgroundId && !saveValidationMessage,
   );
@@ -3951,7 +3970,9 @@ export function BuilderEditor({
             spellGroups={activeSpellGroups}
             spells={spells}
             isExportingPdf={isExportingPdf}
+            isImportingCharacter={isImportingCharacter}
             onExportPdf={handleExportPdf}
+            onImportCharacter={(file) => void handleImportCharacter(file)}
           />
         );
       default:

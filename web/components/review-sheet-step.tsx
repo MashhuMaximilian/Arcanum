@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import { hasMarkdownContent, MarkdownRenderer } from "@/components/markdown-editor";
 import { downloadPortableCharacter } from "@/lib/characters/portable";
@@ -75,7 +75,9 @@ type ReviewSheetProps = {
   spellGroups: SpellSelectionGroup[];
   spells: BuiltInElement[];
   isExportingPdf?: boolean;
+  isImportingCharacter?: boolean;
   onExportPdf?: () => void;
+  onImportCharacter?: (file: File) => void;
 };
 
 type ReviewResource = {
@@ -1317,6 +1319,7 @@ function ReviewDetailDrawer({
 }
 
 export function ReviewSheetStep(props: ReviewSheetProps) {
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<ReviewSheetTab>("character");
   const [detail, setDetail] = useState<ReviewDetailState | null>(null);
   const [actionsView, setActionsView] = useState<ReviewCatalogView>("workbench");
@@ -1579,6 +1582,31 @@ export function ReviewSheetStep(props: ReviewSheetProps) {
           </p>
         </div>
         <div className="review-sheet__actions">
+          {props.onImportCharacter ? (
+            <>
+              <input
+                ref={importInputRef}
+                className="visually-hidden"
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    props.onImportCharacter?.(file);
+                  }
+                  event.target.value = "";
+                }}
+              />
+              <button
+                className="button button--secondary review-sheet__exportButton"
+                type="button"
+                disabled={props.isImportingCharacter}
+                onClick={() => importInputRef.current?.click()}
+              >
+                {props.isImportingCharacter ? "Importing..." : "Import JSON"}
+              </button>
+            </>
+          ) : null}
           <button
             className="button button--secondary review-sheet__exportButton"
             type="button"

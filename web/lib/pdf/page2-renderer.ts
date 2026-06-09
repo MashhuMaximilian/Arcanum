@@ -1458,7 +1458,18 @@ function renderCompanionPicture(ctx: PdfRenderContext, rect: PdfRect) {
   const doc = ctx.doc as unknown as {
     save: () => void;
     restore: () => void;
+    image: (
+      source: string,
+      x: number,
+      y: number,
+      options: {
+        fit: [number, number];
+        align: "center";
+        valign: "center";
+      },
+    ) => void;
     rect: (x: number, y: number, width: number, height: number) => {
+      clip: () => void;
       lineWidth: (width: number) => {
         strokeColor: (color: string) => {
           stroke: () => void;
@@ -1466,18 +1477,32 @@ function renderCompanionPicture(ctx: PdfRenderContext, rect: PdfRect) {
       };
     };
   };
+
+  if (ctx.companionPortraitImage) {
+    doc.save();
+    doc.rect(rect.x, rect.y, rect.width, rect.height).clip();
+    doc.image(ctx.companionPortraitImage, rect.x, rect.y, {
+      fit: [rect.width, rect.height],
+      align: "center",
+      valign: "center",
+    });
+    doc.restore();
+  }
+
   doc.save();
   doc.rect(rect.x, rect.y, rect.width, rect.height)
     .lineWidth(0.8)
     .strokeColor("#b8b8b8")
     .stroke();
   doc.restore();
-  drawCenteredTextInRect(ctx, "Picture", rect, {
-    font: "Helvetica",
-    maxSize: 14,
-    minSize: 10,
-    color: "#111111",
-  });
+  if (!ctx.companionPortraitImage) {
+    drawCenteredTextInRect(ctx, "Picture", rect, {
+      font: "Helvetica",
+      maxSize: 14,
+      minSize: 10,
+      color: "#111111",
+    });
+  }
 }
 
 function renderCompanionAbilities(

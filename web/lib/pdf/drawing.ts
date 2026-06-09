@@ -32,6 +32,7 @@ export type PdfRenderContext = {
   doc: PDFDocument;
   svgToPdf: typeof SVGtoPDF;
   bodyFont: string;
+  companionPortraitImage?: string;
 };
 
 export function insetRect(rect: PdfRect, inset: number): PdfRect;

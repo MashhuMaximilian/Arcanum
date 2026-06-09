@@ -565,6 +565,21 @@ export function CatalogSelector({
     }
   }, [selectedId]);
 
+  useEffect(() => {
+    if (activePane !== "detail") {
+      return;
+    }
+
+    function closeDetails(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setActivePane("list");
+      }
+    }
+
+    window.addEventListener("keydown", closeDetails);
+    return () => window.removeEventListener("keydown", closeDetails);
+  }, [activePane]);
+
   const detailMarkup = useMemo(() => getDetailMarkup(previewItem), [previewItem]);
   const referenceMarkup = useMemo(() => getReferenceMarkup(previewItem, label), [label, previewItem]);
 
@@ -1088,6 +1103,15 @@ export function CatalogSelector({
         <div className={`catalog-selector__detailPanel${activePane === "detail" ? " is-mobileActive" : ""}`}>
           {previewItem ? (
             <>
+              <button
+                className="catalog-selector__mobileClose"
+                type="button"
+                aria-label="Close details"
+                onClick={() => setActivePane("list")}
+              >
+                <span aria-hidden="true">×</span>
+                Close details
+              </button>
               <div className="catalog-selector__detailHeader">
                 <span className="catalog-selector__detailLabel">
                   {previewItem.id === selectedId ? "Selected" : "Preview"}

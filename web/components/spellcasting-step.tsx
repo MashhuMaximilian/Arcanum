@@ -166,6 +166,29 @@ export function SpellcastingStep({
       .map((spell) => getSpellSourceFilterLabel(spell)),
   )].sort();
   const levelOptions = [...new Set(availableSpells.map((spell) => getSpellLevel(spell)))].sort((a, b) => a - b);
+  const otherGroupMatches = query
+    ? groups
+        .filter((group) => group.id !== activeGroup?.id)
+        .map((group) => ({
+          group,
+          count: group.availableSpellIds.filter((id) => {
+            const spell = spellsById.get(id);
+            if (!spell) {
+              return false;
+            }
+            return [
+              spell.name,
+              spell.source,
+              spell.description,
+              getSpellSchool(spell),
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(query);
+          }).length,
+        }))
+        .filter(({ count }) => count > 0)
+    : [];
   const previewId =
     activeGroup
       ? previewIds[activeGroup.id] ??
@@ -841,9 +864,32 @@ export function SpellcastingStep({
                   </div>
                 )
               ) : (
-                <p className="catalog-selector__empty">
-                  No matching spells. Adjust filters or sync a source that includes spell data.
-                </p>
+                <div className="catalog-selector__empty">
+                  <p>No matching spells in {activeGroup.title}.</p>
+                  {otherGroupMatches.length ? (
+                    <div className="chip-grid">
+                      {otherGroupMatches.map(({ group, count }) => (
+                        <button
+                          className="choice-chip"
+                          key={group.id}
+                          type="button"
+                          onClick={() => {
+                            setQueries((current) => ({
+                              ...current,
+                              [group.id]: queries[activeGroup.id] ?? "",
+                            }));
+                            setActiveGroupId(group.id);
+                            setActivePane("list");
+                          }}
+                        >
+                          Search {group.title} ({count})
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>Adjust filters or sync a source that includes this spell.</p>
+                  )}
+                </div>
               )}
             </div>
 
