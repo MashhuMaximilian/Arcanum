@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getDetailMarkup } from "@/components/catalog-selector";
 import { sortTableRows, toggleTableSort, type TableSortState } from "@/components/table-sort";
+import { useMobileDetailSheet } from "@/components/use-mobile-detail-sheet";
 import type { BuiltInElement } from "@/lib/builtins/types";
 import {
   getSpellCastingTime,
@@ -69,6 +70,10 @@ export function SpellcastingStep({
     key: "level",
     direction: "asc",
   });
+  const isMobile = useMobileDetailSheet(
+    activePane === "detail",
+    () => setActivePane("list"),
+  );
 
   useEffect(() => {
     if (!groups.some((group) => group.id === activeGroupId)) {
@@ -359,13 +364,6 @@ export function SpellcastingStep({
               onClick={() => setActivePane("list")}
             >
               Library
-            </button>
-            <button
-              className={`button button--secondary button--compact${activePane === "detail" ? " ability-mode__tab--active" : ""}`}
-              type="button"
-              onClick={() => setActivePane("detail")}
-            >
-              Details
             </button>
           </div>
 
@@ -738,12 +736,15 @@ export function SpellcastingStep({
                         key={spell.id}
                         className={`spellcasting-step__row${previewSpell?.id === spell.id ? " spellcasting-step__row--preview" : ""}`}
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
                           setPreviewIds((current) => ({
                             ...current,
                             [activeGroup.id]: spell.id,
-                          }))
-                        }
+                          }));
+                          if (isMobile) {
+                            setActivePane("detail");
+                          }
+                        }}
                       >
                         <div className="spellcasting-step__rowHeader">
                           <strong>{spell.name}</strong>
@@ -799,7 +800,11 @@ export function SpellcastingStep({
                                 ...current,
                                 [activeGroup.id]: spell.id,
                               }));
-                              toggleSpell(spell.id);
+                              if (isMobile) {
+                                setActivePane("detail");
+                              } else {
+                                toggleSpell(spell.id);
+                              }
                             }}
                             role="row"
                           >
@@ -841,7 +846,11 @@ export function SpellcastingStep({
                               ...current,
                               [activeGroup.id]: spell.id,
                             }));
-                            toggleSpell(spell.id);
+                            if (isMobile) {
+                              setActivePane("detail");
+                            } else {
+                              toggleSpell(spell.id);
+                            }
                           }}
                         >
                           <div className="spellcasting-step__rowHeader">
@@ -894,6 +903,15 @@ export function SpellcastingStep({
             </div>
 
             <div className={`catalog-selector__detailPanel${activePane === "detail" ? " is-mobileActive" : ""}`}>
+              <button
+                className="catalog-selector__mobileClose"
+                type="button"
+                aria-label="Back to spell library"
+                onClick={() => setActivePane("list")}
+              >
+                <span aria-hidden="true">←</span>
+                Back to library
+              </button>
               <div className="catalog-selector__detailHeader">
                 <span className="catalog-selector__detailLabel">{activeGroup.kind}</span>
                 <h3 className="catalog-selector__detailTitle">
@@ -904,6 +922,20 @@ export function SpellcastingStep({
                     ? `${formatSpellLevel(getSpellLevel(previewSpell))} • ${getSpellSchool(previewSpell)} • ${previewSpell.source}`
                     : activeGroup.description}
                 </p>
+                {previewSpell && activeGroup.kind !== "granted" ? (
+                  <div className="catalog-selector__detailActions">
+                    <button
+                      className="button button--primary button--compact"
+                      type="button"
+                      onClick={() => {
+                        toggleSpell(previewSpell.id);
+                        setActivePane("list");
+                      }}
+                    >
+                      {selectedSpellIds.includes(previewSpell.id) ? "Remove spell" : "Choose spell"}
+                    </button>
+                  </div>
+                ) : null}
               </div>
 
               {previewSpell ? (

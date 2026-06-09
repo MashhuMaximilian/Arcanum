@@ -19,6 +19,25 @@ export type CharacterSourceManifestEntry = {
   status: "built-in" | "cached-on-device" | "rehydrate-required";
 };
 
+export type CharacterContentSnapshot = {
+  id: string;
+  type: string;
+  name: string;
+  source: string;
+  sourceUrl?: string;
+  supports: string[];
+  description: string;
+  descriptionHtml?: string;
+  prerequisite?: string;
+  requirements?: string;
+  rules: unknown[];
+  setters: unknown[];
+  sheet?: unknown;
+  multiclass?: unknown;
+  spellcasting?: unknown;
+  ruleset: string;
+};
+
 export type CharacterClassEntry = {
   classId: string;
   subclassId: string;
@@ -112,6 +131,7 @@ export type CharacterInventoryItem = {
 
 export type CharacterDraft = {
   schemaVersion: number;
+  ruleset: "dnd5e-2014" | "dnd5e-2024";
   id: string;
   createdAt: string;
   updatedAt: string;
@@ -140,6 +160,7 @@ export type CharacterDraft = {
   manualGrants: CharacterManualGrant[];
   backstory: CharacterBackstory;
   sourceManifest: CharacterSourceManifestEntry[];
+  contentSnapshots: CharacterContentSnapshot[];
 };
 
 export const ABILITY_KEYS: AbilityKey[] = [
@@ -151,7 +172,7 @@ export const ABILITY_KEYS: AbilityKey[] = [
   "charisma",
 ];
 
-export const CHARACTER_DRAFT_SCHEMA_VERSION = 3;
+export const CHARACTER_DRAFT_SCHEMA_VERSION = 4;
 
 export const ABILITY_LABELS: Record<AbilityKey, string> = {
   strength: "STR",
@@ -167,6 +188,7 @@ export function createEmptyCharacterDraft(): CharacterDraft {
 
   return {
     schemaVersion: CHARACTER_DRAFT_SCHEMA_VERSION,
+    ruleset: "dnd5e-2014",
     id: crypto.randomUUID(),
     createdAt: now,
     updatedAt: now,
@@ -233,6 +255,7 @@ export function createEmptyCharacterDraft(): CharacterDraft {
       additionalFeatures: "",
     },
     sourceManifest: [],
+    contentSnapshots: [],
   };
 }
 
@@ -300,6 +323,7 @@ export function normalizeCharacterDraft(draft: CharacterDraft | LegacyCharacterD
     ...empty,
     ...draft,
     schemaVersion: CHARACTER_DRAFT_SCHEMA_VERSION,
+    ruleset: draft.ruleset === "dnd5e-2024" ? "dnd5e-2024" : "dnd5e-2014",
     characterPortraitUrl:
       typeof draft.characterPortraitUrl === "string" ? draft.characterPortraitUrl.trim() : "",
     companionPortraitUrl:
@@ -420,6 +444,27 @@ export function normalizeCharacterDraft(draft: CharacterDraft | LegacyCharacterD
       ...(draft.backstory ?? {}),
     },
     sourceManifest: draft.sourceManifest ?? [],
+    contentSnapshots: Array.isArray(draft.contentSnapshots)
+      ? draft.contentSnapshots.filter(
+          (snapshot): snapshot is CharacterContentSnapshot =>
+            Boolean(
+              snapshot &&
+              typeof snapshot.id === "string" &&
+              typeof snapshot.type === "string" &&
+              typeof snapshot.name === "string" &&
+              typeof snapshot.source === "string" &&
+              typeof snapshot.description === "string" &&
+              Array.isArray(snapshot.rules) &&
+              Array.isArray(snapshot.setters),
+            ),
+        )
+          .map((snapshot) => ({
+            ...snapshot,
+            supports: Array.isArray(snapshot.supports)
+              ? snapshot.supports.filter((value): value is string => typeof value === "string")
+              : [],
+          }))
+      : [],
   } satisfies CharacterDraft;
 }
 

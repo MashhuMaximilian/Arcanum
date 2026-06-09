@@ -4294,6 +4294,25 @@ a {
   font-size: 0.67rem;
 }
 
+.builder-sourcePrompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px dashed rgba(146, 38, 16, 0.24);
+  border-radius: 12px;
+  background: rgba(230, 154, 40, 0.08);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.builder-sourcePrompt a {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-weight: 800;
+}
+
 .builder-stepPanel,
 .builder-panel,
 .builder-navigation {
@@ -4614,12 +4633,35 @@ a {
   }
 
   .builder-mobilePillarSelect {
+    position: sticky;
+    top: 8px;
+    z-index: 24;
     display: grid;
     gap: 5px;
     padding: 9px 11px;
     border: 1px solid var(--card-border);
     border-radius: 14px;
     background: rgba(255, 248, 236, 0.94);
+    box-shadow: 0 8px 24px rgba(77, 39, 20, 0.12);
+    backdrop-filter: blur(14px);
+  }
+
+  .builder-sectionTabs {
+    position: sticky;
+    top: 78px;
+    z-index: 23;
+    margin: -4px 0 2px;
+    padding: 7px 4px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 248, 236, 0.98) 75%,
+      rgba(255, 248, 236, 0)
+    );
+  }
+
+  .builder-sourcePrompt {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .builder-mobilePillarSelect span {
@@ -4653,18 +4695,20 @@ a {
 
   .catalog-selector__detailPanel.is-mobileActive {
     position: fixed;
+    top: 0;
     right: 0;
     bottom: 0;
     left: 0;
-    z-index: 60;
+    z-index: 80;
     display: grid;
     width: 100%;
-    height: min(76vh, 680px);
-    padding: 18px 16px 28px;
-    border-radius: 22px 22px 0 0;
+    height: 100dvh;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    border-radius: 0;
     background: #fff8ec;
-    box-shadow: 0 -18px 50px rgba(49, 24, 12, 0.28);
+    box-shadow: 0 0 60px rgba(49, 24, 12, 0.32);
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .catalog-selector__mobileClose {

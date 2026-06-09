@@ -80,7 +80,18 @@ export function CharacterList() {
     setExportError(null);
 
     try {
-      const catalogs = await resolveBuilderCatalogs(getBuiltInSrdSpells());
+      const catalogResponse = await fetch(
+        `/api/srd-catalogs?ruleset=${encodeURIComponent(draft.ruleset)}`,
+      );
+      if (!catalogResponse.ok) {
+        throw new Error("Could not load the character ruleset.");
+      }
+      const catalogData = await catalogResponse.json();
+      const catalogs = await resolveBuilderCatalogs({
+        baseElements: catalogData.elements ?? [],
+        initialSpellElements: catalogData.spells ?? getBuiltInSrdSpells(),
+        ruleset: draft.ruleset,
+      });
       const pdfCharacter = buildPdfCharacterFromDraft({ ...catalogs, draft });
       const response = await fetch("/pdf-export", {
         method: "POST",

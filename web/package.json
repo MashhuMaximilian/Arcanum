@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "pretypecheck": "next typegen",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:content": "node scripts/verify-content-packs.mjs"
   },
   "dependencies": {
     "@blocknote/core": "0.47.3",

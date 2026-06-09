@@ -5,6 +5,7 @@ import {
   fetchAuroraXmlFile,
   parseAuroraElements,
 } from "@/lib/content-sources/aurora";
+import { translateAuroraElementsToContentPack } from "@/lib/content-packs/aurora-adapter";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -104,6 +105,17 @@ export async function POST(_: NextRequest, context: RouteContext) {
         const elements = parseAuroraElements(fileUrl, xml);
 
         if (elements.length) {
+          const translatedPack = translateAuroraElementsToContentPack({
+            id: source.id,
+            name: source.name,
+            sourceUrl: source.index_url,
+            elements,
+          });
+          const normalizedByLegacyId = new Map(
+            translatedPack.entries.flatMap((entry) =>
+              (entry.aliases ?? []).map((alias) => [alias, entry] as const),
+            ),
+          );
           const dedupedRows = new Map<string, Record<string, unknown>>();
 
           elements.forEach((element) => {
@@ -122,7 +134,17 @@ export async function POST(_: NextRequest, context: RouteContext) {
               description_text: element.descriptionText,
               multiclass: element.multiclass,
               spellcasting: element.spellcasting,
-              raw_element: element.rawElement,
+              raw_element: {
+                ...element.rawElement,
+                normalizedEntry: normalizedByLegacyId.get(element.elementId) ?? null,
+                arcanumPack: {
+                  id: translatedPack.id,
+                  version: translatedPack.version,
+                  ruleset: translatedPack.ruleset,
+                  licenseName: translatedPack.license.name,
+                  attribution: translatedPack.license.attribution,
+                },
+              },
               updated_at: timestamp,
             });
           });

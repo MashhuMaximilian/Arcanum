@@ -599,26 +599,69 @@ function dedupeElements(elements: BuiltInElement[]) {
   return [...byId.values()];
 }
 
-export async function resolveBuilderCatalogs(initialSpellElements: BuiltInElement[] = []) {
-  const builtInRaceElements = [...getBuiltInSrdRaceElements()];
-  const builtInClassElements = [...getBuiltInSrdClassElements()];
-  const builtInBackgroundElements = [...getBuiltInSrdBackgroundElements()];
-  const builtInFeatElements = [...getBuiltInSrdFeatElements()];
-  const builtInSpellElements = [...initialSpellElements];
-  const builtInCompanionElements = getBuiltInSrdCompanions();
-  const builtInCompanionSubElements = getBuiltInSrdCompanionSubElements();
+type ResolveBuilderCatalogsInput = {
+  baseElements?: BuiltInElement[];
+  initialSpellElements?: BuiltInElement[];
+  ruleset?: string;
+  snapshotElements?: BuiltInElement[];
+};
+
+function getImportedElementRuleset(element: ImportedElement) {
+  const metadata = element.raw_element?.arcanumPack;
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const ruleset = (metadata as Record<string, unknown>).ruleset;
+    if (typeof ruleset === "string") {
+      return ruleset;
+    }
+  }
+  return "dnd5e-2014";
+}
+
+export async function resolveBuilderCatalogs(input: ResolveBuilderCatalogsInput = {}) {
+  const ruleset = input.ruleset ?? "dnd5e-2014";
+  const suppliedElements = input.baseElements ?? [];
+  const useSuppliedElements = suppliedElements.length > 0;
+  const suppliedByType = (types: string[]) =>
+    suppliedElements.filter((element) => types.includes(element.type));
+  const builtInRaceElements = useSuppliedElements
+    ? suppliedByType(["Race", "Sub Race", "Racial Trait", "Race Variant"])
+    : [...getBuiltInSrdRaceElements()];
+  const builtInClassElements = useSuppliedElements
+    ? suppliedByType(["Class", "Class Feature", "Archetype", "Archetype Feature"])
+    : [...getBuiltInSrdClassElements()];
+  const builtInBackgroundElements = useSuppliedElements
+    ? suppliedByType(["Background", "Background Feature", "Background Variant"])
+    : [...getBuiltInSrdBackgroundElements()];
+  const builtInFeatElements = useSuppliedElements
+    ? suppliedByType(["Feat", "Feat Feature", "Ability Score Improvement"])
+    : [...getBuiltInSrdFeatElements()];
+  const builtInSpellElements = useSuppliedElements
+    ? suppliedByType(["Spell"])
+    : [...(input.initialSpellElements ?? [])];
+  const builtInCompanionElements = useSuppliedElements
+    ? suppliedByType(["Companion"])
+    : getBuiltInSrdCompanions();
+  const builtInCompanionSubElements = useSuppliedElements
+    ? suppliedByType(["Companion Trait", "Companion Action", "Companion Reaction"])
+    : getBuiltInSrdCompanionSubElements();
   const cachedImported = await listCachedElements();
-  const rawImportedElements = cachedImported
+  const rulesetImported = cachedImported.filter(
+    (element) => getImportedElementRuleset(element) === ruleset,
+  );
+  const rawImportedElements = rulesetImported
     .map((element) => toBuiltInElement(element))
     .filter((element): element is BuiltInElement => Boolean(element));
-  const importedElements = applyImportedAppends(rawImportedElements, cachedImported);
-  const patchedBuiltInRaceElements = applyImportedAppends(builtInRaceElements, cachedImported);
-  const patchedBuiltInClassElements = applyImportedAppends(builtInClassElements, cachedImported);
-  const patchedBuiltInBackgroundElements = applyImportedAppends(builtInBackgroundElements, cachedImported);
-  const patchedBuiltInFeatElements = applyImportedAppends(builtInFeatElements, cachedImported);
-  const patchedBuiltInSpellElements = applyImportedAppends(builtInSpellElements, cachedImported);
-  const patchedBuiltInCompanionElements = applyImportedAppends(builtInCompanionElements, cachedImported);
-  const patchedBuiltInCompanionSubElements = applyImportedAppends(builtInCompanionSubElements, cachedImported);
+  const importedElements = applyImportedAppends(
+    [...rawImportedElements, ...(input.snapshotElements ?? [])],
+    rulesetImported,
+  );
+  const patchedBuiltInRaceElements = applyImportedAppends(builtInRaceElements, rulesetImported);
+  const patchedBuiltInClassElements = applyImportedAppends(builtInClassElements, rulesetImported);
+  const patchedBuiltInBackgroundElements = applyImportedAppends(builtInBackgroundElements, rulesetImported);
+  const patchedBuiltInFeatElements = applyImportedAppends(builtInFeatElements, rulesetImported);
+  const patchedBuiltInSpellElements = applyImportedAppends(builtInSpellElements, rulesetImported);
+  const patchedBuiltInCompanionElements = applyImportedAppends(builtInCompanionElements, rulesetImported);
+  const patchedBuiltInCompanionSubElements = applyImportedAppends(builtInCompanionSubElements, rulesetImported);
 
   const raceElements = dedupeElements([
     ...patchedBuiltInRaceElements,

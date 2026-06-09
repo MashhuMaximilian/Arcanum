@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getDetailMarkup } from "@/components/catalog-selector";
 import { sortTableRows, toggleTableSort, type TableSortState } from "@/components/table-sort";
+import { useMobileDetailSheet } from "@/components/use-mobile-detail-sheet";
 import {
   isUnifiedLedgerGroup,
   type LockedChoiceEntry,
@@ -222,6 +223,10 @@ export function ProgressionChoicesStep({
     key: "name",
     direction: "asc",
   });
+  const isMobile = useMobileDetailSheet(
+    activePane === "detail",
+    () => setActivePane("list"),
+  );
   const elementsById = useMemo(() => new Map(elements.map((element) => [element.id, element])), [elements]);
   const selectedSemanticOwners = useMemo(() => {
     const owners = new Map<string, string>();
@@ -443,13 +448,6 @@ export function ProgressionChoicesStep({
             >
               Library
             </button>
-            <button
-              className={`button button--secondary button--compact${activePane === "detail" ? " ability-mode__tab--active" : ""}`}
-              type="button"
-              onClick={() => setActivePane("detail")}
-            >
-              Details
-            </button>
           </div>
 
           <div className={`catalog-selector__workbench${viewMode === "table" ? " catalog-selector__workbench--table" : ""}`}>
@@ -637,7 +635,11 @@ export function ProgressionChoicesStep({
                                 ...current,
                                 [activeGroup.id]: option.element.id,
                               }));
-                              toggleOption(option.element.id);
+                              if (isMobile) {
+                                setActivePane("detail");
+                              } else {
+                                toggleOption(option.element.id);
+                              }
                             }}
                             role="row"
                           >
@@ -672,7 +674,11 @@ export function ProgressionChoicesStep({
                               ...current,
                               [activeGroup.id]: option.element.id,
                             }));
-                            toggleOption(option.element.id);
+                            if (isMobile) {
+                              setActivePane("detail");
+                            } else {
+                              toggleOption(option.element.id);
+                            }
                           }}
                         >
                           <div className="catalog-selector__rowHeader">
@@ -707,6 +713,15 @@ export function ProgressionChoicesStep({
             <aside className={`catalog-selector__detailPanel${activePane === "detail" ? " is-mobileActive" : ""}`}>
               {previewOption ? (
                 <>
+                  <button
+                    className="catalog-selector__mobileClose"
+                    type="button"
+                    aria-label="Back to library"
+                    onClick={() => setActivePane("list")}
+                  >
+                    <span aria-hidden="true">←</span>
+                    Back to library
+                  </button>
                   <div className="catalog-selector__detailHeader">
                     <span className="catalog-selector__detailLabel">Selected</span>
                     <h3 className="catalog-selector__detailTitle">{previewOption.element.name}</h3>
@@ -714,6 +729,20 @@ export function ProgressionChoicesStep({
                       {previewOption.element.source}
                       {previewOption.element.prerequisite ? ` • ${cleanReadablePrerequisite(previewOption.element.prerequisite)}` : ""}
                     </p>
+                    <div className="catalog-selector__detailActions">
+                      <button
+                        className="button button--primary button--compact"
+                        type="button"
+                        onClick={() => {
+                          toggleOption(previewOption.element.id);
+                          setActivePane("list");
+                        }}
+                      >
+                        {selectedIds.includes(previewOption.element.id)
+                          ? "Remove selection"
+                          : `Choose ${activeGroup.optionType.toLowerCase()}`}
+                      </button>
+                    </div>
                   </div>
 
                   <section className="catalog-selector__detailSection">

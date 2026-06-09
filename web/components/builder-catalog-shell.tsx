@@ -40,6 +40,32 @@ type BuilderCatalogs = {
   spells: BuiltInElement[];
 };
 
+function getSnapshotElements(draft: CharacterDraft | undefined): BuiltInElement[] {
+  return (draft?.contentSnapshots ?? []).flatMap((snapshot) => {
+    if (snapshot.ruleset !== draft?.ruleset) {
+      return [];
+    }
+    return [{
+      id: snapshot.id,
+      type: snapshot.type as BuiltInElement["type"],
+      name: snapshot.name,
+      source: snapshot.source,
+      source_url: snapshot.sourceUrl ?? "",
+      catalogOrigin: "imported" as const,
+      supports: snapshot.supports,
+      description: snapshot.description,
+      descriptionHtml: snapshot.descriptionHtml,
+      prerequisite: snapshot.prerequisite,
+      requirements: snapshot.requirements,
+      rules: snapshot.rules as BuiltInElement["rules"],
+      setters: snapshot.setters as BuiltInElement["setters"],
+      sheet: snapshot.sheet as BuiltInElement["sheet"],
+      multiclass: snapshot.multiclass as BuiltInElement["multiclass"],
+      spellcasting: snapshot.spellcasting as BuiltInElement["spellcasting"],
+    }];
+  });
+}
+
 function mergeCatalogsForStep(
   current: BuilderCatalogs,
   resolved: BuilderCatalogs,
@@ -70,6 +96,9 @@ export function BuilderCatalogShell({
   const [isHydratingCatalogs, setIsHydratingCatalogs] = useState(true);
   // Track current builder step so we can fetch only what each step needs
   const [currentStep, setCurrentStep] = useState<string>("foundation");
+  const [ruleset, setRuleset] = useState<CharacterDraft["ruleset"]>(
+    initialDraft?.ruleset ?? "dnd5e-2014",
+  );
   const [catalogs, setCatalogs] = useState<BuilderCatalogs>({
     backgrounds: initialBackgrounds,
     classes: initialClasses,
@@ -91,14 +120,19 @@ export function BuilderCatalogShell({
       try {
         // Append ?step= to fetch only the groups the current step needs
         const url = step && step !== "foundation"
-          ? `/api/srd-catalogs?step=${encodeURIComponent(step)}`
-          : "/api/srd-catalogs";
+          ? `/api/srd-catalogs?step=${encodeURIComponent(step)}&ruleset=${encodeURIComponent(ruleset)}`
+          : `/api/srd-catalogs?ruleset=${encodeURIComponent(ruleset)}`;
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`Failed to fetch SRD catalogs: ${response.status}`);
         }
         const data = await response.json();
-        const resolved = await resolveBuilderCatalogs(data.spells ?? []);
+        const resolved = await resolveBuilderCatalogs({
+          baseElements: data.elements ?? [],
+          initialSpellElements: data.spells ?? [],
+          ruleset,
+          snapshotElements: getSnapshotElements(initialDraft),
+        });
 
         if (!cancelled) {
           setCatalogs(resolved);
@@ -113,12 +147,12 @@ export function BuilderCatalogShell({
     }
 
     // Initial fetch — foundation gets everything, others get targeted data
-    void hydrateCatalogs(currentStep);
+    void hydrateCatalogs("foundation");
 
     return () => {
       cancelled = true;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialDraft, ruleset]);
 
   // Re-fetch when step changes (after initial hydration).
   // IMPORTANT: do NOT set isHydratingCatalogs(true) here — that would unmount
@@ -134,13 +168,18 @@ export function BuilderCatalogShell({
       }
 
       try {
-        const url = `/api/srd-catalogs?step=${encodeURIComponent(step)}`;
+        const url = `/api/srd-catalogs?step=${encodeURIComponent(step)}&ruleset=${encodeURIComponent(ruleset)}`;
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`Failed to fetch SRD catalogs for step ${step}: ${response.status}`);
         }
         const data = await response.json();
-        const resolved = await resolveBuilderCatalogs(data.spells ?? []);
+        const resolved = await resolveBuilderCatalogs({
+          baseElements: data.elements ?? [],
+          initialSpellElements: data.spells ?? [],
+          ruleset,
+          snapshotElements: getSnapshotElements(initialDraft),
+        });
 
         if (!cancelled) {
           setCatalogs((current) => mergeCatalogsForStep(current, resolved, step));
@@ -155,7 +194,7 @@ export function BuilderCatalogShell({
     return () => {
       cancelled = true;
     };
-  }, [currentStep]);
+  }, [currentStep, initialDraft, ruleset]);
 
   if (isHydratingCatalogs) {
     return (
@@ -178,6 +217,7 @@ export function BuilderCatalogShell({
       classes={catalogs.classes}
       feats={catalogs.feats}
       initialDraft={initialDraft}
+      onRulesetChange={setRuleset}
       onStepChange={handleStepChange}
       progressionElements={catalogs.progressionElements}
       races={catalogs.races}

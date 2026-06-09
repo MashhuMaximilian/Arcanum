@@ -77,6 +77,7 @@ type BuilderEditorProps = {
   classes: BuiltInClassRecord[];
   feats: BuiltInElement[];
   initialDraft?: CharacterDraft;
+  onRulesetChange?: (ruleset: CharacterDraft["ruleset"]) => void;
   onStepChange?: (step: string) => void;
   progressionElements: BuiltInElement[];
   races: BuiltInRaceRecord[];
@@ -1172,6 +1173,7 @@ export function BuilderEditor({
   classes,
   feats,
   initialDraft,
+  onRulesetChange,
   onStepChange,
   progressionElements,
   races,
@@ -3004,6 +3006,94 @@ export function BuilderEditor({
     });
   }, [draft.equipmentAcquisitionMode, draft.equipmentGoldOverrideGp, draft.equipmentSelections, draft.removedInventoryItemIds, equipmentPlan]);
 
+  const portableDraft = useMemo(() => {
+    const selectedContent = [
+      selectedRace?.race,
+      selectedSubrace,
+      selectedBackground?.background,
+      ...draft.classEntries.flatMap((entry, index) => {
+        const record = classRecordsByEntry[index];
+        const subclass = record?.subclassSteps
+          .flatMap((step) => step.options)
+          .find((option) => option.archetype.id === entry.subclassId);
+        return [record?.class, subclass?.archetype];
+      }),
+      ...selectedRacialTraitElements,
+      ...selectedBackgroundFeatureElements,
+      ...selectedClassFeatureElements,
+      ...allSelectedFeatElements,
+      ...selectedProgressionElements,
+      ...selectedManualFeatureElements,
+      ...spells.filter((spell) => selectedSpellIds.includes(spell.id)),
+    ].filter((element): element is BuiltInElement => Boolean(element));
+    const uniqueContent = [...new Map(selectedContent.map((element) => [element.id, element])).values()];
+    const importedBySource = new Map<string, BuiltInElement[]>();
+    uniqueContent
+      .filter((element) => element.catalogOrigin === "imported")
+      .forEach((element) => {
+        const sourceKey = element.source_url || element.source;
+        importedBySource.set(sourceKey, [...(importedBySource.get(sourceKey) ?? []), element]);
+      });
+
+    return {
+      ...draft,
+      contentSnapshots: uniqueContent.map((element) => ({
+        id: element.id,
+        type: element.type,
+        name: element.name,
+        source: element.source,
+        sourceUrl: element.source_url,
+        supports: element.supports,
+        description: element.description,
+        descriptionHtml: element.descriptionHtml,
+        prerequisite: element.prerequisite,
+        requirements: element.requirements,
+        rules: element.rules,
+        setters: element.setters,
+        sheet: element.sheet,
+        multiclass: element.multiclass,
+        spellcasting: element.spellcasting,
+        ruleset: draft.ruleset,
+      })),
+      sourceManifest: [
+        {
+          sourceId: `builtin:${draft.ruleset}`,
+          sourceName: draft.ruleset === "dnd5e-2024" ? "SRD 5.2.1" : "SRD 5.1",
+          indexUrl: "",
+          sourceKind: "built-in-srd",
+          requiredElementIds: uniqueContent
+            .filter((element) => element.catalogOrigin === "built-in")
+            .map((element) => element.id),
+          fingerprint: draft.ruleset,
+          status: "built-in" as const,
+        },
+        ...[...importedBySource.entries()].map(([sourceUrl, elements]) => ({
+          sourceId: `imported:${sourceUrl}`,
+          sourceName: elements[0]?.source ?? "Imported source",
+          indexUrl: sourceUrl,
+          sourceKind: "device-content",
+          requiredElementIds: elements.map((element) => element.id),
+          fingerprint: null,
+          status: "cached-on-device" as const,
+        })),
+      ],
+    } satisfies CharacterDraft;
+  }, [
+    allSelectedFeatElements,
+    classRecordsByEntry,
+    draft,
+    selectedBackground,
+    selectedBackgroundFeatureElements,
+    selectedClassFeatureElements,
+    selectedManualFeatureElements,
+    selectedProgressionElements,
+    selectedRace,
+    selectedRacialTraitElements,
+    selectedSpellIds,
+    selectedSubrace,
+    spells,
+  ]);
+
   function updateDraft(patch: Partial<CharacterDraft>) {
     if (status) {
       setStatus("");
@@ -3033,7 +3123,7 @@ export function BuilderEditor({
 
     const name = draft.name.trim() || "Untitled Adventurer";
     const nextDraft = {
-      ...draft,
+      ...portableDraft,
       name,
       subraceId: selectedRace?.subraces.length ? draft.subraceId : "",
       classEntries: draft.classEntries.map((entry, index) => ({
@@ -3246,6 +3336,33 @@ export function BuilderEditor({
 
             <div className="builder-panel__fields">
               <label className="builder-field">
+                <span>Ruleset</span>
+                <select
+                  className="input"
+                  value={draft.ruleset}
+                  onChange={(event) => {
+                    const ruleset = event.target.value === "dnd5e-2024" ? "dnd5e-2024" : "dnd5e-2014";
+                    onRulesetChange?.(ruleset);
+                    updateDraft({
+                      ruleset,
+                      raceId: "",
+                      subraceId: "",
+                      classEntries: [{ classId: "", subclassId: "", level: draft.level }],
+                      backgroundId: "",
+                      improvementSelections: {},
+                      progressionSelections: {},
+                      spellSelections: {},
+                      equipmentSelections: {},
+                      removedInventoryItemIds: [],
+                    });
+                    setCurrentStep("foundation");
+                  }}
+                >
+                  <option value="dnd5e-2014">2014 rules · SRD 5.1</option>
+                  <option value="dnd5e-2024">2024 rules · SRD 5.2.1</option>
+                </select>
+              </label>
+              <label className="builder-field">
                 <span>Name</span>
                 <input
                   className="input"
@@ -3280,34 +3397,36 @@ export function BuilderEditor({
                 />
               ) : null}
             </div>
-            <article className="builder-panel builder-panel--compact">
-              <div className="builder-panel__headerRow">
-                <div>
-                  <span className="builder-panel__label">Origin rules</span>
-                  <strong className="builder-summary__name">Ability score customization</strong>
+            {draft.ruleset === "dnd5e-2014" ? (
+              <article className="builder-panel builder-panel--compact">
+                <div className="builder-panel__headerRow">
+                  <div>
+                    <span className="builder-panel__label">Origin rules</span>
+                    <strong className="builder-summary__name">Ability score customization</strong>
+                  </div>
+                  <button
+                    className={`button button--secondary button--compact${draft.useTashasCustomizedOrigin ? " ability-mode__tab--active" : ""}`}
+                    type="button"
+                    onClick={() =>
+                      updateDraft({
+                        useTashasCustomizedOrigin: !draft.useTashasCustomizedOrigin,
+                        improvementSelections: Object.fromEntries(
+                          Object.entries(draft.improvementSelections).filter(([id]) => {
+                            const opportunity = improvementOpportunities.find((candidate) => candidate.id === id);
+                            return opportunity?.sourceType !== "ancestry";
+                          }),
+                        ),
+                      })
+                    }
+                  >
+                    {draft.useTashasCustomizedOrigin ? "Using Tasha's" : "Legacy ancestry bonuses"}
+                  </button>
                 </div>
-                <button
-                  className={`button button--secondary button--compact${draft.useTashasCustomizedOrigin ? " ability-mode__tab--active" : ""}`}
-                  type="button"
-                  onClick={() =>
-                    updateDraft({
-                      useTashasCustomizedOrigin: !draft.useTashasCustomizedOrigin,
-                      improvementSelections: Object.fromEntries(
-                        Object.entries(draft.improvementSelections).filter(([id]) => {
-                          const opportunity = improvementOpportunities.find((candidate) => candidate.id === id);
-                          return opportunity?.sourceType !== "ancestry";
-                        }),
-                      ),
-                    })
-                  }
-                >
-                  {draft.useTashasCustomizedOrigin ? "Using Tasha's" : "Legacy ancestry bonuses"}
-                </button>
-              </div>
-              <p className="builder-summary__meta">
-                When enabled, ancestry ability increases are reassigned in Feats / ASI using Tasha&apos;s customized origin rule.
-              </p>
-            </article>
+                <p className="builder-summary__meta">
+                  When enabled, ancestry ability increases are reassigned in Feats / ASI using Tasha&apos;s customized origin rule.
+                </p>
+              </article>
+            ) : null}
             <AbilityScoreEditor
               abilities={draft.abilities}
               mode={draft.abilityMode}
@@ -3942,7 +4061,7 @@ export function BuilderEditor({
             canSave={canSave}
             classRecordsByEntry={classRecordsByEntry}
             completionChecklist={completionChecklist}
-            draft={draft}
+            draft={portableDraft}
             effectiveAbilities={effectiveAbilities}
             equipmentEffectSummary={equipmentEffectSummary}
             equipmentProficiencies={equipmentProficiencies}
@@ -4108,6 +4227,14 @@ export function BuilderEditor({
             </button>
           ))}
         </nav>
+      ) : null}
+
+      {["race", "subrace", "class", "subclass", "background", "choices", "feats", "spellcasting", "equipment"]
+        .includes(activeStep.kind) ? (
+        <aside className="builder-sourcePrompt">
+          <span>Need more than the built-in {draft.ruleset === "dnd5e-2024" ? "SRD 5.2.1" : "SRD 5.1"}?</span>
+          <Link href="/settings">Manage content sources</Link>
+        </aside>
       ) : null}
 
       {renderStepBody()}

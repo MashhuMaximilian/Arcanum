@@ -6,6 +6,7 @@ import { getBuiltInSrdFeats } from "@/lib/builtins/feats";
 import { getBuiltInSrdRaceElements, getBuiltInSrdRaces } from "@/lib/builtins/races";
 import { getBuiltInSrdCompanions, getBuiltInSrdCompanionSubElements } from "@/lib/builtins/srd-companions";
 import { getBuiltInSrdSpells } from "@/lib/builtins/spells";
+import { getBundledSrd52Elements } from "@/lib/content-packs/bundled";
 
 // Builder step IDs that map to which catalog groups they need.
 // Steps that need no SRD data are listed with an empty array so the route
@@ -70,11 +71,45 @@ function buildResponse(step?: string): Record<string, unknown> {
   return result;
 }
 
+function buildSrd52Response(step?: string): Record<string, unknown> {
+  const elements = getBundledSrd52Elements();
+  if (!step || !STEP_GROUPS[step]) {
+    return { elements };
+  }
+
+  const groups = STEP_GROUPS[step];
+  const types = new Set<string>();
+  if (groups.includes("races")) {
+    ["Race", "Sub Race", "Race Variant", "Racial Trait"].forEach((type) => types.add(type));
+  }
+  if (groups.includes("classes")) {
+    ["Class", "Class Feature", "Archetype", "Archetype Feature"].forEach((type) => types.add(type));
+  }
+  if (groups.includes("backgrounds")) {
+    ["Background", "Background Feature", "Background Variant"].forEach((type) => types.add(type));
+  }
+  if (groups.includes("feats")) {
+    ["Feat", "Feat Feature", "Ability Score Improvement"].forEach((type) => types.add(type));
+  }
+  if (groups.includes("spells")) {
+    types.add("Spell");
+  }
+  if (groups.includes("progressionElements")) {
+    ["Language", "Proficiency", "Companion", "Companion Trait", "Companion Action", "Companion Reaction"]
+      .forEach((type) => types.add(type));
+  }
+
+  return {
+    elements: elements.filter((element) => types.has(element.type)),
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const step = searchParams.get("step") ?? undefined;
+  const ruleset = searchParams.get("ruleset") ?? "dnd5e-2014";
 
-  const data = buildResponse(step);
+  const data = ruleset === "dnd5e-2024" ? buildSrd52Response(step) : buildResponse(step);
 
   const headers: Record<string, string> = {
     "Cache-Control": "public, max-age=3600",

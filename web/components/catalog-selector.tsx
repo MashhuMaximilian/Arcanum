@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { sortTableRows, toggleTableSort, type TableSortState } from "@/components/table-sort";
+import { useMobileDetailSheet } from "@/components/use-mobile-detail-sheet";
 
 export type CatalogItem = {
   id: string;
@@ -348,6 +349,10 @@ export function CatalogSelector({
     key: "name",
     direction: "asc",
   });
+  const isMobile = useMobileDetailSheet(
+    activePane === "detail",
+    () => setActivePane("list"),
+  );
 
   const tagOptions = useMemo(() => {
     const counts = new Map<string, number>();
@@ -559,27 +564,6 @@ export function CatalogSelector({
     }
   }, [actionMode, items, previewId, previewItem, selectedId, sortedItems]);
 
-  useEffect(() => {
-    if (selectedId) {
-      setActivePane("detail");
-    }
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (activePane !== "detail") {
-      return;
-    }
-
-    function closeDetails(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setActivePane("list");
-      }
-    }
-
-    window.addEventListener("keydown", closeDetails);
-    return () => window.removeEventListener("keydown", closeDetails);
-  }, [activePane]);
-
   const detailMarkup = useMemo(() => getDetailMarkup(previewItem), [previewItem]);
   const referenceMarkup = useMemo(() => getReferenceMarkup(previewItem, label), [label, previewItem]);
 
@@ -621,13 +605,6 @@ export function CatalogSelector({
           onClick={() => setActivePane("list")}
         >
           Library
-        </button>
-        <button
-          className={`choice-chip${activePane === "detail" ? " choice-chip--active" : ""}`}
-          type="button"
-          onClick={() => setActivePane("detail")}
-        >
-          Details
         </button>
       </div>
       <div className={`catalog-selector__workbench${viewMode === "table" ? " catalog-selector__workbench--table" : ""}`}>
@@ -996,7 +973,7 @@ export function CatalogSelector({
                       type="button"
                       onClick={() => {
                         setPreviewId(item.id);
-                        if (!actionMode) {
+                        if (!actionMode && !isMobile) {
                           onSelect(item.id);
                         }
                         setActivePane("detail");
@@ -1072,7 +1049,7 @@ export function CatalogSelector({
                         type="button"
                         onClick={() => {
                           setPreviewId(item.id);
-                          if (!actionMode) {
+                          if (!actionMode && !isMobile) {
                             onSelect(item.id);
                           }
                           setActivePane("detail");
@@ -1128,6 +1105,21 @@ export function CatalogSelector({
                       onClick={() => onAction?.(previewItem.id)}
                     >
                       {actionLabel}
+                    </button>
+                  </div>
+                ) : null}
+                {!actionMode ? (
+                  <div className="catalog-selector__detailActions">
+                    <button
+                      className="button button--primary button--compact"
+                      type="button"
+                      disabled={previewItem.id === selectedId}
+                      onClick={() => {
+                        onSelect(previewItem.id);
+                        setActivePane("list");
+                      }}
+                    >
+                      {previewItem.id === selectedId ? "Selected" : `Choose ${label.toLowerCase()}`}
                     </button>
                   </div>
                 ) : null}
