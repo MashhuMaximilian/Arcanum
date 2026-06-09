@@ -21,6 +21,42 @@ type BuilderCatalogShellProps = {
   mode?: "builder" | "view";
 };
 
+const STEP_CATALOG_KEYS = {
+  race: ["races", "progressionElements"],
+  subrace: ["races", "progressionElements"],
+  class: ["classes", "progressionElements"],
+  subclass: ["classes", "progressionElements"],
+  background: ["backgrounds", "progressionElements"],
+  feats: ["feats"],
+  spellcasting: ["spells"],
+} as const;
+
+type BuilderCatalogs = {
+  backgrounds: BuiltInBackgroundRecord[];
+  classes: BuiltInClassRecord[];
+  feats: BuiltInElement[];
+  progressionElements: BuiltInElement[];
+  races: BuiltInRaceRecord[];
+  spells: BuiltInElement[];
+};
+
+function mergeCatalogsForStep(
+  current: BuilderCatalogs,
+  resolved: BuilderCatalogs,
+  step: string,
+) {
+  const keys = STEP_CATALOG_KEYS[step as keyof typeof STEP_CATALOG_KEYS] ?? [];
+  if (!keys.length) {
+    return current;
+  }
+
+  const next = { ...current };
+  keys.forEach((key) => {
+    (next[key] as BuilderCatalogs[typeof key]) = resolved[key];
+  });
+  return next;
+}
+
 export function BuilderCatalogShell({
   initialBackgrounds = [],
   initialClasses = [],
@@ -34,7 +70,7 @@ export function BuilderCatalogShell({
   const [isHydratingCatalogs, setIsHydratingCatalogs] = useState(true);
   // Track current builder step so we can fetch only what each step needs
   const [currentStep, setCurrentStep] = useState<string>("foundation");
-  const [catalogs, setCatalogs] = useState({
+  const [catalogs, setCatalogs] = useState<BuilderCatalogs>({
     backgrounds: initialBackgrounds,
     classes: initialClasses,
     feats: initialFeats,
@@ -93,8 +129,9 @@ export function BuilderCatalogShell({
     let cancelled = false;
 
     async function refetchForStep(step: string) {
-      // foundation/review steps don't need SRD data
-      if (step === "foundation" || step === "review") return;
+      if (!(step in STEP_CATALOG_KEYS)) {
+        return;
+      }
 
       try {
         const url = `/api/srd-catalogs?step=${encodeURIComponent(step)}`;
@@ -106,7 +143,7 @@ export function BuilderCatalogShell({
         const resolved = await resolveBuilderCatalogs(data.spells ?? []);
 
         if (!cancelled) {
-          setCatalogs(resolved);
+          setCatalogs((current) => mergeCatalogsForStep(current, resolved, step));
         }
       } catch {
         // Keep previous catalogs on transient failure.

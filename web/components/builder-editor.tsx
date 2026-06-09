@@ -2915,6 +2915,12 @@ export function BuilderEditor({
   }, [draft.improvementSelections, improvementOpportunities]);
 
   useEffect(() => {
+    // Step-targeted catalog requests can briefly omit spells. Never interpret
+    // catalog unavailability as the user removing every spell choice.
+    if (!spells.length) {
+      return;
+    }
+
     const validGroupIds = new Set(activeSpellGroups.map((group) => group.id));
     const validSpellIds = new Map(
       activeSpellGroups.map((group) => [group.id, new Set([...group.availableSpellIds, ...group.grantedSpellIds])]),
@@ -2945,7 +2951,7 @@ export function BuilderEditor({
       ...current,
       spellSelections: nextSelections,
     }));
-  }, [activeSpellGroups, draft.spellSelections]);
+  }, [activeSpellGroups, draft.spellSelections, spells.length]);
 
   useEffect(() => {
     setDraft((current) => {
