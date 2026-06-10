@@ -14,23 +14,23 @@ export const PAGE2_PRINT_SAFE_OFFSET = {
 //   y=480..795  BOTTOM 3 COLUMNS (315pt) — stored, additional treasure, quest items
 //                  (3 equal-width columns, same style)
 export const PAGE2_INVENTORY_REGIONS = {
-  outer: { x: 10, y: 10, width: 575, height: 822 },
-  inventoryHeader: { x: 10, y: 0, width: 575, height: 18 },
-  inventoryIndex: { x: 10, y: 18, width: 180, height: 402 },
-  itemDescriptions: { x: 195, y: 18, width: 380, height: 402 },
-  attuned: { x: 10, y: 425, width: 60, height: 50 },
-  currency: { x: 75, y: 425, width: 190, height: 50 },
-  encumbrance: { x: 270, y: 425, width: 100, height: 50 },
-  valuables: { x: 375, y: 425, width: 210, height: 50 },
-  storedItems: { x: 10, y: 480, width: 185, height: 315 },
-  additionalTreasure: { x: 200, y: 480, width: 185, height: 315 },
-  questItems: { x: 390, y: 480, width: 185, height: 315 },
+  outer: { x: 10, y: 10, width: 822, height: 575 },
+  inventoryHeader: { x: 10, y: 0, width: 822, height: 18 },
+  inventoryIndex: { x: 10, y: 18, width: 250, height: 285 },
+  itemDescriptions: { x: 265, y: 18, width: 567, height: 285 },
+  attuned: { x: 10, y: 308, width: 70, height: 50 },
+  currency: { x: 85, y: 308, width: 250, height: 50 },
+  encumbrance: { x: 340, y: 308, width: 120, height: 50 },
+  valuables: { x: 465, y: 308, width: 367, height: 50 },
+  storedItems: { x: 10, y: 363, width: 269, height: 212 },
+  additionalTreasure: { x: 286, y: 363, width: 269, height: 212 },
+  questItems: { x: 562, y: 363, width: 270, height: 212 },
 } satisfies Record<string, PdfRect>;
 
 // Page 2 regions for companion (page 2B)
 export const PAGE2_COMPANION_REGIONS = {
   // Header: companion name + type + CR
-  header: { x: 10, y: 10, width: 575, height: 22 },
+  header: { x: 10, y: 10, width: 822, height: 22 },
 
   // Left column: Portrait (25%) + Ability Scores (below portrait)
   portrait: { x: 10, y: 40, width: 120, height: 120 },

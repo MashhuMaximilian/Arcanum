@@ -24,6 +24,9 @@ export function useMobileDetailSheet(
       return;
     }
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     if (!historyEntryActive.current) {
       window.history.pushState({ arcanumDetailSheet: true }, "");
       historyEntryActive.current = true;
@@ -44,6 +47,7 @@ export function useMobileDetailSheet(
     window.addEventListener("popstate", handlePopState);
     window.addEventListener("keydown", handleKeyDown);
     return () => {
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", handleKeyDown);
     };

@@ -201,6 +201,24 @@ export function ContentSourcesSettings({
     await refresh();
   }
 
+  async function handleAddSuggestedSource(entry: (typeof SUGGESTED_SOURCE_INDEXES)[number]) {
+    setIsSubmitting(true);
+    setStatus("");
+    const result = await createContentSource({
+      name: entry.name,
+      indexUrl: entry.indexUrl,
+    });
+    setIsSubmitting(false);
+    if (!result.ok) {
+      setStatusTone("error");
+      setStatus(result.error);
+      return;
+    }
+    setStatusTone("success");
+    setStatus(`${entry.name} was added. Use Sync now to preload it, then select it in Foundation.`);
+    await refresh();
+  }
+
   async function handleQueueSync(source: ContentSource) {
     if (!source.enabled) {
       setStatusTone("error");
@@ -297,6 +315,34 @@ export function ContentSourcesSettings({
             </article>
           ))}
         </div>
+        <article className="content-sourceCallout">
+          <div>
+            <span className="builder-panel__label">5e.tools compatibility</span>
+            <h3>Use files you already have</h3>
+            <p>
+              Arcanum recognizes supported 5e.tools-shaped JSON collections and translates them locally.
+              It does not automatically pull or redistribute the 5e.tools dataset.
+            </p>
+          </div>
+          <div className="content-sourceCallout__actions">
+            <button
+              className="button"
+              type="button"
+              disabled={isImportingPack}
+              onClick={() => importInputRef.current?.click()}
+            >
+              Import 5e.tools JSON
+            </button>
+            <a
+              className="button button--secondary"
+              href="https://5e.tools/"
+              rel="noreferrer"
+              target="_blank"
+            >
+              About 5e.tools
+            </a>
+          </div>
+        </article>
         {status ? (
           <p
             className={`auth-card__status${
@@ -310,9 +356,10 @@ export function ContentSourcesSettings({
 
       <section className="builder-panel">
         <span className="builder-panel__label">Add content</span>
-        <h3 className="builder-summary__name">Import a content pack</h3>
+        <h3 className="builder-summary__name">Preload an imported catalog</h3>
         <p className="route-shell__copy">
-          Import an Arcanum pack or supported JSON/ZIP collection. Translation and storage happen on this device.
+          Import an Arcanum pack, supported 5e.tools-shaped JSON, or a ZIP collection once. It stays cached
+          on this device and then appears as a selectable source in every character&apos;s Foundation step.
         </p>
         <input
           ref={importInputRef}
@@ -395,11 +442,13 @@ export function ContentSourcesSettings({
         ) : null}
       </section>
 
-      <details className="builder-panel">
-        <summary>
-          <span className="builder-panel__label">Legacy Aurora sources</span>
-          <strong>Advanced URL synchronization</strong>
-        </summary>
+      <section className="builder-panel">
+        <span className="builder-panel__label">Aurora source library</span>
+        <h3 className="builder-summary__name">Add, sync, and preload book catalogs</h3>
+        <p className="route-shell__copy">
+          Aurora indexes remain supported during migration. Add a catalog, sync it, and cache it on this device;
+          it will then appear in Foundation beside imported catalogs.
+        </p>
         {!isAuthenticated ? (
           <p className="route-shell__copy">
             Sign in to synchronize legacy Aurora indexes. Device-local JSON and ZIP imports work without an account.
@@ -443,12 +492,10 @@ export function ContentSourcesSettings({
                   <button
                     className="button button--secondary button--compact"
                     type="button"
-                    onClick={() => {
-                      setName(entry.name);
-                      setIndexUrl(entry.indexUrl);
-                    }}
+                    disabled={isSubmitting}
+                    onClick={() => void handleAddSuggestedSource(entry)}
                   >
-                    Use URL
+                    Add source
                   </button>
                 </article>
               ))}
@@ -532,7 +579,7 @@ export function ContentSourcesSettings({
             ))}
           </div>
         )}
-      </details>
+      </section>
 
       {isAuthenticated ? <section className="builder-panel">
         <span className="builder-panel__label">Recent sync activity</span>

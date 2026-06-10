@@ -92,7 +92,7 @@ const FEATURE_CARD_TYPOGRAPHY = {
   meta: { max: 5.0, min: 2.7 },
   charges: { max: 4.8, min: 3.0 },
   titleRowHeight: 5.0,
-  metaRowHeight: 3.8,
+  metaRowHeight: 4.6,
   bodyTopPad: 2.5,
   separatorGap: 7,
   circleRadius: 1.45,
@@ -222,7 +222,7 @@ const HEADER_FIELD_SLOTS = [
   { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 480.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.3, minSize: 2.8 },
 ] as const;
 
-const SPELLCASTING_REGION: PdfRect = { x: 400, y: 140, width: 196, height: 50 };
+const SPELLCASTING_REGION: PdfRect = FRONT_PAGE_REGIONS.spellcasting;
 const RESOURCE_ONLY_SLOTS = [
   { x: 10, y: 4, width: 82, height: 42 },
   { x: 104, y: 4, width: 82, height: 42 },
@@ -534,7 +534,7 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
 
 function renderStatStrip(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter, drawShell: boolean) {
   if (drawShell) {
-    drawSvg(ctx, assets.hpPanel, { ...FRONT_PAGE_REGIONS.statStrip, y: FRONT_PAGE_REGIONS.statStrip.y - 7 });
+    drawSvg(ctx, assets.hpPanel, FRONT_PAGE_REGIONS.statStrip);
   }
 
   TOP_STATS.forEach((spec) => {
@@ -834,10 +834,9 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   const labelH = 7;
   const headerH = 7;
   const rowH = 9;
-  const spellCardW = 82;   // spellcasting card width
-  const resourceCardW = 104; // class resources card width
-  const gap = 4;
-  const totalW = spellCardW + gap + resourceCardW; // 190px
+  const gap = 5;
+  const spellCardW = 116;
+  const resourceCardW = SPELLCASTING_REGION.width - spellCardW - gap;
   const spellCardH = labelH + 4 + headerH + 1 + numRows * rowH + 2;
   // Move left and up: x=0, y=-2 → spellcastingRect adds 400,140 → x=400, y=138
   const spellBox = spellcastingRect({ x: -6, y: -5, width: spellCardW, height: spellCardH });
@@ -847,9 +846,14 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
 
   // Column headers: CLASS | BONUS | DC | ABL
   const spellRuleX = spellBox.x + 8;
-  const spellRuleW = spellBox.width - 18;
-  const colX = [spellRuleX, spellRuleX + 18, spellRuleX + 35, spellRuleX + 49];
-  const colW = [18, 17, 14, 15];
+  const spellRuleW = spellBox.width - 16;
+  const colW = [spellRuleW * 0.40, spellRuleW * 0.20, spellRuleW * 0.18, spellRuleW * 0.22];
+  const colX = [
+    spellRuleX,
+    spellRuleX + colW[0],
+    spellRuleX + colW[0] + colW[1],
+    spellRuleX + colW[0] + colW[1] + colW[2],
+  ];
   const labelY = spellBox.y + 4; // title 4px from top border
   const headerY = labelY + labelH + 2;
   const dataY = headerY + headerH + 1;
@@ -868,7 +872,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   });
 
   // Thin rule under column headers - light gray, shorter
-  strokeRule(ctx, spellRuleX, headerY + headerH, spellRuleW, "#00000020");
+  strokeRule(ctx, spellRuleX, headerY + headerH, spellRuleW, "#c8c8c8");
 
   // Build orderedClassResources: match class resources to spellSources order, append unmatched
   const matchedResourceIds = new Set<number>();
@@ -893,8 +897,8 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       if (!val) return;
       const colOpts = {
         font: "Helvetica-Bold",
-        maxSize: ci === 0 ? 3.25 : 3.25,
-        minSize: 2.0, color: "#000000",
+        maxSize: ci === 0 ? 4.0 : 4.8,
+        minSize: ci === 0 ? 2.6 : 3.2, color: "#000000",
       };
       if (ci === 0) {
         // Class name cell: single-word names fit on one line (font shrinks to fit),
@@ -916,7 +920,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       }
     });
     if (idx < numRows - 1) {
-      strokeRule(ctx, spellRuleX, rowY + rowH - 1, spellRuleW, "#00000012");
+      strokeRule(ctx, spellRuleX, rowY + rowH - 1, spellRuleW, "#d4d4d4");
     }
   });
 
@@ -946,13 +950,13 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
 
     // Column headers: VALUE | RESOURCE NAME | RECHARGE
     const resourceRuleX = rBox.x + 8;
-    const resourceRuleW = rBox.width - 18;
+    const resourceRuleW = rBox.width - 16;
     const rv1 = resourceRuleX;
-    const rv2 = resourceRuleX + 16;
-    const rv3 = resourceRuleX + 60;
-    const rw1 = 16;
-    const rw2 = 44;
-    const rw3 = 26;
+    const rw1 = resourceRuleW * 0.19;
+    const rw2 = resourceRuleW * 0.52;
+    const rw3 = resourceRuleW * 0.29;
+    const rv2 = rv1 + rw1;
+    const rv3 = rv2 + rw2;
 
     // Column header labels
     const rHeaderLabels = ["VAL", "RESOURCE", "RECHARGE"];
@@ -965,7 +969,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     });
 
     // Thin rule under column headers - light gray, shorter
-    strokeRule(ctx, resourceRuleX, rHeaderY + headerH, resourceRuleW, "#00000020");
+    strokeRule(ctx, resourceRuleX, rHeaderY + headerH, resourceRuleW, "#c8c8c8");
 
     // Data rows: VALUE | RESOURCE NAME | RECHARGE
     orderedClassResources.forEach((resource, idx) => {
@@ -976,22 +980,22 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       // The previous 5.0pt / 4.5pt was visibly larger than the spellcasting
       // body and made the two cards look unbalanced.
       drawCenteredTextInRect(ctx, resource.value, { x: rv1, y: rowY, width: rw1, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 3.25, minSize: 2.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 4.8, minSize: 3.2, color: "#000000",
       });
       // Resource name (e.g. "Arcane Recovery", "Sorcery Points")
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 3.25, minSize: 2.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.6, color: "#000000",
       });
       // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day").
       // Font matches the surrounding VAL and RESOURCE columns (maxSize 3.25,
       // minSize 2.0). All cadence strings are short (≤2 words) and fit on one
       // line in the 26pt-wide column at 3.25pt.
       drawCenteredTextInRect(ctx, resource.cadence, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 3.25, minSize: 2.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 3.8, minSize: 2.5, color: "#000000",
       });
 
       if (idx < rNumRows - 1) {
-        strokeRule(ctx, resourceRuleX, rowY + rRowH - 1, resourceRuleW, "#00000012");
+        strokeRule(ctx, resourceRuleX, rowY + rRowH - 1, resourceRuleW, "#d4d4d4");
       }
     });
   }
@@ -1015,11 +1019,14 @@ function drawSkillMarker(ctx: PdfRenderContext, center: { x: number; y: number }
 
 function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter, drawShell: boolean) {
   const canRecompose = Boolean(assets.statBlock && assets.generalContainer);
-  const abilityRegion = canRecompose
-    ? { ...FRONT_PAGE_REGIONS.abilities, y: 136 }
-    : FRONT_PAGE_REGIONS.abilities;
+  const abilityRegion = FRONT_PAGE_REGIONS.abilities;
   if (canRecompose) {
-    maskRect(ctx, { x: 0, y: 136, width: 394, height: 164 });
+    maskRect(ctx, {
+      x: abilityRegion.x - 10,
+      y: abilityRegion.y,
+      width: abilityRegion.width + 10,
+      height: abilityRegion.height + 12,
+    });
   } else if (drawShell && (!assets.statBlock || !assets.skillBlock)) {
     drawSvg(ctx, assets.abilityPanel, abilityRegion);
   }
@@ -1179,7 +1186,10 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
 
 function renderPassives(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter, drawShell: boolean) {
   if (drawShell) {
-    drawSvg(ctx, assets.passivesAndSpeeds, { ...FRONT_PAGE_REGIONS.passives, y: FRONT_PAGE_REGIONS.passives.y - 7 });
+    drawSvg(ctx, assets.passivesAndSpeeds, {
+      ...FRONT_PAGE_REGIONS.passives,
+      y: FRONT_PAGE_REGIONS.passives.y - 7,
+    });
   }
 
   const abilityRows = new Map(character.frontPage.abilityRows.map((row) => [row.label.toUpperCase(), row]));
@@ -1470,20 +1480,22 @@ function renderSpellTracker(
   // --- Spell slots and spell names by level ---
   const slotsY = cantripY + 6.5 + pactLineHeight;
   const slotsAreaHeight = Math.max(1, Math.min(contentRect.height - (slotsY - contentRect.y), targetBottomY - slotsY));
-  const highestSpellLevel = spellsByLevel.reduce((max, entry) => Math.max(max, entry.level), 0);
-  const maxTrackedLevel = Math.max(
-    highestSpellLevel,
-    standardSlots.length ? Math.max(...standardSlots.map((entry) => entry.level)) : 0,
+  const highestSpellLevel = spellsByLevel.reduce(
+    (max, entry) => entry.spells.length ? Math.max(max, entry.level) : max,
+    0,
   );
+  const visibleLevels = spellsByLevel
+    .filter((entry) => entry.spells.length > 0)
+    .map((entry) => entry.level);
 
-  if (maxTrackedLevel > 0) {
+  if (highestSpellLevel > 0) {
     // Three compact level groups: 1-3, 4-6, 7-9. Cantrips stay full-width above.
     const levelGroups = [
       [1, 2, 3],
       [4, 5, 6],
       [7, 8, 9],
     ]
-      .map((group) => group.filter((level) => level <= maxTrackedLevel))
+      .map((group) => group.filter((level) => visibleLevels.includes(level)))
       .filter((group) => group.length > 0);
     const gap = 0.1;
     const groupWidth = (contentRect.width - gap * (levelGroups.length - 1)) / levelGroups.length;
@@ -1629,53 +1641,73 @@ function renderSpellLevelGroup(
   });
 }
 
+function getCombatSpellPanel(character: ResolvedPdfCharacter): PdfRect | null {
+  const spellColumn = character.frontPage.combatHub.spellColumn;
+  if (!character.frontPage.combatHub.hasSpells || !spellColumn) {
+    return null;
+  }
+  const visibleLevels = spellColumn.spellsByLevel
+    .filter((entry) => entry.spells.length > 0)
+    .map((entry) => entry.level);
+  if (spellColumn.cantrips.length === 0 && visibleLevels.length === 0) {
+    return null;
+  }
+  const levelBands = [
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9],
+  ];
+  const rowsInTallestColumn = Math.max(
+    0,
+    ...levelBands.map((band) => band.filter((level) => visibleLevels.includes(level)).length),
+  );
+  return {
+    ...FRONT_PAGE_REGIONS.combatSpells,
+    height: Math.max(
+      42,
+      Math.min(FRONT_PAGE_REGIONS.combatSpells.height, 32 + rowsInTallestColumn * 15),
+    ),
+  };
+}
+
 function renderCombatSpellcastingHub(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter) {
-  const topMargin = 6;
   const contentTopPad = 6;
   const contentBottomPad = 6;
-  const weaponHeaderHeight = 7;
-  const weaponHeaderGap = 1.5;
-  const weaponRowAreaTargetHeight = 52;
-  const rect = {
-    ...FRONT_PAGE_REGIONS.attacks,
-    y: FRONT_PAGE_REGIONS.attacks.y + topMargin,
-    height: contentTopPad + weaponHeaderHeight + weaponHeaderGap + weaponRowAreaTargetHeight + contentBottomPad,
-  };
-  maskRect(ctx, rect);
-  drawSvg(ctx, assets.generalContainer, rect);
+  const attackRect = FRONT_PAGE_REGIONS.attacks;
+  maskRect(ctx, attackRect);
+  drawSvg(ctx, assets.generalContainer, attackRect);
 
-  const content = {
-    x: rect.x + 9,
-    y: rect.y + contentTopPad,
-    width: rect.width - 18,
-    height: rect.height - contentTopPad - contentBottomPad,
+  const attackContent = {
+    x: attackRect.x + 9,
+    y: attackRect.y + contentTopPad,
+    width: attackRect.width - 18,
+    height: attackRect.height - contentTopPad - contentBottomPad,
   };
   const combatHub = character.frontPage.combatHub;
+  renderWeaponAttackRows(ctx, assets, attackContent, combatHub.weaponRows);
 
   if (!combatHub.hasSpells) {
-    // Non-spellcaster: full-width weapon column
-    renderWeaponAttackRows(ctx, assets, content, combatHub.weaponRows);
     return;
   }
 
-  // Spellcaster: give the spell list extra width while keeping the weapon table stable.
-  const columnGap = 3;
-  const weaponWidth = content.width * 0.48;
-  const weaponRect = { x: content.x, y: content.y, width: weaponWidth, height: content.height };
+  const spellColumn = combatHub.spellColumn;
+  if (!spellColumn) {
+    return;
+  }
+  const spellPanel = getCombatSpellPanel(character);
+  if (!spellPanel) {
+    return;
+  }
+  maskRect(ctx, spellPanel);
+  drawSvg(ctx, assets.generalContainer, spellPanel);
   const spellRect = {
-    x: weaponRect.x + weaponRect.width + columnGap,
-    y: content.y,
-    width: content.x + content.width - (weaponRect.x + weaponRect.width + columnGap),
-    height: content.height,
+    x: spellPanel.x + 9,
+    y: spellPanel.y + 5,
+    width: spellPanel.width - 18,
+    height: spellPanel.height - 10,
   };
-
-  renderWeaponAttackRows(ctx, assets, weaponRect, combatHub.weaponRows);
-  const weaponRowAreaY = weaponRect.y + weaponHeaderHeight + weaponHeaderGap;
-  const weaponRowAreaHeight = Math.min(weaponRowAreaTargetHeight, weaponRect.height - weaponHeaderHeight - weaponHeaderGap);
-  const weaponRowRects = splitRows({ x: weaponRect.x, y: weaponRowAreaY, width: weaponRect.width, height: weaponRowAreaHeight }, 6, 1.0);
-  const weaponSixthRow = weaponRowRects[5] ?? weaponRowRects[weaponRowRects.length - 1];
-  const spellTargetBottomY = weaponSixthRow ? weaponSixthRow.y + weaponSixthRow.height : spellRect.y + spellRect.height;
-  renderSpellTracker(ctx, assets, spellRect, combatHub.spellColumn, character.spellCards, spellTargetBottomY);
+  const spellTargetBottomY = spellRect.y + spellRect.height;
+  renderSpellTracker(ctx, assets, spellRect, spellColumn, character.spellCards, spellTargetBottomY);
 }
 
 function cardCategory(card: PdfPageCard) {
@@ -2313,7 +2345,7 @@ function measureFeatureListHeightWithConfig(
       // Measure height of both features (use max)
       const h1 = measureSingleCardHeight(ctx, summary, colWidth, fSize, lineH, cfg);
       const h2 = measureSingleCardHeight(ctx, nextSummary, colWidth, fSize, lineH, cfg);
-      const cardHeight = FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad + Math.max(h1, h2);
+      const cardHeight = Math.max(h1, h2);
       cursors[columnIndex] += cardHeight + cfg.featureGap;
       idx += 2;
     } else {
@@ -2580,7 +2612,7 @@ function drawPairedFeatureFull(
       x: metaStartX, y, width: metaAvailableWidth, height: FEATURE_CARD_TYPOGRAPHY.titleRowHeight,
     });
   } else {
-    // Two-row: title, then meta row, then body — body always starts at titleRowHeight + bodyTopPad from y
+    // Two-row: title, then meta row, then body.
     ctx.doc.save();
     ctx.doc.font("Helvetica-Bold").fontSize(titleFSize).fillColor("#000000");
     ctx.doc.text(summary.title.toUpperCase(), x, y, { lineBreak: false });
@@ -2592,7 +2624,10 @@ function drawPairedFeatureFull(
         x, y: metaRowY, width, height: FEATURE_CARD_TYPOGRAPHY.metaRowHeight,
       });
     }
-    bodyTopOffset = FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+    bodyTopOffset =
+      FEATURE_CARD_TYPOGRAPHY.titleRowHeight +
+      (hasMeta ? FEATURE_CARD_TYPOGRAPHY.metaRowHeight : 0) +
+      FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
   }
 
   // Draw body text — use rect.y + rect.height as absolute bottom boundary
@@ -2734,8 +2769,7 @@ function renderFeatureList(ctx: PdfRenderContext, cards: PdfPageCard[], rect: Pd
           drawFeatureMetaBlock(ctx, summary, {
             x: column.x, y: metaRowY, width: column.width, height: FEATURE_CARD_TYPOGRAPHY.metaRowHeight,
           });
-          // Move column.y past meta row — body will start at titleRowHeight + bodyTopPad from original y
-          column.y = metaRowY + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+          column.y = metaRowY + FEATURE_CARD_TYPOGRAPHY.metaRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
         } else {
           // No meta — body starts at titleRowHeight + bodyTopPad from original y
           column.y += FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
@@ -2770,6 +2804,12 @@ type FeatureGroupSection = {
 };
 
 function toFeatureDeckGroupId(card: PdfPageCard) {
+  if (cardHasGroup(card, "race")) {
+    return "race";
+  }
+  if (cardHasGroup(card, "subrace")) {
+    return "subrace";
+  }
   if (cardHasGroup(card, "class")) {
     return "class";
   }
@@ -2787,6 +2827,8 @@ function toFeatureDeckGroupId(card: PdfPageCard) {
 
 function buildFeatureDeckGroups(cards: PdfPageCard[]) {
   const groups = new Map<string, FeatureGroupSection>([
+    ["race", { id: "race", title: "RACIAL FEATURES", cards: [] }],
+    ["subrace", { id: "subrace", title: "SUBRACIAL FEATURES", cards: [] }],
     ["class", { id: "class", title: "CLASS FEATURES", cards: [] }],
     ["subclass", { id: "subclass", title: "SUBCLASS FEATURES", cards: [] }],
     ["feat", { id: "feat", title: "FEATS", cards: [] }],
@@ -2798,7 +2840,34 @@ function buildFeatureDeckGroups(cards: PdfPageCard[]) {
     groups.get(toFeatureDeckGroupId(card))?.cards.push(card);
   });
 
-  return [...groups.values()].filter((group) => group.cards.length);
+  return [...groups.values()]
+    .filter((group) => group.cards.length)
+    .flatMap((group) => {
+      const chunks: PdfPageCard[][] = [];
+      let current: PdfPageCard[] = [];
+      let currentWeight = 0;
+
+      group.cards.forEach((card) => {
+        const weight = summarizeCard(card).body.length;
+        if (current.length && (current.length >= 4 || currentWeight + weight > 720)) {
+          chunks.push(current);
+          current = [];
+          currentWeight = 0;
+        }
+        current.push(card);
+        currentWeight += weight;
+      });
+      if (current.length) {
+        chunks.push(current);
+      }
+
+      return chunks.map((chunk, index) => ({
+        ...group,
+        id: chunks.length > 1 ? `${group.id}-${index + 1}` : group.id,
+        title: chunks.length > 1 ? `${group.title} ${index + 1}` : group.title,
+        cards: chunk,
+      }));
+    });
 }
 
 function getFeatureGroupDisplayTitle(group: FeatureGroupSection) {
@@ -3087,7 +3156,11 @@ function renderCompactTraitLines(
           height: FEATURE_CARD_TYPOGRAPHY.metaRowHeight,
         });
       }
-      const bodyY = nextY + titleRowHeight + bodyTopPad;
+      const bodyY =
+        nextY +
+        titleRowHeight +
+        (hasMeta ? FEATURE_CARD_TYPOGRAPHY.metaRowHeight : 0) +
+        bodyTopPad;
       const maxBodyH = (content.y + content.height) - bodyY - (index < cards.length - 1 ? 2 : 0);
       const bodyResult = drawTextWithBoldActionWords(ctx, summary.body, {
         x: content.x, y: bodyY, width: content.width, height: Math.max(4, maxBodyH),
@@ -3125,52 +3198,115 @@ function renderRightColumnFeatureCard(ctx: PdfRenderContext, assets: PdfSvgAsset
 
 function renderRail(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter) {
   const { rightColumn } = character.frontPage;
-  const headerRight = FRONT_PAGE_REGIONS.header.x + FRONT_PAGE_REGIONS.header.width;
-  const railY = FRONT_PAGE_REGIONS.rail.y + 2;
-  const railBottom = FRONT_PAGE_REGIONS.proficiencies.y + FRONT_PAGE_REGIONS.proficiencies.height;
-  const rail = {
-    x: FRONT_PAGE_REGIONS.rail.x,
-    y: railY,
-    width: headerRight - FRONT_PAGE_REGIONS.rail.x,
-    height: Math.max(0, railBottom - railY),
-  };
-  const notesHeight = Math.min(70, Math.max(34, 20 + rightColumn.sensesAndConditions.length * 6));
-  const notesRect = { x: rail.x, y: rail.y, width: rail.width, height: notesHeight };
-  const featureRect = {
-    x: rail.x,
-    y: notesRect.y + notesRect.height + 6,
-    width: rail.width,
-    height: Math.max(0, rail.y + rail.height - (notesRect.y + notesRect.height + 6)),
-  };
+  const classResourceCount = findStatsByIdPrefix(character, "class-resource-")
+    .filter((resource) => cleanText(resource.value, "")).length;
+  const spellSourceCount = new Set(
+    findStatsByIdPrefix(character, "spellcasting-source-")
+      .map((stat) => stat.id.match(/^(spellcasting-source-[^.]+)-(?:bonus|dc|ability)$/)?.[1])
+      .filter(Boolean),
+  ).size;
+  const hasKiDc = Boolean(statValue(character, "ki save dc"));
+  let usedRight = SPELLCASTING_REGION.x;
 
-  renderRightColumnNotesCard(ctx, assets, rightColumn.sensesAndConditions, notesRect);
-  renderRightColumnFeatureCard(ctx, assets, character, featureRect);
+  if (spellSourceCount > 1) {
+    usedRight = classResourceCount > 0
+      ? SPELLCASTING_REGION.x - 6 + SPELLCASTING_REGION.width
+      : SPELLCASTING_REGION.x - 6 + 116;
+  } else if (spellSourceCount === 1) {
+    usedRight = SPELLCASTING_REGION.x + (classResourceCount > 0 ? 193 : 187);
+  } else if (hasKiDc && classResourceCount > 0) {
+    usedRight = SPELLCASTING_REGION.x + RESOURCE_ONLY_SLOTS[1].x + RESOURCE_ONLY_SLOTS[1].width;
+  } else if (hasKiDc || classResourceCount === 1) {
+    usedRight = SPELLCASTING_REGION.x + 40 + 116;
+  } else if (classResourceCount > 1) {
+    usedRight = SPELLCASTING_REGION.x + RESOURCE_ONLY_SLOTS[1].x + RESOURCE_ONLY_SLOTS[1].width;
+  }
+
+  const railRight = FRONT_PAGE_REGIONS.rail.x + FRONT_PAGE_REGIONS.rail.width;
+  const railX = Math.min(railRight - 80, usedRight + 6);
+  renderRightColumnNotesCard(ctx, assets, rightColumn.sensesAndConditions, {
+    ...FRONT_PAGE_REGIONS.rail,
+    x: railX,
+    width: railRight - railX,
+  });
+}
+
+function collectFrontPageFeatureCards(character: ResolvedPdfCharacter) {
+  const cardsById = new Map<string, PdfPageCard>();
+  [
+    ...character.frontPage.deck,
+    ...character.frontPage.deckOverflow,
+    ...character.frontPage.railCards.filter(
+      (card) =>
+        card.kind !== "condition" &&
+        card.kind !== "sense" &&
+        card.kind !== "proficiency" &&
+        card.kind !== "language",
+    ),
+  ].forEach((card) => cardsById.set(card.id, card));
+  return [...cardsById.values()];
+}
+
+function getCompactLeftFeatureCards(character: ResolvedPdfCharacter, cards: PdfPageCard[]) {
+  const spellPanel = getCombatSpellPanel(character);
+  const freeTop = spellPanel
+    ? spellPanel.y + spellPanel.height + 5
+    : FRONT_PAGE_REGIONS.combatSpells.y;
+  const freeBottom = FRONT_PAGE_REGIONS.combatSpells.y + FRONT_PAGE_REGIONS.combatSpells.height;
+  const freeHeight = freeBottom - freeTop;
+  if (freeHeight < 30) {
+    return [];
+  }
+  return [...cards]
+    .filter((card) => summarizeCard(card).body.length <= 180)
+    .sort((left, right) => summarizeCard(left).body.length - summarizeCard(right).body.length)
+    .slice(0, freeHeight >= 66 ? 2 : 1);
+}
+
+function renderCompactLeftFeatures(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  character: ResolvedPdfCharacter,
+  cards: PdfPageCard[],
+) {
+  const compactCards = getCompactLeftFeatureCards(character, cards);
+  if (!compactCards.length) {
+    return;
+  }
+  const spellPanel = getCombatSpellPanel(character);
+  const y = spellPanel
+    ? spellPanel.y + spellPanel.height + 5
+    : FRONT_PAGE_REGIONS.combatSpells.y;
+  renderGroupedFeatureDeck(ctx, assets, compactCards, {
+    x: FRONT_PAGE_REGIONS.combatSpells.x,
+    y,
+    width: FRONT_PAGE_REGIONS.combatSpells.width,
+    height: FRONT_PAGE_REGIONS.combatSpells.y + FRONT_PAGE_REGIONS.combatSpells.height - y,
+  }, character.level);
 }
 
 function renderFeatureDeck(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter) {
-  const cards = [
-    ...character.frontPage.deck,
-    ...character.frontPage.deckOverflow,
-  ].filter(
-    (card) =>
-      card.kind !== "proficiency" &&
-      card.kind !== "language" &&
-      !cardHasGroup(card, "race") &&
-      !cardHasGroup(card, "subrace"),
-  );
+  const allCards = collectFrontPageFeatureCards(character);
+  const compactLeftIds = new Set(getCompactLeftFeatureCards(character, allCards).map((card) => card.id));
+  const cards = allCards.filter((card) => !compactLeftIds.has(card.id));
 
   if (!cards.length) {
     return;
   }
 
-  drawCenteredTextInRect(ctx, "FEATURES & TRAITS", { x: 10, y: 476, width: 575, height: 9 }, {
+  drawCenteredTextInRect(ctx, "FEATURES & TRAITS", {
+    x: FRONT_PAGE_REGIONS.features.x,
+    y: FRONT_PAGE_REGIONS.features.y - 13,
+    width: FRONT_PAGE_REGIONS.features.width,
+    height: 9,
+  }, {
     font: "Helvetica-Bold",
     maxSize: 5.5,
     minSize: 4.3,
     color: "#222222",
   });
   // Push boxes down ~one title-text height below title so they don't crowd the heading
-  renderGroupedFeatureDeck(ctx, assets, cards, { x: 10, y: 490, width: 575, height: 290 }, character.level);
+  renderGroupedFeatureDeck(ctx, assets, cards, FRONT_PAGE_REGIONS.features, character.level);
 }
 
 function compactSpellSummary(summary: string, maxChars: number) {
@@ -3237,6 +3373,7 @@ export function renderFrontPage(ctx: PdfRenderContext, assets: PdfSvgAssetBundle
   renderProficiencies(ctx, assets, character);
   renderRail(ctx, assets, character);
   renderCombatSpellcastingHub(ctx, assets, character);
+  renderCompactLeftFeatures(ctx, assets, character, collectFrontPageFeatureCards(character));
   renderFeatureDeck(ctx, assets, character);
 
   doc.restore();

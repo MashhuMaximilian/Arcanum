@@ -117,11 +117,22 @@ async function loadRemotePortrait(value: string) {
     if (bytes.byteLength > MAX_PORTRAIT_BYTES) {
       throw new Error("Portrait image is too large.");
     }
-    if (!isPdfKitImage(bytes)) {
-      throw new Error("PDF portraits must be PNG or JPEG images.");
+    if (isPdfKitImage(bytes)) {
+      return `data:${getPortraitMimeType(bytes)};base64,${bytes.toString("base64")}`;
     }
 
-    return `data:${getPortraitMimeType(bytes)};base64,${bytes.toString("base64")}`;
+    // Browsers commonly display WebP/AVIF portrait links that PDFKit cannot
+    // decode. Normalize any supported raster input to JPEG before rendering.
+    const { default: sharp } = await import("sharp");
+    const normalized = await sharp(bytes, {
+      failOn: "error",
+      limitInputPixels: 40_000_000,
+    })
+      .rotate()
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 88, mozjpeg: true })
+      .toBuffer();
+    return `data:image/jpeg;base64,${normalized.toString("base64")}`;
   }
 
   return undefined;

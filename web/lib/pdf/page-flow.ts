@@ -44,12 +44,13 @@ function renderPageHeader(ctx: PdfRenderContext, title: string, page: PdfPagePla
     size: 8.5,
     color: "#7b6a5f",
   });
-  drawText(ctx, `Page ${page.number}`, { x: 470, y: 21, width: 95, height: 12 }, {
+  const pageMetaX = PAGE_SIZE.width - PAGE_MARGIN - 110;
+  drawText(ctx, `Page ${page.number}`, { x: pageMetaX, y: 21, width: 110, height: 12 }, {
     font: "Helvetica-Bold",
     size: 12,
     align: "right",
   });
-  drawText(ctx, cleanText(page.kind.toUpperCase()), { x: 470, y: 36, width: 95, height: 8 }, {
+  drawText(ctx, cleanText(page.kind.toUpperCase()), { x: pageMetaX, y: 36, width: 110, height: 8 }, {
     size: 7.2,
     align: "right",
     color: "#7f7167",
@@ -124,9 +125,10 @@ export function renderStandardPage(ctx: PdfRenderContext, assets: PdfSvgAssetBun
     }
     state.cursorY += 28;
 
-    const columns = splitColumns({ x: PAGE_MARGIN, y: state.cursorY, width: PAGE_SIZE.width - PAGE_MARGIN * 2, height: 1 }, 2, 8);
-    for (let index = 0; index < section.cards.length; index += 2) {
-      const rowCards = section.cards.slice(index, index + 2);
+    const columnCount = 3;
+    const columns = splitColumns({ x: PAGE_MARGIN, y: state.cursorY, width: PAGE_SIZE.width - PAGE_MARGIN * 2, height: 1 }, columnCount, 8);
+    for (let index = 0; index < section.cards.length; index += columnCount) {
+      const rowCards = section.cards.slice(index, index + columnCount);
       const rowHeight = Math.max(...rowCards.map(cardHeight));
       ensureSpace(ctx, state, character, rowHeight + 10);
       rowCards.forEach((card, columnIndex) => {

@@ -18,8 +18,8 @@ import {
 } from "@/lib/pdf/page2-layout";
 import { PAGE_SIZE } from "@/lib/pdf/front-page-layout";
 
-// Companion pages stay A4 portrait. The desired composition is translated
-// into three balanced columns below the full-width decorative header:
+// Companion pages use the same A4 landscape canvas as every other page.
+// The composition keeps three balanced columns below the full-width header:
 // picture/abilities, core stats/senses, and actions.
 const COMPANION_PAGE = {
   width: PAGE_SIZE.width,
@@ -27,10 +27,10 @@ const COMPANION_PAGE = {
   margin: 10,
   headerHeight: 69,
   bodyTop: 84,
-  bodyBottom: 832,
+  bodyBottom: 585,
   gutter: 9,
-  leftWidth: 190,
-  middleWidth: 170,
+  leftWidth: 225,
+  middleWidth: 215,
 } as const;
 
 // --- Typography constants for page 2 ---
@@ -79,8 +79,8 @@ const INDEX_MAX_ROWS = 22;
 // --- Stored/quest column constants ---
 const STORED_ROW_HEIGHT = 9;
 const STORED_ROW_GAP = 1;
-const STORED_MAX_ROWS = 20; // distributed across the two stored columns
-const QUEST_MAX_ROWS = 20;
+const STORED_MAX_ROWS = 14; // distributed across the two stored columns
+const QUEST_MAX_ROWS = 14;
 const ADDITIONAL_TREASURE_ROWS = 4;
 
 // --- Label strip constants ---
@@ -1198,18 +1198,11 @@ function computeCompanionLayout(): CompanionRects {
     height: bodyHeight,
   };
 
-  const picture: PdfRect = {
-    x: leftColumn.x,
-    y: leftColumn.y,
-    width: leftColumn.width,
-    height: 260,
-  };
-
   const abilityGapX = 7.5;
-  const abilityGapY = 10;
+  const abilityGapY = 6;
   const abilityWidth = (leftColumn.width - abilityGapX * 2) / 3;
   const abilityHeight = abilityWidth * (STAT_VIEWBOX.height / STAT_VIEWBOX.width);
-  const abilityTop = picture.y + picture.height + 12;
+  const abilityTop = leftColumn.y;
   const abilitySpecs = [
     ["str", "STR"],
     ["dex", "DEX"],
@@ -1228,6 +1221,13 @@ function computeCompanionLayout(): CompanionRects {
       height: abilityHeight,
     },
   }));
+  const abilitiesBottom = abilityTop + abilityHeight * 2 + abilityGapY;
+  const picture: PdfRect = {
+    x: leftColumn.x,
+    y: abilitiesBottom + 10,
+    width: leftColumn.width,
+    height: Math.max(120, COMPANION_PAGE.bodyBottom - (abilitiesBottom + 10)),
+  };
 
   const bonusGap = 5;
   const bonusWidth = (middleColumn.width - bonusGap * 2) / 3;
@@ -1258,7 +1258,7 @@ function computeCompanionLayout(): CompanionRects {
 
   // Keep the speed row visually attached to HP/AC while retaining enough
   // breathing room for the centered SPEED caption.
-  const speedTop = hpRowY + 45;
+  const speedTop = hpRowY + 53;
   const speedLabel: PdfRect = {
     x: middleColumn.x,
     y: speedTop,
@@ -1273,11 +1273,7 @@ function computeCompanionLayout(): CompanionRects {
     height: 34,
   }));
   const skillsTop = speedTop + 47;
-  // Bottom of the abilities column: the last ability cell (row 1, index 5)
-  // ends at abilityTop + 2*abilityHeight + abilityGapY. Use this as the
-  // visual floor for the right-column cards.
-  const abilitiesBottom = abilityTop + abilityHeight * 2 + abilityGapY;
-  const cardBottomLimit = abilitiesBottom - 12; // 12pt padding below abilities
+  const cardBottomLimit = COMPANION_PAGE.bodyBottom;
   const skills: PdfRect = {
     x: middleColumn.x,
     y: skillsTop,
@@ -1420,36 +1416,36 @@ function renderCompanionHeader(
     lineBreak: false,
   });
 
-  const rightX = rects.header.x + 247;
-  const rightWidth = rects.header.width - 267;
+  const rightX = rects.header.x + 350;
+  const rightWidth = rects.header.width - 370;
   drawCompanionHeaderField(ctx, "Creature", data.creature, {
     x: rightX,
     y: rects.header.y + 25,
-    width: 105,
+    width: 120,
     height: 16,
   });
   drawCompanionHeaderField(ctx, "Owner", data.owner, {
-    x: rightX + 110,
+    x: rightX + 125,
     y: rects.header.y + 25,
-    width: rightWidth - 110,
+    width: rightWidth - 125,
     height: 16,
   });
   drawCompanionHeaderField(ctx, "Size", data.size, {
     x: rightX,
     y: rects.header.y + 43,
-    width: 86,
+    width: 95,
     height: 15,
   });
   drawCompanionHeaderField(ctx, "Type", data.type, {
-    x: rightX + 91,
+    x: rightX + 100,
     y: rects.header.y + 43,
-    width: 100,
+    width: 120,
     height: 15,
   });
   drawCompanionHeaderField(ctx, "Alignment", data.alignment, {
-    x: rightX + 196,
+    x: rightX + 225,
     y: rects.header.y + 43,
-    width: rightWidth - 196,
+    width: rightWidth - 225,
     height: 15,
   });
 }

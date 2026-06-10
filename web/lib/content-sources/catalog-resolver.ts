@@ -600,6 +600,7 @@ function dedupeElements(elements: BuiltInElement[]) {
 }
 
 type ResolveBuilderCatalogsInput = {
+  enabledSourceIds?: string[];
   baseElements?: BuiltInElement[];
   initialSpellElements?: BuiltInElement[];
   ruleset?: string;
@@ -645,8 +646,11 @@ export async function resolveBuilderCatalogs(input: ResolveBuilderCatalogsInput 
     ? suppliedByType(["Companion Trait", "Companion Action", "Companion Reaction"])
     : getBuiltInSrdCompanionSubElements();
   const cachedImported = await listCachedElements();
+  const enabledSourceIds = new Set(input.enabledSourceIds ?? []);
   const rulesetImported = cachedImported.filter(
-    (element) => getImportedElementRuleset(element) === ruleset,
+    (element) =>
+      getImportedElementRuleset(element) === ruleset &&
+      enabledSourceIds.has(element.sourceId),
   );
   const rawImportedElements = rulesetImported
     .map((element) => toBuiltInElement(element))

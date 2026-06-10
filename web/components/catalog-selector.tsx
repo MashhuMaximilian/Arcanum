@@ -594,18 +594,21 @@ export function CatalogSelector({
           <button
             className={`choice-chip${activePane === "filters" ? " choice-chip--active" : ""}`}
             type="button"
-            onClick={() => setActivePane("filters")}
+            aria-expanded={activePane === "filters"}
+            onClick={() => setActivePane((current) => current === "filters" ? "list" : "filters")}
           >
-            Filters
+            {activePane === "filters" ? "Close filters" : "Filters"}
           </button>
         ) : null}
-        <button
-          className={`choice-chip${activePane === "list" ? " choice-chip--active" : ""}`}
-          type="button"
-          onClick={() => setActivePane("list")}
-        >
-          Library
-        </button>
+        <label className="catalog-selector__mobileSearch">
+          <span className="visually-hidden">Search {label.toLowerCase()}</span>
+          <input
+            className="input"
+            placeholder={`Search ${label.toLowerCase()}`}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
       </div>
       <div className={`catalog-selector__workbench${viewMode === "table" ? " catalog-selector__workbench--table" : ""}`}>
         {viewMode === "cards" ? (
@@ -1083,11 +1086,14 @@ export function CatalogSelector({
               <button
                 className="catalog-selector__mobileClose"
                 type="button"
-                aria-label="Close details"
+                aria-label="Back to library"
                 onClick={() => setActivePane("list")}
               >
-                <span aria-hidden="true">×</span>
-                Close details
+                <span aria-hidden="true">←</span>
+                <span>
+                  <small>Choose {label.toLowerCase()}</small>
+                  Back to list
+                </span>
               </button>
               <div className="catalog-selector__detailHeader">
                 <span className="catalog-selector__detailLabel">

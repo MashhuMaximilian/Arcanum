@@ -73,11 +73,18 @@ import {
 import { buildPdfCharacterFromBuilder } from "@/lib/pdf/from-builder";
 
 type BuilderEditorProps = {
+  availableContentSources?: Array<{
+    id: string;
+    name: string;
+    kind: string;
+    elementCount: number;
+  }>;
   backgrounds: BuiltInBackgroundRecord[];
   classes: BuiltInClassRecord[];
   feats: BuiltInElement[];
   initialDraft?: CharacterDraft;
   onRulesetChange?: (ruleset: CharacterDraft["ruleset"]) => void;
+  onContentSourcesChange?: (sourceIds: string[]) => void;
   onStepChange?: (step: string) => void;
   progressionElements: BuiltInElement[];
   races: BuiltInRaceRecord[];
@@ -1169,11 +1176,13 @@ function getImprovementValidationMessages(
 }
 
 export function BuilderEditor({
+  availableContentSources = [],
   backgrounds,
   classes,
   feats,
   initialDraft,
   onRulesetChange,
+  onContentSourcesChange,
   onStepChange,
   progressionElements,
   races,
@@ -3381,6 +3390,50 @@ export function BuilderEditor({
                 />
               </label>
             </div>
+            <article className="builder-panel builder-panel--compact">
+              <div className="builder-panel__headerRow">
+                <div>
+                  <span className="builder-panel__label">Content library</span>
+                  <strong className="builder-summary__name">Choose sources for this character</strong>
+                </div>
+                <Link className="button button--secondary button--compact" href="/settings">
+                  Manage sources
+                </Link>
+              </div>
+              <p className="builder-summary__meta">
+                The selected SRD is always included. Add any Aurora or imported 5e.tools catalogs cached on this device.
+              </p>
+              {availableContentSources.length ? (
+                <div className="builder-sourcePicker">
+                  {availableContentSources.map((source) => {
+                    const checked = draft.contentSourceIds.includes(source.id);
+                    return (
+                      <label className="builder-sourcePicker__item" key={source.id}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const contentSourceIds = checked
+                              ? draft.contentSourceIds.filter((id) => id !== source.id)
+                              : [...draft.contentSourceIds, source.id];
+                            updateDraft({ contentSourceIds });
+                            onContentSourcesChange?.(contentSourceIds);
+                          }}
+                        />
+                        <span>
+                          <strong>{source.name}</strong>
+                          <small>{source.kind} · {source.elementCount} entries</small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="builder-summary__meta">
+                  Only the SRD is currently available. Sync Aurora sources or preload an imported catalog in Settings.
+                </p>
+              )}
+            </article>
             <div className="portrait-field-grid">
               <PortraitField
                 label="Character portrait"
@@ -4159,24 +4212,42 @@ export function BuilderEditor({
         </div>
       </section>
 
-      <label className="builder-mobilePillarSelect">
-        <span>Pillar {activePillarIndex + 1} of {pillars.length}</span>
-        <select
-          value={activePillar.id}
-          onChange={(event) => {
-            const pillar = pillars.find((candidate) => candidate.id === event.target.value);
-            if (pillar?.sections.length) {
-              setCurrentStep(pillar.sections[0].id);
-            }
-          }}
-        >
-          {pillars.map((pillar) => (
-            <option disabled={!pillar.sections.length} key={pillar.id} value={pillar.id}>
-              {pillar.label}{pillar.sections.length ? "" : " (unlocks with class)"}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="builder-mobileProgress">
+        <label className="builder-mobilePillarSelect">
+          <span>Pillar {activePillarIndex + 1} of {pillars.length}</span>
+          <select
+            aria-label="Builder pillar"
+            value={activePillar.id}
+            onChange={(event) => {
+              const pillar = pillars.find((candidate) => candidate.id === event.target.value);
+              if (pillar?.sections.length) {
+                setCurrentStep(pillar.sections[0].id);
+              }
+            }}
+          >
+            {pillars.map((pillar) => (
+              <option disabled={!pillar.sections.length} key={pillar.id} value={pillar.id}>
+                {pillar.label}{pillar.sections.length ? "" : " (unlocks with class)"}
+              </option>
+            ))}
+          </select>
+        </label>
+        {activePillar.sections.length > 1 ? (
+          <nav className="builder-mobileSections" aria-label={`${activePillar.label} mobile sections`}>
+            {activePillar.sections.map((section) => (
+              <button
+                className={`builder-mobileSections__item${section.id === activeStep.id ? " is-active" : ""}${isStepComplete(section) ? " is-complete" : ""}`}
+                key={section.id}
+                type="button"
+                onClick={() => setCurrentStep(section.id)}
+              >
+                {section.label}
+                {getStepWarnings(section).length ? <small>{getStepWarnings(section).length}</small> : null}
+              </button>
+            ))}
+          </nav>
+        ) : null}
+      </div>
 
       <section className="builder-pillarNav" aria-label="Character builder pillars">
         {pillars.map((pillar, index) => {
@@ -4214,7 +4285,7 @@ export function BuilderEditor({
       </section>
 
       {activePillar.sections.length > 1 ? (
-        <nav className="builder-sectionTabs" aria-label={`${activePillar.label} sections`}>
+        <nav className="builder-sectionTabs builder-sectionTabs--desktop" aria-label={`${activePillar.label} sections`}>
           {activePillar.sections.map((section) => (
             <button
               className={`builder-sectionTabs__item${section.id === activeStep.id ? " is-active" : ""}${isStepComplete(section) ? " is-complete" : ""}`}

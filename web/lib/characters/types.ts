@@ -139,6 +139,7 @@ export type CharacterDraft = {
   playerName: string;
   characterPortraitUrl: string;
   companionPortraitUrl: string;
+  contentSourceIds: string[];
   raceId: string;
   subraceId: string;
   level: number;
@@ -172,7 +173,7 @@ export const ABILITY_KEYS: AbilityKey[] = [
   "charisma",
 ];
 
-export const CHARACTER_DRAFT_SCHEMA_VERSION = 4;
+export const CHARACTER_DRAFT_SCHEMA_VERSION = 5;
 
 export const ABILITY_LABELS: Record<AbilityKey, string> = {
   strength: "STR",
@@ -196,6 +197,7 @@ export function createEmptyCharacterDraft(): CharacterDraft {
     playerName: "",
     characterPortraitUrl: "",
     companionPortraitUrl: "",
+    contentSourceIds: [],
     raceId: "",
     subraceId: "",
     level: 1,
@@ -328,6 +330,9 @@ export function normalizeCharacterDraft(draft: CharacterDraft | LegacyCharacterD
       typeof draft.characterPortraitUrl === "string" ? draft.characterPortraitUrl.trim() : "",
     companionPortraitUrl:
       typeof draft.companionPortraitUrl === "string" ? draft.companionPortraitUrl.trim() : "",
+    contentSourceIds: Array.isArray((draft as CharacterDraft).contentSourceIds)
+      ? (draft as CharacterDraft).contentSourceIds.filter((entry): entry is string => typeof entry === "string")
+      : [],
     level,
     classEntries,
     abilities: {

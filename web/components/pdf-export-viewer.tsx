@@ -495,7 +495,7 @@ export function PdfExportViewer({ svgAssets, templateSvg, token }: PdfExportView
     <div className="pdf-export">
       <style>{`
         @page {
-          size: A4 portrait;
+          size: A4 landscape;
           margin: 0;
         }
         html, body {
@@ -516,8 +516,8 @@ export function PdfExportViewer({ svgAssets, templateSvg, token }: PdfExportView
         }
         .pdf-export__sheet {
           position: relative;
-          width: 210mm;
-          min-height: 297mm;
+          width: 297mm;
+          min-height: 210mm;
           overflow: hidden;
           background: #f7f1e8;
           box-shadow: 0 18px 40px rgba(68, 42, 28, 0.14);

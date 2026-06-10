@@ -8,6 +8,7 @@ import type { BuiltInElement } from "@/lib/builtins/types";
 import type { BuiltInRaceRecord } from "@/lib/builtins/races";
 import { BuilderEditor } from "@/components/builder-editor";
 import { resolveBuilderCatalogs } from "@/lib/content-sources/catalog-resolver";
+import { listCachedSourceSummaries } from "@/lib/content-sources/cache";
 import type { CharacterDraft } from "@/lib/characters/types";
 
 type BuilderCatalogShellProps = {
@@ -99,6 +100,15 @@ export function BuilderCatalogShell({
   const [ruleset, setRuleset] = useState<CharacterDraft["ruleset"]>(
     initialDraft?.ruleset ?? "dnd5e-2014",
   );
+  const [contentSourceIds, setContentSourceIds] = useState<string[]>(
+    initialDraft?.contentSourceIds ?? [],
+  );
+  const [availableContentSources, setAvailableContentSources] = useState<Array<{
+    id: string;
+    name: string;
+    kind: string;
+    elementCount: number;
+  }>>([]);
   const [catalogs, setCatalogs] = useState<BuilderCatalogs>({
     backgrounds: initialBackgrounds,
     classes: initialClasses,
@@ -126,8 +136,18 @@ export function BuilderCatalogShell({
         if (!response.ok) {
           throw new Error(`Failed to fetch SRD catalogs: ${response.status}`);
         }
-        const data = await response.json();
+        const [data, summaries] = await Promise.all([
+          response.json(),
+          listCachedSourceSummaries().catch(() => []),
+        ]);
+        setAvailableContentSources(summaries.map((summary) => ({
+          id: summary.sourceId,
+          name: summary.sourceName,
+          kind: summary.sourceKind.startsWith("content-pack:") ? "Imported catalog" : "Aurora source",
+          elementCount: summary.elementCount,
+        })));
         const resolved = await resolveBuilderCatalogs({
+          enabledSourceIds: contentSourceIds,
           baseElements: data.elements ?? [],
           initialSpellElements: data.spells ?? [],
           ruleset,
@@ -152,7 +172,7 @@ export function BuilderCatalogShell({
     return () => {
       cancelled = true;
     };
-  }, [initialDraft, ruleset]);
+  }, [contentSourceIds, initialDraft, ruleset]);
 
   // Re-fetch when step changes (after initial hydration).
   // IMPORTANT: do NOT set isHydratingCatalogs(true) here — that would unmount
@@ -175,6 +195,7 @@ export function BuilderCatalogShell({
         }
         const data = await response.json();
         const resolved = await resolveBuilderCatalogs({
+          enabledSourceIds: contentSourceIds,
           baseElements: data.elements ?? [],
           initialSpellElements: data.spells ?? [],
           ruleset,
@@ -194,7 +215,7 @@ export function BuilderCatalogShell({
     return () => {
       cancelled = true;
     };
-  }, [currentStep, initialDraft, ruleset]);
+  }, [contentSourceIds, currentStep, initialDraft, ruleset]);
 
   if (isHydratingCatalogs) {
     return (
@@ -213,11 +234,13 @@ export function BuilderCatalogShell({
 
   return (
     <BuilderEditor
+      availableContentSources={availableContentSources}
       backgrounds={catalogs.backgrounds}
       classes={catalogs.classes}
       feats={catalogs.feats}
       initialDraft={initialDraft}
       onRulesetChange={setRuleset}
+      onContentSourcesChange={setContentSourceIds}
       onStepChange={handleStepChange}
       progressionElements={catalogs.progressionElements}
       races={catalogs.races}

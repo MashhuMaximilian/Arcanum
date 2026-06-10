@@ -1376,15 +1376,24 @@ function getSheetLevelForElement(element: BuiltInElement, args: BuilderPdfSource
 /**
  * Reads the sheet-tag gameplay text from an Aurora element.
  * Priority:
- *  1. element.sheet.descriptions[0] (sheet tag text)
+ *  1. Highest applicable element.sheet description (sheet tag text)
  *  2. element.description first paragraph (strip HTML tags)
  *  3. element.setters.find(s => s.name === "short")?.value
  *  4. "—" if nothing found
  */
-function getElementSheetText(element: BuiltInElement): string {
+function getElementSheetDescription(element: BuiltInElement, level: number) {
+  const descriptions = (element.sheet?.descriptions ?? []).filter((description) => description.text?.trim());
+  const applicable = descriptions
+    .filter((description) => description.level === undefined || description.level <= level)
+    .sort((left, right) => (right.level ?? 0) - (left.level ?? 0));
+  return applicable[0] ?? descriptions[0];
+}
+
+function getElementSheetText(element: BuiltInElement, level: number): string {
   // Priority 1: sheet tag text
-  if (element.sheet?.descriptions?.[0]?.text) {
-    return element.sheet.descriptions[0].text;
+  const sheetDescription = getElementSheetDescription(element, level);
+  if (sheetDescription?.text) {
+    return sheetDescription.text;
   }
 
   // Priority 2: element.description first paragraph (strip HTML tags)
@@ -1411,15 +1420,23 @@ function getSheetSummary(element: BuiltInElement, args: BuilderPdfSourceArgs) {
     return undefined;
   }
 
+  const level = getSheetLevelForElement(element, args);
+  const sheetDescription = getElementSheetDescription(element, level);
   const context = buildSheetResolverContext(args, element);
-  const text = fillSheetPlaceholders(getElementSheetText(element), args, context);
-  const usage = fillSheetPlaceholders(element.sheet.usage ?? "", args, context);
+  const text = fillSheetPlaceholders(getElementSheetText(element, level), args, context);
+  const usage = fillSheetPlaceholders(sheetDescription?.usage ?? element.sheet.usage ?? "", args, context);
 
   return [element.sheet.action, usage, text].filter(Boolean).join(" | ") || undefined;
 }
 
 function getFrontPageSummary(element: BuiltInElement, args: BuilderPdfSourceArgs) {
-  return getSheetSummary(element, args) ?? getPlaySurfaceSummary(element);
+  // A sheet-backed element must use its compact sheet copy on page 1. Falling
+  // back to the full description here can silently replace intentionally short
+  // XML <sheet> text with several paragraphs of rules text.
+  if (element.sheet) {
+    return getSheetSummary(element, args) ?? "—";
+  }
+  return getPlaySurfaceSummary(element);
 }
 
 function getPassiveNoteTags(element: BuiltInElement) {
