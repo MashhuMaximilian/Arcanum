@@ -5,6 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { getDetailMarkup } from "@/components/catalog-selector";
 import { sortTableRows, toggleTableSort, type TableSortState } from "@/components/table-sort";
 import { useMobileDetailSheet } from "@/components/use-mobile-detail-sheet";
+import { BuilderContextTabs } from "@/components/builder-context-tabs";
+import {
+  PreviewResizeControls,
+  PreviewResizeHandle,
+  useResizablePreview,
+} from "@/components/resizable-preview";
 import type { BuiltInElement } from "@/lib/builtins/types";
 import {
   getSpellCastingTime,
@@ -56,6 +62,7 @@ export function SpellcastingStep({
   spells,
   onSelectionChange,
 }: SpellcastingStepProps) {
+  const previewResize = useResizablePreview();
   const [activeGroupId, setActiveGroupId] = useState(groups[0]?.id ?? "");
   const [previewIds, setPreviewIds] = useState<Record<string, string>>({});
   const [queries, setQueries] = useState<Record<string, string>>({});
@@ -299,35 +306,37 @@ export function SpellcastingStep({
         </p>
       </div>
 
-      <div className="spellcasting-step__groupTabs">
-        {groups.map((group) => {
-          const pickedCount = selections[group.id]?.length ?? 0;
-          const targetCount = group.exactSelections ?? group.maxSelections;
-          const groupWarnings = groupWarningsById[group.id] ?? [];
-          return (
-            <button
-              key={group.id}
-              className={`spellcasting-step__groupTab${group.id === activeGroupId ? " spellcasting-step__groupTab--active" : ""}${groupWarnings.length ? " spellcasting-step__groupTab--warning" : ""}`}
-              type="button"
-              onClick={() => setActiveGroupId(group.id)}
-            >
-              <span>{group.title}</span>
-              <small>
-                {group.kind === "prepared"
-                  ? `${pickedCount}/${targetCount} prepared`
-                  : group.kind === "granted"
-                    ? `${group.grantedSpellIds.length} granted`
-                    : `${pickedCount}/${targetCount}`}
-              </small>
-              {groupWarnings.length ? (
-                <em className="spellcasting-step__groupTabAlert">
-                  {groupWarnings.length} issue{groupWarnings.length === 1 ? "" : "s"}
-                </em>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
+      <BuilderContextTabs>
+        <div className="spellcasting-step__groupTabs">
+          {groups.map((group) => {
+            const pickedCount = selections[group.id]?.length ?? 0;
+            const targetCount = group.exactSelections ?? group.maxSelections;
+            const groupWarnings = groupWarningsById[group.id] ?? [];
+            return (
+              <button
+                key={group.id}
+                className={`spellcasting-step__groupTab${group.id === activeGroupId ? " spellcasting-step__groupTab--active" : ""}${groupWarnings.length ? " spellcasting-step__groupTab--warning" : ""}`}
+                type="button"
+                onClick={() => setActiveGroupId(group.id)}
+              >
+                <span>{group.title}</span>
+                <small>
+                  {group.kind === "prepared"
+                    ? `${pickedCount}/${targetCount} prepared`
+                    : group.kind === "granted"
+                      ? `${group.grantedSpellIds.length} granted`
+                      : `${pickedCount}/${targetCount}`}
+                </small>
+                {groupWarnings.length ? (
+                  <em className="spellcasting-step__groupTabAlert">
+                    {groupWarnings.length} issue{groupWarnings.length === 1 ? "" : "s"}
+                  </em>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </BuilderContextTabs>
 
       {activeGroup ? (
         <>
@@ -367,7 +376,11 @@ export function SpellcastingStep({
             </button>
           </div>
 
-          <div className={`catalog-selector__workbench spellcasting-step__workbench${viewMode === "table" ? " catalog-selector__workbench--table" : ""}`}>
+          <div
+            className={`catalog-selector__workbench spellcasting-step__workbench${viewMode === "table" ? " catalog-selector__workbench--table" : ""}`}
+            ref={previewResize.workbenchRef}
+            style={previewResize.style}
+          >
             {viewMode === "cards" ? (
               <aside className={`catalog-selector__filtersPanel${activePane === "filters" ? " is-mobileActive" : ""}`}>
                 <div className="catalog-selector__panelHeader">
@@ -902,7 +915,16 @@ export function SpellcastingStep({
               )}
             </div>
 
+            <PreviewResizeHandle
+              previewWidth={previewResize.previewWidth}
+              onChange={previewResize.setPreviewWidth}
+              onPointerDown={previewResize.resizeFromPointer}
+            />
             <div className={`catalog-selector__detailPanel${activePane === "detail" ? " is-mobileActive" : ""}`}>
+              <PreviewResizeControls
+                previewWidth={previewResize.previewWidth}
+                onChange={previewResize.setPreviewWidth}
+              />
               <button
                 className="catalog-selector__mobileClose"
                 type="button"

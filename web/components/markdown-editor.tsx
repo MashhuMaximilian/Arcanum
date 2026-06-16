@@ -40,7 +40,7 @@ const DND_THEME = {
     shadow: "rgba(77, 39, 20, 0.12)",
   },
   borderRadius: 18,
-  fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif',
+  fontFamily: "var(--font-body)",
 } as const;
 
 type MarkdownEditorProps = {

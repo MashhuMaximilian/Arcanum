@@ -14,7 +14,10 @@ import { PortraitField } from "@/components/portrait-field";
 import { ProgressionChoicesStep } from "@/components/progression-choices-step";
 import { ReviewSheetStep } from "@/components/review-sheet-step";
 import { SpellcastingStep } from "@/components/spellcasting-step";
-import type { LockedChoiceEntry } from "@/components/unified-choice-ledger";
+import {
+  classifyChoiceFamily,
+  type LockedChoiceEntry,
+} from "@/components/unified-choice-ledger";
 import type { BuiltInBackgroundRecord } from "@/lib/builtins/backgrounds";
 import type {
   BuiltInClassRecord,
@@ -1892,8 +1895,16 @@ export function BuilderEditor({
       source: string,
     ) => {
       ids.forEach((id) => {
-        const label = elementPool.get(id)?.name ?? humanizeGrantedId(id);
-        const key = `${family === "Languages" ? "language" : "proficiency"}:${label
+        const element = elementPool.get(id);
+        const label = element?.name ?? humanizeGrantedId(id);
+        const resolvedFamily =
+          family === "Languages"
+            ? family
+            : classifyChoiceFamily(
+                `${id} ${element?.type ?? ""} ${label} ${element?.description ?? ""}`,
+                family,
+              );
+        const key = `${resolvedFamily.toLowerCase().replace(/[^a-z0-9]+/g, "-")}:${label
           .toLowerCase()
           .replace(/&/g, " and ")
           .replace(/[^a-z0-9]+/g, " ")
@@ -1902,7 +1913,7 @@ export function BuilderEditor({
         entries.set(key, {
           key,
           label,
-          family,
+          family: resolvedFamily,
           sources: [...new Set([...(existing?.sources ?? []), source])],
         });
       });
@@ -2842,6 +2853,12 @@ export function BuilderEditor({
   const activePillar = pillars[activePillarIndex] ?? pillars[0];
   const previousPillar = activePillarIndex > 0 ? pillars[activePillarIndex - 1] : null;
   const nextPillar = activePillarIndex < pillars.length - 1 ? pillars[activePillarIndex + 1] : null;
+  const activeTrackContext =
+    (activeStep.kind === "class" || activeStep.kind === "subclass") && activeClassEntry
+      ? `${activeClassEntryIndex === 0 ? "Primary" : `Multiclass ${activeClassEntryIndex}`}: ${
+          classRecordsByEntry[activeClassEntryIndex]?.class.name ?? "Choose class"
+        } · Lvl ${activeClassEntry.level}`
+      : activeStep.label;
 
   useEffect(() => {
     if (!steps.some((step) => step.id === currentStep)) {
@@ -4247,58 +4264,82 @@ export function BuilderEditor({
             ))}
           </nav>
         ) : null}
+        <div
+          className="builder-contextTabsTarget builder-contextTabsTarget--mobile"
+          id="builder-context-tabs-mobile"
+        />
+        {activeTrackContext !== activeStep.label ? (
+          <div className="builder-progressContext">
+            <span>{activeStep.label}</span>
+            <small>{activeTrackContext}</small>
+          </div>
+        ) : null}
       </div>
 
-      <section className="builder-pillarNav" aria-label="Character builder pillars">
-        {pillars.map((pillar, index) => {
-          const isComplete = pillar.sections.every((step) => isStepComplete(step));
-          const isActive = pillar.id === activePillar.id;
-          const state =
-            isActive
-              ? "active"
-              : isComplete
-                ? "complete"
-                : "available";
+      <div className="builder-progressDock">
+        <section className="builder-pillarNav" aria-label="Character builder pillars">
+          {pillars.map((pillar, index) => {
+            const isComplete = pillar.sections.every((step) => isStepComplete(step));
+            const isActive = pillar.id === activePillar.id;
+            const state =
+              isActive
+                ? "active"
+                : isComplete
+                  ? "complete"
+                  : "available";
 
-          return (
-            <button
-              key={pillar.id}
-              className={`builder-pillarNav__item builder-pillarNav__item--${state}`}
-              type="button"
-              disabled={!pillar.sections.length}
-              onClick={() => setCurrentStep(pillar.sections[0]?.id ?? "foundation")}
-            >
-              <span className="builder-pillarNav__index">{index + 1}</span>
-              <span className="builder-pillarNav__text">
-                <strong>{pillar.shortLabel}</strong>
-                <span>
-                  {!pillar.sections.length
-                    ? "Unlocks with class"
-                    : isComplete
-                      ? "Complete"
-                      : `${pillar.sections.filter(isStepComplete).length}/${pillar.sections.length}`}
+            return (
+              <button
+                key={pillar.id}
+                className={`builder-pillarNav__item builder-pillarNav__item--${state}`}
+                type="button"
+                disabled={!pillar.sections.length}
+                onClick={() => setCurrentStep(pillar.sections[0]?.id ?? "foundation")}
+              >
+                <span className="builder-pillarNav__index">{index + 1}</span>
+                <span className="builder-pillarNav__text">
+                  <strong>{pillar.shortLabel}</strong>
+                  <span>
+                    {!pillar.sections.length
+                      ? "Unlocks with class"
+                      : isComplete
+                        ? "Complete"
+                        : `${pillar.sections.filter(isStepComplete).length}/${pillar.sections.length}`}
+                  </span>
                 </span>
-              </span>
-            </button>
-          );
-        })}
-      </section>
+              </button>
+            );
+          })}
+        </section>
 
-      {activePillar.sections.length > 1 ? (
-        <nav className="builder-sectionTabs builder-sectionTabs--desktop" aria-label={`${activePillar.label} sections`}>
-          {activePillar.sections.map((section) => (
-            <button
-              className={`builder-sectionTabs__item${section.id === activeStep.id ? " is-active" : ""}${isStepComplete(section) ? " is-complete" : ""}`}
-              key={section.id}
-              type="button"
-              onClick={() => setCurrentStep(section.id)}
-            >
-              <span>{section.label}</span>
-              {getStepWarnings(section).length ? <small>{getStepWarnings(section).length} issues</small> : <small>Ready</small>}
-            </button>
-          ))}
-        </nav>
-      ) : null}
+        <div className="builder-progressDock__lower">
+          {activePillar.sections.length > 1 ? (
+            <nav className="builder-sectionTabs builder-sectionTabs--desktop" aria-label={`${activePillar.label} sections`}>
+              {activePillar.sections.map((section) => (
+                <button
+                  className={`builder-sectionTabs__item${section.id === activeStep.id ? " is-active" : ""}${isStepComplete(section) ? " is-complete" : ""}`}
+                  key={section.id}
+                  type="button"
+                  onClick={() => setCurrentStep(section.id)}
+                >
+                  <span>{section.label}</span>
+                  {getStepWarnings(section).length ? <small>{getStepWarnings(section).length} issues</small> : <small>Ready</small>}
+                </button>
+              ))}
+            </nav>
+          ) : <span />}
+          <div
+            className="builder-contextTabsTarget"
+            id="builder-context-tabs-desktop"
+          />
+          {activeTrackContext !== activeStep.label ? (
+            <div className="builder-progressContext">
+              <span>{activeStep.label}</span>
+              <small>{activeTrackContext}</small>
+            </div>
+          ) : null}
+        </div>
+      </div>
 
       {["race", "subrace", "class", "subclass", "background", "choices", "feats", "spellcasting", "equipment"]
         .includes(activeStep.kind) ? (

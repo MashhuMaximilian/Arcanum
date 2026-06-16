@@ -862,14 +862,34 @@ function resolveRuleOptions(
         : [];
 
   const resolvedOptions = [
-    ...new Map([...deduped, ...registryMatches].map((element) => [element.id, element])).values(),
+    ...new Map(
+      (
+        rule.type === "Companion"
+          ? [...byChoices, ...registryMatches]
+          : [...deduped, ...registryMatches]
+      ).map((element) => [element.id, element]),
+    ).values(),
   ];
   const canonicalOptions = dedupeResolvedOptions(resolvedOptions, explicitIds, familyTokens);
 
   return canonicalOptions.map((element) => ({
     element,
-    requirementFailures: getRequirementFailures(element.requirements, element.prerequisite, context),
+    requirementFailures: getChoiceOptionRequirementFailures(rule.type, element, context),
   }));
+}
+
+function getChoiceOptionRequirementFailures(
+  optionType: string,
+  element: BuiltInElement,
+  context: RequirementContext,
+) {
+  // Companion select rules already encode the authoritative type, size, and
+  // challenge-rating constraints. Aurora companion records can carry
+  // character-facing requirements that must not disable an otherwise valid
+  // beast inside that filtered catalog.
+  return optionType === "Companion"
+    ? []
+    : getRequirementFailures(element.requirements, element.prerequisite, context);
 }
 
 function buildGroupId(
@@ -945,7 +965,7 @@ function buildGroupsFromFeatures(args: {
           familyLabel: formatSupportLabel(rule.supports) || rule.type,
           optionType: rule.type,
           unlockLevel: rule.level ?? entryLevel,
-          exactSelections: conditionalOnly ? 0 : Math.max(1, rule.number ?? 1),
+          exactSelections: Math.max(1, rule.number ?? 1),
           optional:
             conditionalOnly ||
             rule.optional === true ||
@@ -1245,9 +1265,9 @@ export function deriveProgressionChoiceGroups(args: {
     ...group,
     options: group.options.map((option) => ({
       ...option,
-      requirementFailures: getRequirementFailures(
-        option.element.requirements,
-        option.element.prerequisite,
+      requirementFailures: getChoiceOptionRequirementFailures(
+        group.optionType,
+        option.element,
         group.classEntryIndex >= 0
           ? { ...finalContext, ownerClassLevel: args.classEntries[group.classEntryIndex]?.level }
           : finalContext,

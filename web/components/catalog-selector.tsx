@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import { sortTableRows, toggleTableSort, type TableSortState } from "@/components/table-sort";
 import { useMobileDetailSheet } from "@/components/use-mobile-detail-sheet";
+import {
+  PreviewResizeControls,
+  PreviewResizeHandle,
+  useResizablePreview,
+} from "@/components/resizable-preview";
 
 export type CatalogItem = {
   id: string;
@@ -331,6 +336,7 @@ export function CatalogSelector({
   tagSectionLabel = "Filter by tags",
   tagLimit = 12,
 }: CatalogSelectorProps) {
+  const previewResize = useResizablePreview();
   const actionMode = typeof onAction === "function";
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"all" | "built-in" | "imported">("all");
@@ -610,7 +616,11 @@ export function CatalogSelector({
           />
         </label>
       </div>
-      <div className={`catalog-selector__workbench${viewMode === "table" ? " catalog-selector__workbench--table" : ""}`}>
+      <div
+        className={`catalog-selector__workbench${viewMode === "table" ? " catalog-selector__workbench--table" : ""}`}
+        ref={previewResize.workbenchRef}
+        style={previewResize.style}
+      >
         {viewMode === "cards" ? (
           <aside className={`catalog-selector__filtersPanel${activePane === "filters" ? " is-mobileActive" : ""}`}>
             <div className="catalog-selector__panelHeader">
@@ -1080,7 +1090,16 @@ export function CatalogSelector({
           )}
         </div>
 
+        <PreviewResizeHandle
+          previewWidth={previewResize.previewWidth}
+          onChange={previewResize.setPreviewWidth}
+          onPointerDown={previewResize.resizeFromPointer}
+        />
         <div className={`catalog-selector__detailPanel${activePane === "detail" ? " is-mobileActive" : ""}`}>
+          <PreviewResizeControls
+            previewWidth={previewResize.previewWidth}
+            onChange={previewResize.setPreviewWidth}
+          />
           {previewItem ? (
             <>
               <button

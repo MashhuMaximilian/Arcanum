@@ -53,6 +53,13 @@ export type CharacterImprovementSelection = {
 };
 
 export type CharacterBackstory = {
+  gender: string;
+  age: string;
+  height: string;
+  weight: string;
+  eyes: string;
+  skin: string;
+  hair: string;
   alignment: string;
   deity: string;
   personalityTraits: string;
@@ -246,6 +253,13 @@ export function createEmptyCharacterDraft(): CharacterDraft {
     },
     manualGrants: [],
     backstory: {
+      gender: "",
+      age: "",
+      height: "",
+      weight: "",
+      eyes: "",
+      skin: "",
+      hair: "",
       alignment: "",
       deity: "",
       personalityTraits: "",

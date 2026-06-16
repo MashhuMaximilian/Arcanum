@@ -40,6 +40,56 @@ const TEXT_FIELDS: Array<{
   },
 ];
 
+const APPEARANCE_FIELDS: Array<{
+  key: "gender" | "age" | "height" | "weight" | "eyes" | "skin" | "hair";
+  label: string;
+  description: string;
+  placeholder: string;
+}> = [
+  {
+    key: "gender",
+    label: "Gender",
+    description: "How the character is described on the roleplay sheet.",
+    placeholder: "Male, female, nonbinary...",
+  },
+  {
+    key: "age",
+    label: "Age",
+    description: "Age or apparent age.",
+    placeholder: "32, ancient, young adult...",
+  },
+  {
+    key: "height",
+    label: "Height",
+    description: "Height for the sheet header.",
+    placeholder: "5'11\", 170 cm...",
+  },
+  {
+    key: "weight",
+    label: "Weight",
+    description: "Weight or build note.",
+    placeholder: "160 lb., slight, broad...",
+  },
+  {
+    key: "eyes",
+    label: "Eyes",
+    description: "Eye color, glow, or notable detail.",
+    placeholder: "Green, gold, cloudy...",
+  },
+  {
+    key: "skin",
+    label: "Skin / Fur / Pattern",
+    description: "Skin, fur, scales, markings, or pattern.",
+    placeholder: "Copper skin, striped fur...",
+  },
+  {
+    key: "hair",
+    label: "Hair",
+    description: "Hair color, texture, horns, feathers, or style.",
+    placeholder: "Black curls, white mane...",
+  },
+];
+
 const SMALL_FIELDS: BackstoryFieldConfig[] = [
   {
     key: "personalityTraits",
@@ -156,6 +206,26 @@ export function BackstoryStep({ value, onChange }: BackstoryStepProps) {
         <p className="builder-summary__meta">
           Use Markdown shortcuts or type <code>/</code> for headings, lists, quotes, and D&amp;D note templates.
         </p>
+      </div>
+
+      <div className="backstory-step__appearanceGrid">
+        {APPEARANCE_FIELDS.map((field) => (
+          <label className="builder-field" key={field.key}>
+            <span className="builder-panel__label">{field.label}</span>
+            <span className="builder-summary__meta">{field.description}</span>
+            <input
+              className="input"
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  [field.key]: event.target.value,
+                })
+              }
+              placeholder={field.placeholder}
+              value={value[field.key] ?? ""}
+            />
+          </label>
+        ))}
       </div>
 
       <div className="backstory-step__smallGrid">
