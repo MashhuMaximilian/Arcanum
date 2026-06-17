@@ -2460,9 +2460,13 @@ function drawTextWithBoldActionWords(
     const words = run.text.split(/(\s+)/);
     for (const w of words) {
       if (w.length === 0) continue;
-      // Measure width with correct font set (PDFKit API)
+      // Measure width with correct font set. Bold runs use Magra-Bold
+      // (the body family in bold weight) so **Bonus Action** style
+      // markers share the same metric as the surrounding paragraph
+      // instead of jumping to the Teko-Medium display face, which
+      // renders blocky at small sizes.
       doc.save();
-      doc.font(run.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fSize);
+      doc.font(run.bold ? "Magra-Bold" : "Helvetica").fontSize(fSize);
       const w2 = doc.widthOfString(w);
       doc.restore();
 
@@ -2476,7 +2480,7 @@ function drawTextWithBoldActionWords(
       // Render this run with lineBreak: false to prevent PDFKit auto page breaks
       if (cursorY > opts.y + opts.height) break;
       doc.save();
-      doc.font(run.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
+      doc.font(run.bold ? "Magra-Bold" : "Helvetica").fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
       doc.restore();
       lineX += w2;
       lineRemaining -= w2;
@@ -2972,8 +2976,11 @@ function measureFeatureListHeight(ctx: PdfRenderContext, cards: PdfPageCard[], r
       const words = run.text.split(/(\s+)/);
       for (const w of words) {
         if (w.length === 0) continue;
+        // Bold runs use Magra-Bold (body family in bold weight) so
+        // **Bonus Action** style markers share the surrounding
+        // paragraph metric instead of jumping to Teko-Medium.
         doc.save();
-        doc.font(run.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fSize);
+        doc.font(run.bold ? "Magra-Bold" : "Helvetica").fontSize(fSize);
         const w2 = doc.widthOfString(w);
         doc.restore();
         if (lineX + w2 > rect.x + maxW && lineX > rect.x) {
