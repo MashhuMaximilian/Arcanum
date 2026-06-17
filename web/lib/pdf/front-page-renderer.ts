@@ -87,11 +87,11 @@ const DAMAGE_TYPE_ABBREV: Record<string, string> = {
 };
 
 const FEATURE_CARD_TYPOGRAPHY = {
-  title: { max: 5.5, min: 4.0 },
+  title: { max: 6.5, min: 4.5 },
   body: { max: 6.4, min: 3.6 },
   meta: { max: 5.0, min: 2.7 },
   charges: { max: 4.8, min: 3.0 },
-  titleRowHeight: 5.0,
+  titleRowHeight: 6.0,
   metaRowHeight: 4.6,
   bodyTopPad: 2.5,
   separatorGap: 7,
