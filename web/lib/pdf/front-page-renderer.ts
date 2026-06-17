@@ -469,10 +469,10 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     maskRect(ctx, FRONT_PAGE_REGIONS.header);
   }
 
-  drawFittedText(ctx, cleanText(character.name, "Unnamed character"), headerRect({ x: 30, y: 36, width: 166, height: 18 }), {
+  drawFittedText(ctx, cleanText(character.name, "Unnamed character"), headerRect({ x: 24, y: 28, width: 178, height: 30 }), {
     font: "Times-Bold",
-    maxSize: 18,
-    minSize: 10,
+    maxSize: 28,
+    minSize: 12,
     color: "#000000",
   });
 
