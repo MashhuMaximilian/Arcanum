@@ -315,6 +315,93 @@ function drawRichParagraph(
   return y + options.size + options.lineGap - rect.y;
 }
 
+/**
+ * Measure the wrapped height of a rich-text paragraph (with **bold**
+ * and *italic* inline runs) at the given font size. Used as the
+ * measurement primitive for `drawFittedRichParagraph`.
+ */
+function measureRichParagraphHeight(
+  ctx: PdfRenderContext,
+  text: string,
+  width: number,
+  size: number,
+  lineGap: number,
+  baseFont: string,
+): number {
+  if (!text) return 0;
+  const runs = tokenizeInlineRuns(text);
+  let cursorX = 0;
+  let lines = 1;
+  const lineHeight = size + lineGap;
+  for (const run of runs) {
+    if (!run.text) continue;
+    const font = run.bold && run.italic
+      ? "Helvetica-BoldOblique"
+      : run.bold
+        ? "Helvetica-Bold"
+        : run.italic
+          ? "Helvetica-Oblique"
+          : baseFont;
+    const words = run.text.split(/(\s+)/);
+    for (const word of words) {
+      if (!word) continue;
+      ctx.doc.save();
+      ctx.doc.font(font).fontSize(size);
+      const wordWidth = ctx.doc.widthOfString(word);
+      ctx.doc.restore();
+      if (cursorX + wordWidth > width && cursorX > 0) {
+        lines += 1;
+        cursorX = 0;
+        if (/^\s+$/.test(word)) continue;
+      }
+      cursorX += wordWidth;
+    }
+  }
+  return lines * lineHeight;
+}
+
+/**
+ * Render a rich-text paragraph (with **bold** and *italic* inline runs)
+ * while shrinking the font size until the paragraph fits within the
+ * available height. Returns the actual height used.
+ *
+ * Inventory-card analog of the backstory's `drawFittedText` behavior —
+ * item descriptions, additional treasure, and quest items can now
+ * show long content without clipping, and shrink gracefully when a
+ * single item fills most of the card.
+ */
+function drawFittedRichParagraph(
+  ctx: PdfRenderContext,
+  text: string,
+  rect: { x: number; y: number; width: number; maxHeight: number },
+  options: { font: string; size: number; minSize: number; color: string; lineGap: number; italic?: boolean },
+): number {
+  if (!text) return 0;
+
+  const step = 0.25;
+  let chosenSize = options.minSize;
+  for (let size = options.size; size >= options.minSize - 1e-6; size -= step) {
+    const measured = measureRichParagraphHeight(ctx, text, rect.width, size, options.lineGap, options.font);
+    if (measured <= rect.maxHeight + 0.25) {
+      chosenSize = size;
+      break;
+    }
+    chosenSize = size;
+  }
+  return drawRichParagraph(
+    ctx,
+    text,
+    rect,
+    {
+      font: options.font,
+      size: chosenSize,
+      color: options.color,
+      lineGap: options.lineGap,
+      italic: options.italic,
+    },
+  );
+}
+
 // (FreeformSegment type is defined earlier in the file.)
 
 
@@ -356,7 +443,12 @@ function extractItemDescription(detailHtml: string | undefined, fallback: string
   // Collapse whitespace created by the above removals.
   cleaned = cleaned.replace(/[ \t]{2,}/g, " ").replace(/\n[ \t]+/g, "\n").trim();
 
-  return stripMarkdown(cleaned || fallback);
+  // NOTE: do NOT strip markdown markers here — we want **bold** and
+  // *italic* spans to survive into the rich-text renderer so item
+  // descriptions can highlight in-line rules terms (damage types,
+  // conditions, weapon names) the same way Additional Treasure and
+  // Quest Items already do.
+  return cleaned || fallback;
 }
 
 /**
@@ -563,24 +655,32 @@ function renderItemDescriptions(
       currentY += titleSize + 1;
 
       if (description) {
-        ctx.doc.save();
-        ctx.doc.font(textFont).fontSize(bodySize);
         const remainingForBody = contentBottomY - currentY - 2;
-        const bodyHeight = Math.min(
-          ctx.doc.heightOfString(description, { width: columnWidth, lineBreak: true, lineGap }),
-          Math.max(0, remainingForBody),
-        );
-        ctx.doc.restore();
-
-        if (bodyHeight > 2) {
-          drawText(ctx, description, { x: columnX, y: currentY, width: columnWidth, height: bodyHeight }, {
-            font: textFont,
-            size: bodySize,
-            color: COLORS.textPrimary,
-            lineGap,
-            lineBreak: true,
-          });
-          currentY += bodyHeight;
+        if (remainingForBody > 6) {
+          // Shrink-on-overflow rich text: walk bodySize (5.5) down to
+          // minSize (4) in 0.25pt steps until the bold/italic-aware
+          // wrapped height fits the remaining vertical space. Same
+          // pattern as the backstory's drawFittedText calls.
+          const bodyHeight = drawFittedRichParagraph(
+            ctx,
+            description,
+            {
+              x: columnX,
+              y: currentY,
+              width: columnWidth,
+              maxHeight: remainingForBody,
+            },
+            {
+              font: textFont,
+              size: bodySize,
+              minSize: 4,
+              color: COLORS.textPrimary,
+              lineGap,
+            },
+          );
+          if (bodyHeight > 2) {
+            currentY += bodyHeight;
+          }
         }
       }
 
@@ -991,30 +1091,30 @@ function renderAdditionalTreasure(
     } else if (seg.kind === "blockquote") {
       // Indented, italic, grey
       if (linesDrawn + 1 > maxLines) break;
-      const quoteHeight = drawRichParagraph(
+      const quoteHeight = drawFittedRichParagraph(
         ctx,
         seg.text,
         { x: rect.x + 8, y, width: rect.width - 16, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
+        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
       );
       y += quoteHeight;
       linesDrawn += Math.max(1, Math.round(quoteHeight / lineHeight));
     } else if (seg.kind === "list") {
       if (linesDrawn + 1 > maxLines) break;
-      const listHeight = drawRichParagraph(
+      const listHeight = drawFittedRichParagraph(
         ctx,
         seg.text,
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textPrimary, lineGap: 0.4 },
       );
       y += listHeight;
       linesDrawn += Math.max(1, Math.round(listHeight / lineHeight));
     } else {
-      const paraHeight = drawRichParagraph(
+      const paraHeight = drawFittedRichParagraph(
         ctx,
         stripMarkdown(seg.text),
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textPrimary, lineGap: 0.4 },
       );
       y += paraHeight;
       linesDrawn += Math.max(1, Math.round(paraHeight / lineHeight));
@@ -1134,30 +1234,30 @@ function renderQuestItems(
       y += lineHeight * 0.5;
     } else if (seg.kind === "blockquote") {
       if (linesDrawn + 1 > maxLines) break;
-      const quoteHeight = drawRichParagraph(
+      const quoteHeight = drawFittedRichParagraph(
         ctx,
         seg.text,
         { x: rect.x + 8, y, width: rect.width - 16, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
+        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
       );
       y += quoteHeight;
       linesDrawn += Math.max(1, Math.round(quoteHeight / lineHeight));
     } else if (seg.kind === "list") {
       if (linesDrawn + 1 > maxLines) break;
-      const listHeight = drawRichParagraph(
+      const listHeight = drawFittedRichParagraph(
         ctx,
         seg.text,
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textPrimary, lineGap: 0.4 },
       );
       y += listHeight;
       linesDrawn += Math.max(1, Math.round(listHeight / lineHeight));
     } else {
-      const paraHeight = drawRichParagraph(
+      const paraHeight = drawFittedRichParagraph(
         ctx,
         stripMarkdown(seg.text),
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textPrimary, lineGap: 0.4 },
       );
       y += paraHeight;
       linesDrawn += Math.max(1, Math.round(paraHeight / lineHeight));
