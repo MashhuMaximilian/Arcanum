@@ -6,6 +6,7 @@ import {
   componentRect,
   drawCenteredTextInRect,
   drawFittedText,
+  drawSocketText,
   drawSvg,
   drawText,
   drawWrappedClassName,
@@ -284,59 +285,6 @@ function findStatsByIdPrefix(character: ResolvedPdfCharacter, prefix: string) {
   return character.frontPage.stats.filter((candidate) => normalizeKey(candidate.id).startsWith(normalizedPrefix));
 }
 
-function fitSingleLineSize(
-  ctx: PdfRenderContext,
-  text: string,
-  rect: PdfRect,
-  options: { font?: string; maxSize: number; minSize: number },
-) {
-  for (let size = options.maxSize; size >= options.minSize; size -= 0.25) {
-    ctx.doc.save();
-    ctx.doc.font(options.font || ctx.bodyFont).fontSize(size);
-    const width = ctx.doc.widthOfString(text);
-    ctx.doc.restore();
-    if (width <= rect.width && size * 0.95 <= rect.height) {
-      return size;
-    }
-  }
-
-  return options.minSize;
-}
-
-function drawSocketText(
-  ctx: PdfRenderContext,
-  text: string,
-  rect: PdfRect,
-  options: { font?: string; maxSize: number; minSize: number; color?: string },
-) {
-  if (!text.trim()) {
-    return;
-  }
-
-  const font = options.font || ctx.bodyFont;
-  const size = fitSingleLineSize(ctx, text, rect, options);
-  ctx.doc.save();
-  ctx.doc.font(font).fontSize(size);
-  const width = ctx.doc.widthOfString(text);
-  const x = rect.x + Math.max(0, (rect.width - width) / 2);
-  // Pdfkit treats the `y` argument as the visual midline of the em-box
-  // (it internally applies `dy = ascender` so the baseline lands ~size
-  // below the y coordinate). Empirically verified: setting `y` to the
-  // rect midpoint renders cap-height band centred in the rect for both
-  // Magra-Regular and Teko-Medium (the "Helvetica-Bold" alias). Centring
-  // on the cap-top (`(rect.height - capHeight) / 2`) puts digits LOW; the
-  // earlier cap-top formula left numbers visibly sitting toward the bottom
-  // of their sockets.
-  const y = rect.y + rect.height / 2;
-  ctx.doc.fillColor(options.color || "#000000");
-  ctx.doc.text(text, x, y, {
-    width,
-    height: rect.height,
-    lineBreak: false,
-  });
-  ctx.doc.restore();
-}
-
 function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: string, mode: StatBoxSpec["mode"] = "normal") {
   if (!value) {
     return;
@@ -348,7 +296,7 @@ function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: strin
     width: mode === "shield" ? 0.74 : mode === "wide" ? 0.86 : 0.76,
     height: mode === "shield" ? 0.36 : 0.36,
   });
-  drawCenteredTextInRect(ctx, value, valueRect, {
+  drawSocketText(ctx, value, valueRect, {
     font: "Helvetica-Bold",
     maxSize: mode === "small" ? 12 : mode === "shield" ? 13 : 15,
     minSize: 7,

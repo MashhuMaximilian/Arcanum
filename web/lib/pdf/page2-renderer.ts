@@ -5,6 +5,7 @@ import {
   componentRect,
   drawCenteredTextInRect,
   drawFittedText,
+  drawSocketText,
   drawSvg,
   drawText,
   insetRect,
@@ -1787,18 +1788,18 @@ function renderCompanionAbilities(
     const modifier = Math.floor((score - 10) / 2);
     const valueOptions = {
       font: "Helvetica-Bold",
-      minSize: 5,
       color: "#000000",
     } as const;
 
-    drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
+    drawSocketText(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
       ...valueOptions,
-      maxSize: 10.4,
+      maxSize: 12,
+      minSize: 7,
     });
-    drawCenteredTextInRect(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
+    drawSocketText(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
       ...valueOptions,
-      maxSize: 16.5,
-      minSize: 8,
+      maxSize: 18,
+      minSize: 9,
     });
     maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
       x: 13.5,
@@ -1808,13 +1809,14 @@ function renderCompanionAbilities(
     }));
     drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
       font: "Helvetica",
-      maxSize: 7.2,
+      maxSize: 7.4,
       minSize: 5,
       color: "#000000",
     });
-    drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
+    drawSocketText(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
       ...valueOptions,
-      maxSize: 9.6,
+      maxSize: 10.6,
+      minSize: 7,
     });
   }
 }
@@ -1827,7 +1829,7 @@ function renderCompanionBonusBox(
   label: string,
 ) {
   drawSvg(ctx, frameOnlySvg(assets.bonusBox, 2), rect, "contain");
-  drawCenteredTextInRect(ctx, value, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.value), {
+  drawSocketText(ctx, value, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.value), {
     font: "Helvetica-Bold",
     maxSize: 15,
     minSize: 8,
@@ -1854,7 +1856,7 @@ function renderCompanionHpAndAc(
 
   // The HP SVG has no placeholder number in the MAX HP value socket, so
   // drawing directly into its local slot preserves every border and label.
-  drawCenteredTextInRect(ctx, hp, componentRect(rects.hp, HP_VIEWBOX, HP_SLOTS.maxHpValue), {
+  drawSocketText(ctx, hp, componentRect(rects.hp, HP_VIEWBOX, HP_SLOTS.maxHpValue), {
     font: "Helvetica-Bold",
     maxSize: 15,
     minSize: 8,
@@ -1863,7 +1865,7 @@ function renderCompanionHpAndAc(
 
   drawSvg(ctx, assets.ac, rects.ac, "contain");
   // Likewise, keep the shield's baked-in AC label and draw only the value.
-  drawCenteredTextInRect(ctx, ac, componentRect(rects.ac, AC_VIEWBOX, AC_SLOTS.value), {
+  drawSocketText(ctx, ac, componentRect(rects.ac, AC_VIEWBOX, AC_SLOTS.value), {
     font: "Helvetica-Bold",
     maxSize: 15,
     minSize: 9,
@@ -1900,7 +1902,7 @@ function renderCompanionSpeeds(
   const passiveFrame = frameOnlySvg(assets.passiveBox, 4);
   rects.speedBoxes.forEach((rect, index) => {
     drawSvg(ctx, passiveFrame, rect, "contain");
-    drawCenteredTextInRect(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
+    drawSocketText(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
       font: "Helvetica-Bold",
       maxSize: 11,
       minSize: 6,

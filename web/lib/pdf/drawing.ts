@@ -259,6 +259,72 @@ export function strokeRule(ctx: PdfRenderContext, x: number, y: number, width: n
 }
 
 /**
+ * Find the largest single-line font size at which the given text fits
+ * inside `rect` (both width and height). Walks down from maxSize to
+ * minSize in 0.25pt increments so we always settle on a value that
+ * actually fits, even if the caller gave a generous maxSize.
+ *
+ * Used by `drawSocketText` to fit stat-strip / ability-socket numerals.
+ */
+export function fitSingleLineSize(
+  ctx: PdfRenderContext,
+  text: string,
+  rect: PdfRect,
+  options: { font?: string; maxSize: number; minSize: number },
+) {
+  for (let size = options.maxSize; size >= options.minSize; size -= 0.25) {
+    ctx.doc.save();
+    ctx.doc.font(resolveFont(ctx, options.font)).fontSize(size);
+    const width = ctx.doc.widthOfString(text);
+    ctx.doc.restore();
+    if (width <= rect.width && size * 0.95 <= rect.height) {
+      return size;
+    }
+  }
+  return options.minSize;
+}
+
+/**
+ * Render a single line of text inside a "socket" rect (stat strip,
+ * ability score / save / modifier, AC shield, HP box, etc.) such that
+ * the cap-height band of the glyphs is visually centred inside the
+ * rect. Both Magra-Regular and Teko-Medium (the "Helvetica-Bold"
+ * alias) come out at the same y when called with identical rects.
+ *
+ * Pdfkit's `text(text, x, y)` treats `y` as the visual midline of the
+ * em-box (it internally adds the font's ascender to reach the
+ * baseline). Setting `y = rect.y + rect.height / 2` therefore puts the
+ * cap-height band across the rect midpoint; this is what the visual
+ * reference PDFs expect for the proficiency / initiative / AC /
+ * ability-socket numerals.
+ */
+export function drawSocketText(
+  ctx: PdfRenderContext,
+  text: string,
+  rect: PdfRect,
+  options: { font?: string; maxSize: number; minSize: number; color?: string },
+) {
+  if (!text.trim()) {
+    return;
+  }
+
+  const font = options.font || ctx.bodyFont;
+  const size = fitSingleLineSize(ctx, text, rect, options);
+  ctx.doc.save();
+  ctx.doc.font(resolveFont(ctx, font)).fontSize(size);
+  const width = ctx.doc.widthOfString(text);
+  const x = rect.x + Math.max(0, (rect.width - width) / 2);
+  const y = rect.y + rect.height / 2;
+  ctx.doc.fillColor(options.color || "#000000");
+  ctx.doc.text(text, x, y, {
+    width,
+    height: rect.height,
+    lineBreak: false,
+  });
+  ctx.doc.restore();
+}
+
+/**
  * Render a multi-word label inside a cell, one word per line, centered vertically
  * and using a font size that fits all words within the cell height. Each word
  * is drawn independently (no character-level wrapping), so single words never
