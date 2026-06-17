@@ -319,12 +319,15 @@ function drawSocketText(
   ctx.doc.font(font).fontSize(size);
   const width = ctx.doc.widthOfString(text);
   const x = rect.x + Math.max(0, (rect.width - width) / 2);
-  // Teko-Medium (currently aliased to "Helvetica-Bold") has a low baseline
-  // relative to its em-square. Centre the cap-height (~72% of size) inside
-  // the socket instead of centering the em-box, so digits sit visually
-  // balanced rather than crowding the bottom edge.
-  const capHeight = size * 0.72;
-  const y = rect.y + (rect.height - capHeight) / 2;
+  // Pdfkit treats the `y` argument as the visual midline of the em-box
+  // (it internally applies `dy = ascender` so the baseline lands ~size
+  // below the y coordinate). Empirically verified: setting `y` to the
+  // rect midpoint renders cap-height band centred in the rect for both
+  // Magra-Regular and Teko-Medium (the "Helvetica-Bold" alias). Centring
+  // on the cap-top (`(rect.height - capHeight) / 2`) puts digits LOW; the
+  // earlier cap-top formula left numbers visibly sitting toward the bottom
+  // of their sockets.
+  const y = rect.y + rect.height / 2;
   ctx.doc.fillColor(options.color || "#000000");
   ctx.doc.text(text, x, y, {
     width,
