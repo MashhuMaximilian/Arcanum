@@ -214,7 +214,7 @@ const PASSIVE_BOXES = [
 
 const HEADER_FIELD_SLOTS = [
   { key: "race", label: "RACE", labelRect: { x: 242, y: 27.2, width: 83, height: 5.0 }, valueRect: { x: 242, y: 33.3, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 5.0, minSize: 3.0 },
-  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 3.5, minSize: 2.5 },
+  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 4.6, minSize: 3.0 },
   { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 27.2, width: 44, height: 5.0 }, valueRect: { x: 480.5, y: 33.3, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 4.3, minSize: 2.8 },
   { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 242, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.4, minSize: 2.9 },
   { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 321.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.1, minSize: 2.8 },
@@ -476,7 +476,7 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     color: "#000000",
   });
 
-  const classLevel = (() => {
+  const classLevelLines = ((): string[] => {
     const totalLevel = character.level;
     const classes = (character.classLabel || "").split("/").map((s) => s.trim()).filter(Boolean);
     const subclasses = (character.subclassLabel || "")
@@ -484,7 +484,9 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
       .map((s) => s.trim());
     const entryLevels = character.source?.classEntries?.map((entry) => entry.level) ?? [];
     if (classes.length > 1 || (entryLevels.length > 0 && entryLevels.some((l) => l > 0 && l < totalLevel))) {
-      // Multiclass path
+      // Multiclass path — wrap to two lines by splitting the class list at the
+      // midpoint. The first line carries the "(Lvl X) |" header so the visual
+      // indent of the wrapping reads naturally.
       const parts: string[] = [];
       for (let i = 0; i < classes.length; i++) {
         const lvl = entryLevels[i] ?? totalLevel;
@@ -492,24 +494,33 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
         const seg = [lvl, sub, classes[i]].filter(Boolean).join(" ");
         parts.push(seg);
       }
-      return `(Lvl ${totalLevel}) | ${parts.join(" / ")}`;
+      const header = `(Lvl ${totalLevel}) |`;
+      const midpoint = Math.ceil(parts.length / 2);
+      const line1Parts = parts.slice(0, midpoint);
+      const line2Parts = parts.slice(midpoint);
+      const line1 = line2Parts.length > 0 ? `${header} ${line1Parts.join(" / ")}` : `${header} ${parts.join(" / ")}`;
+      const lines = [line1];
+      if (line2Parts.length > 0) {
+        lines.push(line2Parts.join(" / "));
+      }
+      return lines;
     }
-    // Single-class path
+    // Single-class path — fits comfortably on a single line.
     const single = classes[0] || character.classLabel || "Character";
     const sub = subclasses[0] || "";
     const seg = [sub, single].filter(Boolean).join(" ");
-    return `(Lvl ${totalLevel}) | ${seg}`.trim();
+    return [`(Lvl ${totalLevel}) | ${seg}`.trim()];
   })();
   const raceLine = [character.raceLabel, character.subraceLabel].filter(Boolean).join(" / ");
-  const values = {
-    race: raceLine,
-    class: classLevel,
-    background: character.backgroundLabel,
-    alignment: character.alignment,
-    deity: character.deity,
-    exp: "",
-    player: character.playerName,
-  } satisfies Record<(typeof HEADER_FIELD_SLOTS)[number]["key"], string>;
+  const values: Record<(typeof HEADER_FIELD_SLOTS)[number]["key"], string[]> = {
+    race: [raceLine],
+    class: classLevelLines,
+    background: [character.backgroundLabel],
+    alignment: [character.alignment],
+    deity: [character.deity],
+    exp: [""],
+    player: [character.playerName],
+  };
 
   HEADER_FIELD_SLOTS.forEach((field) => {
     drawFittedText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
@@ -522,16 +533,37 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     const line = headerRect(field.lineRect);
     drawHeaderUnderline(ctx, line);
 
-    const value = values[field.key];
-    if (!value) {
+    const lines = values[field.key].map((v) => cleanText(v)).filter((v) => v.length > 0);
+    if (lines.length === 0) {
       return;
     }
-    drawFittedText(ctx, cleanText(value), headerRect(field.valueRect), {
-      font: "Helvetica-Bold",
-      maxSize: field.maxSize,
-      minSize: field.minSize,
-      align: "left",
-      color: "#000000",
+
+    if (lines.length === 1) {
+      drawFittedText(ctx, lines[0], headerRect(field.valueRect), {
+        font: "Helvetica-Bold",
+        maxSize: field.maxSize,
+        minSize: field.minSize,
+        align: "left",
+        color: "#000000",
+      });
+      return;
+    }
+
+    // Multi-line values (currently only the CLASS & LEVEL field) share the
+    // existing valueRect height across N equal-sized strips so the bottom
+    // edge of the value stays anchored to the underline regardless of line
+    // count.
+    const fullRect = headerRect(field.valueRect);
+    const perLineH = fullRect.height / lines.length;
+    lines.forEach((lineText, idx) => {
+      const lineRect = { x: fullRect.x, y: fullRect.y + idx * perLineH, width: fullRect.width, height: perLineH };
+      drawFittedText(ctx, lineText, lineRect, {
+        font: "Helvetica-Bold",
+        maxSize: field.maxSize,
+        minSize: field.minSize,
+        align: "left",
+        color: "#000000",
+      });
     });
   });
 }
