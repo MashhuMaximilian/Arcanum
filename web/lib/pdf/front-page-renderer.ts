@@ -319,11 +319,12 @@ function drawSocketText(
   ctx.doc.font(font).fontSize(size);
   const width = ctx.doc.widthOfString(text);
   const x = rect.x + Math.max(0, (rect.width - width) / 2);
-  // Teko-Medium (currently aliased to "Helvetica-Bold") has a taller cap-
-  // height and lower baseline than the old Helvetica-Bold metric. Lift the
-  // baseline a hair (size * 0.06) so the digits sit visually centered
-  // inside each SVG socket instead of crowding the bottom edge.
-  const y = rect.y + Math.max(0, (rect.height - size * 0.78) / 2) - size * 0.06;
+  // Teko-Medium (currently aliased to "Helvetica-Bold") has a low baseline
+  // relative to its em-square. Centre the cap-height (~72% of size) inside
+  // the socket instead of centering the em-box, so digits sit visually
+  // balanced rather than crowding the bottom edge.
+  const capHeight = size * 0.72;
+  const y = rect.y + (rect.height - capHeight) / 2;
   ctx.doc.fillColor(options.color || "#000000");
   ctx.doc.text(text, x, y, {
     width,
@@ -1100,27 +1101,27 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       }
       drawSocketText(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
         font: "Helvetica-Bold",
-        maxSize: 11.4,
+        maxSize: 12,
         minSize: 4.4,
         color: "#000000",
       });
       drawSocketText(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
         font: "Helvetica-Bold",
-        maxSize: 17,
+        maxSize: 18,
         minSize: 8,
         color: "#000000",
       });
       if (!hasPrintedTemplate) {
         drawCenteredTextInRect(ctx, slot.label, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.label), {
           font: "Helvetica",
-          maxSize: 7.2,
+          maxSize: 7.4,
           minSize: 5,
           color: "#000000",
         });
       }
       drawSocketText(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
-        maxSize: 9.6,
+        maxSize: 10.6,
         minSize: 5,
         color: "#000000",
       });
@@ -1189,7 +1190,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
           height: SKILL_ROW_SLOTS.bonusValue.height,
         }), {
           font: "Helvetica-Bold",
-          maxSize: 5.1,
+          maxSize: 7,
           minSize: 2.5,
           color: "#000000",
         });
