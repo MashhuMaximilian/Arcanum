@@ -868,9 +868,9 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   // ── MULTICLASS SPELLCASTING CARD ────────────────────────────────────────────
   // Cards stay in spellcasting region. Move left and up to align with senses card below.
   const numRows = spellSources.length;
-  const labelH = 7;
-  const headerH = 7;
-  const rowH = 9;
+  const labelH = 8;
+  const headerH = 8;
+  const rowH = 10;
   const gap = 5;
   const spellCardW = 116;
   const resourceCardW = SPELLCASTING_REGION.width - spellCardW - gap;
@@ -899,12 +899,12 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   // "SPELLCASTING" top label
   drawCenteredTextInRect(ctx, "SPELLCASTING", {
     x: spellBox.x + 3, y: labelY, width: contentW, height: labelH,
-  }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.0, color: "#000000" });
+  }, { font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000" });
 
   const headerLabels = ["CLASS", "BONUS", "DC", "ABL"];
   headerLabels.forEach((lbl, i) => {
     drawCenteredTextInRect(ctx, lbl, { x: colX[i], y: headerY, width: colW[i], height: headerH }, {
-      font: "Helvetica-Bold", maxSize: 2.7, minSize: 1.8, color: "#000000",
+      font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.5, color: "#000000",
     });
   });
 
@@ -934,8 +934,8 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       if (!val) return;
       const colOpts = {
         font: "Helvetica-Bold",
-        maxSize: ci === 0 ? 4.0 : 4.8,
-        minSize: ci === 0 ? 2.6 : 3.2, color: "#000000",
+        maxSize: ci === 0 ? 5.5 : 6.0,
+        minSize: ci === 0 ? 3.0 : 3.5, color: "#000000",
       };
       if (ci === 0) {
         // Class name cell: single-word names fit on one line (font shrinks to fit),
@@ -965,8 +965,8 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   if (hasClassResource) {
     // Use orderedClassResources for row count and rendering
     const rNumRows = orderedClassResources.length;
-    const rLabelH = 7;
-    const rRowH = 9;
+    const rLabelH = 8;
+    const rRowH = 10;
     const rCardH = rLabelH + 4 + rNumRows * rRowH + 2;
     const maxCardH = Math.max(spellCardH, rCardH);
     // Position after spell card with gap - same y as spell card
@@ -983,7 +983,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     // "CLASS RESOURCES" top label
     drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
       x: rBox.x + 3, y: rLabelY, width: rContentW, height: rLabelH,
-    }, { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.4, color: "#000000" });
+    }, { font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000" });
 
     // Column headers: VALUE | RESOURCE NAME | RECHARGE
     const resourceRuleX = rBox.x + 8;
@@ -1001,7 +1001,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     const rColW = [rw1, rw2, rw3];
     rHeaderLabels.forEach((lbl, i) => {
       drawCenteredTextInRect(ctx, lbl, { x: rColX[i], y: rHeaderY, width: rColW[i], height: headerH }, {
-        font: "Helvetica-Bold", maxSize: 3.0, minSize: 2.4, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.5, color: "#000000",
       });
     });
 
@@ -1012,23 +1012,17 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     orderedClassResources.forEach((resource, idx) => {
       const rowY = rDataY + idx * rRowH;
 
-      // Value (e.g. "2d6" or "3") — matches the spellcasting card body font
-      // (maxSize 3.25 / minSize 2.0 — see the spellSources.forEach block above).
-      // The previous 5.0pt / 4.5pt was visibly larger than the spellcasting
-      // body and made the two cards look unbalanced.
+      // Value (e.g. "2d6" or "3") — matches the spellcasting card body font.
       drawCenteredTextInRect(ctx, resource.value, { x: rv1, y: rowY, width: rw1, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 4.8, minSize: 3.2, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 6.0, minSize: 3.5, color: "#000000",
       });
       // Resource name (e.g. "Arcane Recovery", "Sorcery Points")
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.6, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 5.5, minSize: 3.0, color: "#000000",
       });
       // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day").
-      // Font matches the surrounding VAL and RESOURCE columns (maxSize 3.25,
-      // minSize 2.0). All cadence strings are short (≤2 words) and fit on one
-      // line in the 26pt-wide column at 3.25pt.
       drawCenteredTextInRect(ctx, resource.cadence, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 3.8, minSize: 2.5, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000",
       });
 
       if (idx < rNumRows - 1) {
@@ -3338,7 +3332,7 @@ function renderFeatureDeck(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, cha
     height: 9,
   }, {
     font: "Helvetica-Bold",
-    maxSize: 5.5,
+    maxSize: 6.5,
     minSize: 4.3,
     color: "#222222",
   });
