@@ -276,10 +276,15 @@ function drawRichParagraph(
     if (!run.text) continue;
     const isBold = run.bold;
     const isItalic = run.italic || options.italic;
+    // Bold body text uses Magra-Bold (the body family in bold weight) so
+    // **Bonus Action** style markers render in the same metric as the
+    // surrounding paragraph instead of jumping to the Teko-Medium
+    // display face. Italic reuses Magra (we have no italic cut; the
+    // visual distinction still reads through run separation).
     const font = isBold && isItalic
-      ? "Helvetica-BoldOblique"
+      ? "Magra-Bold"
       : isBold
-        ? "Helvetica-Bold"
+        ? "Magra-Bold"
         : isItalic
           ? "Helvetica-Oblique"
           : options.font;
@@ -335,10 +340,12 @@ function measureRichParagraphHeight(
   const lineHeight = size + lineGap;
   for (const run of runs) {
     if (!run.text) continue;
+    // Same bold/italic -> font mapping as drawRichParagraph so the
+    // measurement matches what we actually render.
     const font = run.bold && run.italic
-      ? "Helvetica-BoldOblique"
+      ? "Magra-Bold"
       : run.bold
-        ? "Helvetica-Bold"
+        ? "Magra-Bold"
         : run.italic
           ? "Helvetica-Oblique"
           : baseFont;
@@ -439,6 +446,14 @@ function extractItemDescription(detailHtml: string | undefined, fallback: string
   // Collapse runs of non-ASCII "garbled" characters (mojibake from
   // imported catalogs with mismatched encoding) to a single ellipsis.
   cleaned = cleaned.replace(/[^\x00-\x7F]{3,}/g, "…");
+
+  // Strip stray markdown list-marker artifacts that some imported
+  // catalogs emit. Patterns like "### 1.", "### 2)", "* 1.", "- 1)"
+  // appear mid-paragraph as leftover templating noise; the surrounding
+  // bolded **Term:** label is what actually structures the prose.
+  cleaned = cleaned.replace(/#{1,6}\s+\d+[.)]\s*/g, "");
+  cleaned = cleaned.replace(/(^|\s)\*\s+\d+[.)]\s+/g, "$1");
+  cleaned = cleaned.replace(/(^|\s)-\s+\d+[.)]\s+/g, "$1");
 
   // Collapse whitespace created by the above removals.
   cleaned = cleaned.replace(/[ \t]{2,}/g, " ").replace(/\n[ \t]+/g, "\n").trim();
