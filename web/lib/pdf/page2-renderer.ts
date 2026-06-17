@@ -427,6 +427,14 @@ function drawFittedRichParagraph(
  *   characters that look like encoding garbage are replaced with "…"
  * - Stray non-ASCII chars that are alone (e.g. "™" with nothing
  *   before/after that makes sense in English prose)
+ * - Markdown list-marker noise (`### 1.`, `* 1.`, `- 1)`)
+ * - Triple-star `***` and unbalanced `*` markers from broken
+ *   emphasis spans
+ * - Bare `#` and templating fragments like `#t#`/`#a#` from
+ *   imported catalogs
+ * - LaTeX-style math fragments (`$2 \text{d}6$`, `\vext{...}`,
+ *   `\texi{...}`, `2 \imes \texi{...}`) → resolved into the
+ *   canonical dice/number form (`2d6`, `2`, etc.) where possible
  */
 function extractItemDescription(detailHtml: string | undefined, fallback: string): string {
   if (!detailHtml) return fallback;
@@ -455,6 +463,31 @@ function extractItemDescription(detailHtml: string | undefined, fallback: string
   cleaned = cleaned.replace(/#{1,6}\s+\d+[.)]\s*/g, "");
   cleaned = cleaned.replace(/(^|\s)\*\s+\d+[.)]\s+/g, "$1");
   cleaned = cleaned.replace(/(^|\s)-\s+\d+[.)]\s+/g, "$1");
+
+  // Collapse triple-star `***` (broken emphasis). We can keep a
+  // single `*` since `**bold**` is parsed by the rich-text renderer.
+  cleaned = cleaned.replace(/\*{3,}/g, "");
+  // Drop templating fragments like `#t#`, `#a#`, `#any-tag#` that
+  // some catalogs emit mid-sentence. Allow a final bare `#` to
+  // remain only if it's followed by a digit (looks like a list
+  // marker, which we already strip); everything else goes.
+  cleaned = cleaned.replace(/#(?:[a-zA-Z]+)#/g, "");
+  // Drop stray bare `#` markers that survived (e.g. broken list
+  // markers where the digit was already extracted).
+  cleaned = cleaned.replace(/(^|\s)#(?=\s|$)/g, "$1");
+
+  // Strip LaTeX-style math fragments. Imported catalogs sometimes
+  // embed `$2\text{d}6$` for "2d6" dice; resolve to the canonical
+  // form. Strategy: pull out `\d+d\d+` (dice), then any bare
+  // integers, then drop the rest of the LaTeX command noise.
+  cleaned = cleaned.replace(/\$(\d+d\d+)\$/g, "$1");        // $2d6$ -> 2d6
+  cleaned = cleaned.replace(/\$(\d+)\$/g, "$1");              // $2$ -> 2
+  // Drop unclosed/standalone LaTeX commands: \text{...}, \vext{...},
+  // \texi{...}, \imes, etc. The \text{...} form often wraps the dice
+  // notation that the rules parser missed, so just drop it.
+  cleaned = cleaned.replace(/\\[a-zA-Z]+\{([^}]*)\}/g, "$1"); // \text{d}6 -> d6
+  cleaned = cleaned.replace(/\\[a-zA-Z]+/g, "");             // \imes -> ''
+  cleaned = cleaned.replace(/\$/g, "");                       // any leftover $
 
   // Collapse whitespace created by the above removals.
   cleaned = cleaned.replace(/[ \t]{2,}/g, " ").replace(/\n[ \t]+/g, "\n").trim();
