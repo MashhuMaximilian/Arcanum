@@ -319,7 +319,11 @@ function drawSocketText(
   ctx.doc.font(font).fontSize(size);
   const width = ctx.doc.widthOfString(text);
   const x = rect.x + Math.max(0, (rect.width - width) / 2);
-  const y = rect.y + Math.max(0, (rect.height - size * 0.82) / 2) - size * 0.05;
+  // Teko-Medium (currently aliased to "Helvetica-Bold") has a taller cap-
+  // height and lower baseline than the old Helvetica-Bold metric. Lift the
+  // baseline a hair (size * 0.06) so the digits sit visually centered
+  // inside each SVG socket instead of crowding the bottom edge.
+  const y = rect.y + Math.max(0, (rect.height - size * 0.78) / 2) - size * 0.06;
   ctx.doc.fillColor(options.color || "#000000");
   ctx.doc.text(text, x, y, {
     width,
@@ -342,7 +346,7 @@ function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: strin
   });
   drawCenteredTextInRect(ctx, value, valueRect, {
     font: "Helvetica-Bold",
-    maxSize: mode === "small" ? 11 : mode === "shield" ? 12 : 13.5,
+    maxSize: mode === "small" ? 12 : mode === "shield" ? 13 : 15,
     minSize: 7,
     color: "#000000",
   });
@@ -547,14 +551,14 @@ function renderStatStrip(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
     if (spec.key === "hit dice") {
       // The hit dice cell is wider than the other stat boxes (54.71pt × 42pt)
       // but the value string can be long ("3d8 • 3d8 • 1d6 • 1d6" for a 4-class
-      // multiclass). drawValueOnlyStatBox uses maxSize 13.5/7, which wraps a long
-      // string to 2-3 lines and the cell height (15.12pt) clips the bottom with
-      // "…". Render with a smaller font range (7/4) so up to ~4 lines fit.
+      // multiclass). Teko-Medium (current "Helvetica-Bold" alias) is narrower
+      // than Helvetica-Bold, so a single short string now fits at maxSize 9
+      // and we keep the long-string fallback at 4pt.
       const value = statValue(character, spec.key, spec.fallback);
       const valueRect = rectFromFractions(rect, { x: 0.07, y: 0.17, width: 0.86, height: 0.36 });
       drawCenteredTextInRect(ctx, value, valueRect, {
         font: "Helvetica-Bold",
-        maxSize: 7,
+        maxSize: 9,
         minSize: 4,
         color: "#000000",
       });
@@ -632,19 +636,19 @@ function drawShellMetricCard(
   const hasCadence = Boolean(cadence);
   drawCenteredTextInRect(ctx, content.value, rectFromFractions(box, {
     x: 0.08,
-    y: hasCadence ? 0.11 : 0.18,
+    y: hasCadence ? 0.08 : 0.16,
     width: 0.84,
-    height: hasCadence ? 0.32 : 0.36,
+    height: hasCadence ? 0.36 : 0.40,
   }), {
     font: "Helvetica-Bold",
-    maxSize: box.width > 100 ? 14.2 : 12.5,
+    maxSize: box.width > 100 ? 15.5 : 13.5,
     minSize: 5,
     color: "#000000",
   });
   if (cadence) {
     drawCenteredTextInRect(ctx, cadence, rectFromFractions(box, { x: 0.10, y: 0.48, width: 0.80, height: 0.14 }), {
       font: "Helvetica-Bold",
-      maxSize: box.width > 100 ? 6.0 : 5.0,
+      maxSize: box.width > 100 ? 6.4 : 5.4,
       minSize: 3.0,
       color: "#000000",
     });
@@ -656,7 +660,7 @@ function drawShellMetricCard(
     height: 0.16,
   }), {
     font: content.labelFont || "Helvetica-Bold",
-    maxSize: box.width > 100 ? 5.3 : 4.1,
+    maxSize: box.width > 100 ? 5.6 : 4.4,
     minSize: 2.3,
     color: "#000000",
   });
@@ -806,11 +810,11 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
 
     singleStats.forEach((value, index) => {
       if (!value) return;
-      drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.12, width: 0.94, height: 0.42 }), {
-        font: "Helvetica-Bold", maxSize: index === 1 ? 11.2 : 14.5, minSize: 6, color: "#000000",
+      drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.08, width: 0.94, height: 0.48 }), {
+        font: "Helvetica-Bold", maxSize: index === 1 ? 12.5 : 16, minSize: 6, color: "#000000",
       });
       drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.66, width: 0.96, height: 0.20 }), {
-        font: "Helvetica-Bold", maxSize: index === 1 ? 4.2 : 4.7, minSize: 2.8, color: "#000000",
+        font: "Helvetica-Bold", maxSize: index === 1 ? 4.6 : 5.0, minSize: 2.8, color: "#000000",
       });
     });
 
@@ -1064,13 +1068,13 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       }
       drawSocketText(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
         font: "Helvetica-Bold",
-        maxSize: 10.4,
+        maxSize: 11.4,
         minSize: 4.4,
         color: "#000000",
       });
       drawSocketText(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
         font: "Helvetica-Bold",
-        maxSize: 15.4,
+        maxSize: 17,
         minSize: 8,
         color: "#000000",
       });
@@ -1084,7 +1088,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       }
       drawSocketText(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
-        maxSize: 8.6,
+        maxSize: 9.6,
         minSize: 5,
         color: "#000000",
       });
@@ -1215,9 +1219,9 @@ function renderPassives(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, charac
       return;
     }
     const cell = componentRect(FRONT_PAGE_REGIONS.passives, PASSIVES_VIEWBOX, PASSIVE_BOXES[index]);
-    drawCenteredTextInRect(ctx, value, rectFromFractions(cell, { x: 0.06, y: 0.07, width: 0.88, height: 0.40 }), {
+    drawCenteredTextInRect(ctx, value, rectFromFractions(cell, { x: 0.06, y: 0.05, width: 0.88, height: 0.44 }), {
       font: "Helvetica-Bold",
-      maxSize: 10.2,
+      maxSize: 11,
       minSize: 4.2,
       color: "#000000",
     });
