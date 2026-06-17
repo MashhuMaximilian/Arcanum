@@ -500,12 +500,13 @@ function renderInventoryIndex(
   // border doesn't visually crowd the first row of data.
   const colX = [rect.x + 4, rect.x + 18, rect.x + 132, rect.x + 160];
   const headerY = rect.y + 42;
+  const headerSizes = [6, 6.5, 6.5, 6.5];
 
   const headers = ["#", "Name", "Qty", "lb"];
   headers.forEach((h, i) => {
     drawText(ctx, h, { x: colX[i], y: headerY, width: 30, height: 8 }, {
       font: "Magra-Bold",
-      size: TYPOGRAPHY.small.minSize,
+      size: headerSizes[i],
       color: COLORS.textSecondary,
     });
   });
@@ -518,18 +519,26 @@ function renderInventoryIndex(
     const rowY = rowStartY + index * (INDEX_ROW_HEIGHT + INDEX_ROW_GAP);
 
     const truncatedName = item.name.length > 20 ? item.name.slice(0, 19) + "…" : item.name;
+    // Mirror the stored-items weight pattern: show the raw weight string
+    // (e.g. "12 lb.", "½ lb.") when present, fall back to "—". Qty shows the
+    // integer quantity; weight shows the formatted string.
+    const weightText = (item.weight ?? "").trim() || "—";
     const rowData = [
       String(index + 1),
       truncatedName,
       String(item.quantity),
-      item.weight ?? "—",
+      weightText,
     ];
 
     rowData.forEach((text, i) => {
-      drawText(ctx, text, { x: colX[i], y: rowY + 1, width: i === 1 ? 110 : 30, height: 7 }, {
+      const width = i === 1 ? 110 : 28;
+      const align = i === 3 ? "right" : "left";
+      drawText(ctx, text, { x: colX[i], y: rowY + 1, width, height: 7 }, {
         font: "Helvetica",
         size: TYPOGRAPHY.body.maxSize,
         color: COLORS.textPrimary,
+        align,
+        lineGap: 0,
       });
     });
   });
