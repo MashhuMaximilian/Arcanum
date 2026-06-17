@@ -1347,7 +1347,7 @@ function renderWeaponAttackRows(
       ctx,
       column.label,
       { x: column.rect.x, y: rect.y, width: column.rect.width, height: headerHeight },
-      { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.4, color: "#555555" },
+      { font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.5, color: "#555555" },
     );
   });
 
@@ -1373,15 +1373,15 @@ function renderWeaponAttackRows(
       else if (column.key === "properties") value = row?.properties ?? "";
 
       if (column.key === "name") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 4.6, minSize: 3, align: "left" });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 5.6, minSize: 3.5, align: "left" });
       } else if (column.key === "hit") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 5.3, minSize: 3.3 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 6.3, minSize: 4.0 });
       } else if (column.key === "damage") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 4.9, minSize: 3.1 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 5.9, minSize: 3.8 });
       } else if (column.key === "type") {
-        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 3.7, minSize: 2.4, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 4.7, minSize: 3.2, bold: false, align: "left" });
       } else {
-        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 2.8, minSize: 2.4, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 3.8, minSize: 3.0, bold: false, align: "left" });
       }
     });
   });
@@ -1410,7 +1410,7 @@ function renderSpellTracker(
 
   drawCenteredTextInRect(ctx, "Spell List", { x: contentRect.x, y: contentRect.y, width: contentRect.width, height: 6 }, {
     font: "Helvetica-Bold",
-    maxSize: 4.2,
+    maxSize: 5.0,
     minSize: 3,
     color: "#555555",
   });
@@ -1422,8 +1422,8 @@ function renderSpellTracker(
   // Left cell: "Cantrips" label at top, no circles
   drawFittedText(ctx, "Cantrips", { x: contentRect.x, y: cantripY, width: leftCellW, height: 8 }, {
     font: "Helvetica-Bold",
-    maxSize: 4.0,
-    minSize: 4.0,
+    maxSize: 4.7,
+    minSize: 4.7,
     align: "right",
     color: "#222222",
     lineBreak: false,
@@ -1438,7 +1438,7 @@ function renderSpellTracker(
       width: contentRect.width - leftCellW - SPELL_TEXT_GAP,
       height: 8,
     },
-    { font: "Helvetica", maxSize: 3.7, minSize: 3.7, align: "left", color: "#222222", lineBreak: false },
+    { font: "Helvetica", maxSize: 4.7, minSize: 4.7, align: "left", color: "#222222", lineBreak: false },
   );
 
   const pactSummary = formatPactSlotSummary(pactSlots);
@@ -1451,8 +1451,8 @@ function renderSpellTracker(
       height: pactLineHeight,
     }, {
       font: "Helvetica-Bold",
-      maxSize: 3.1,
-      minSize: 2.5,
+      maxSize: 4.0,
+      minSize: 3.5,
       align: "right",
       color: "#555555",
       lineBreak: false,
@@ -1522,7 +1522,7 @@ function renderSpellLevelGroup(
     const spellNames = formatSpellEntriesForFrontPage(spells, "leveled");
     ctx.doc.save();
     ctx.doc.font("Helvetica");
-    ctx.doc.fontSize(3.7);
+    ctx.doc.fontSize(4.7);
     const measuredTextHeight = ctx.doc.heightOfString(spellNames === "—" && slotCount === 0 ? "" : spellNames, {
       width: nameWidth,
       lineBreak: true,
@@ -1582,8 +1582,8 @@ function renderSpellLevelGroup(
     };
     drawFittedText(ctx, `Level ${level}`, labelRect, {
       font: "Helvetica-Bold",
-      maxSize: 4.0,
-      minSize: 4.0,
+      maxSize: 4.7,
+      minSize: 4.7,
       align: "right",
       color: "#555555",
       lineBreak: false,
@@ -1612,8 +1612,8 @@ function renderSpellLevelGroup(
     };
     drawCenteredTextInRect(ctx, spellNames === "—" && slotCount === 0 ? "" : spellNames, namesRect, {
       font: "Helvetica",
-      maxSize: 3.7,
-      minSize: 3.2,
+      maxSize: 4.7,
+      minSize: 4.0,
       align: "left",
       color: "#222222",
       lineGap: SPELL_TEXT_LINE_GAP,
