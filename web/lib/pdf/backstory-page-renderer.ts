@@ -156,17 +156,15 @@ function renderTopHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
     color: COLORS.border,
     lineBreak: false,
   });
-  drawText(ctx, "CHARACTER NAME", { x: leftRect.x + 22, y: leftRect.y + 58, width: leftRect.width - 32, height: 7 }, {
-    font: PDF_BACKSTORY_FONTS.label,
-    size: 6.2,
-    color: COLORS.label,
-    lineBreak: false,
-  });
 
   const rightX = rect.x + leftWidth + 24;
   const rightWidth = rect.width - (rightX - rect.x) - 30;
-  const topRowY = rect.y + 18;
-  const bottomRowY = rect.y + 39;
+  // First row sits a touch lower than before so it doesn't crowd the
+  // dragon-art scrollwork along the top edge of the header. Pushed the
+  // row pair down by 6pt and the bottom row down by 3pt so they stay
+  // visually balanced.
+  const topRowY = rect.y + 24;
+  const bottomRowY = rect.y + 45;
   const topFieldWidths = [0.25, 0.17, 0.29, 0.29].map((fraction) => Math.floor(rightWidth * fraction));
   const topFieldXs = [
     rightX,
