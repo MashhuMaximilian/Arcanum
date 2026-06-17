@@ -346,9 +346,9 @@ function renderPersonalCharacteristics(
   ] as const;
   const content = {
     x: rect.x + 10,
-    y: rect.y + 34,
+    y: rect.y + 38,
     width: rect.width - 20,
-    height: rect.height - 45,
+    height: rect.height - 49,
   };
   drawSectionedText(ctx, sections, content, { bodySize: 6.6, minBodySize: 4.6, gap: 4 });
 }
@@ -364,9 +364,9 @@ function renderMiddleBox(
   drawFrameTitle(ctx, title, rect, { topOffset: 16, size: 7 });
   const content = {
     x: rect.x + 10,
-    y: rect.y + 34,
+    y: rect.y + 38,
     width: rect.width - 20,
-    height: rect.height - 45,
+    height: rect.height - 49,
   };
   if (cleanRichText(value)) {
     drawFittedText(ctx, cleanRichText(value), content, {
@@ -389,9 +389,9 @@ function renderBackstoryNarrative(
   drawFrameTitle(ctx, "BACKSTORY", rect, { topOffset: 16, size: 7.6 });
   const content = {
     x: rect.x + 11,
-    y: rect.y + 34,
+    y: rect.y + 38,
     width: rect.width - 22,
-    height: rect.height - 45,
+    height: rect.height - 49,
   };
   const clean = cleanRichText(value);
   if (clean) {

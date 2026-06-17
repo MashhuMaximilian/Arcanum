@@ -553,7 +553,7 @@ function renderItemDescriptions(
   const rect = PAGE2_INVENTORY_REGIONS.itemDescriptions;
   drawSvg(ctx, assets.generalContainer, rect);
 
-  drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 18 });
+  drawCenteredSectionTitle(ctx, "ITEM DESCRIPTIONS", rect, { topOffset: 20 });
 
   const describedItems = items.filter((item) => item.includeInItemDescriptions);
 
@@ -567,7 +567,7 @@ function renderItemDescriptions(
     return;
   }
 
-  const contentStartY = rect.y + 34;
+  const contentStartY = rect.y + 36;
   const contentBottomY = rect.y + rect.height - 4;
   const columnGap = 10;
   const columnPadding = 4;
@@ -1060,7 +1060,7 @@ function renderAdditionalTreasure(
 
   const segments = parseFreeformText(additionalTreasureText);
 
-  const contentStartY = rect.y + 32;
+  const contentStartY = rect.y + 34;
   const lineHeight = 6.5;
   const availableHeight = rect.y + rect.height - contentStartY - 4;
   const maxLines = Math.max(1, Math.floor(availableHeight / lineHeight));
@@ -1132,7 +1132,7 @@ function renderStoredItems(
   // columns regardless of the available card height.
   const rect = PAGE2_INVENTORY_REGIONS.storedItems;
   drawSvg(ctx, assets.generalContainer, rect);
-  drawCenteredSectionTitle(ctx, "STORED ITEMS", rect, { topOffset: 18 });
+  drawCenteredSectionTitle(ctx, "STORED ITEMS", rect, { topOffset: 20 });
 
   const contentStartY = rect.y + 34;
   const contentEndY = rect.y + rect.height - 4;
@@ -1200,11 +1200,11 @@ function renderQuestItems(
   // markdown markers.
   const rect = PAGE2_INVENTORY_REGIONS.questItems;
   drawSvg(ctx, assets.generalContainer, rect);
-  drawCenteredSectionTitle(ctx, "QUEST ITEMS & TRINKETS", rect, { topOffset: 18 });
+  drawCenteredSectionTitle(ctx, "QUEST ITEMS & TRINKETS", rect, { topOffset: 20 });
 
   const segments = parseFreeformText(questItemsText);
 
-  const contentStartY = rect.y + 32;
+  const contentStartY = rect.y + 34;
   const lineHeight = 6.5;
   const availableHeight = rect.y + rect.height - contentStartY - 4;
   const maxLines = Math.max(1, Math.floor(availableHeight / lineHeight));
