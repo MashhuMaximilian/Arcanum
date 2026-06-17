@@ -116,7 +116,7 @@ function drawHeaderField(
   const labelRect = { x: rect.x + 2, y: rect.y + 2, width: rect.width - 4, height: 7 };
   const valueRect = { x: rect.x + 2, y: rect.y + 8.8, width: rect.width - 4, height: rect.height - 10 };
   drawText(ctx, label.toUpperCase(), labelRect, {
-    font: PDF_BACKSTORY_FONTS.label,
+    font: "Magra-Bold",
     size: options.labelSize ?? 6.2,
     color: COLORS.label,
     lineBreak: false,
@@ -295,7 +295,7 @@ function drawSectionedText(
       width: rect.width,
       height: labelSize + 2,
     }, {
-      font: PDF_BACKSTORY_FONTS.label,
+      font: "Magra-Bold",
       size: labelSize,
       color: COLORS.title,
       lineBreak: false,

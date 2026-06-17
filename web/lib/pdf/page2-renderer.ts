@@ -504,7 +504,7 @@ function renderInventoryIndex(
   const headers = ["#", "Name", "Qty", "lb"];
   headers.forEach((h, i) => {
     drawText(ctx, h, { x: colX[i], y: headerY, width: 30, height: 8 }, {
-      font: "Helvetica-Bold",
+      font: "Magra-Bold",
       size: TYPOGRAPHY.small.minSize,
       color: COLORS.textSecondary,
     });
@@ -706,7 +706,7 @@ function renderAttuned(
   // Small "ATTUNED" label above the box.
   const labelY = rect.y + 3;
   drawCenteredTextInRect(ctx, "ATTUNED", { x: rect.x, y: labelY, width: rect.width, height: 7 }, {
-    font: "Helvetica-Bold",
+    font: "Magra-Bold",
     maxSize: 6.5,
     minSize: 5,
     color: COLORS.textPrimary,
@@ -748,7 +748,7 @@ function renderValuables(
   // Small "VALUABLES" label above the row.
   const labelY = rect.y + 4;
   drawCenteredTextInRect(ctx, "VALUABLES", { x: rect.x, y: labelY, width: rect.width, height: 7 }, {
-    font: "Helvetica-Bold",
+    font: "Magra-Bold",
     maxSize: 6.5,
     minSize: 5,
     color: COLORS.textPrimary,
@@ -810,7 +810,7 @@ function renderCurrency(
       width: CURRENCY_BOX_WIDTH,
       height: CURRENCY_LABEL_HEIGHT,
     }, {
-      font: "Helvetica-Bold",
+      font: "Magra-Bold",
       maxSize: 5,
       minSize: 3.5,
       color: COLORS.textSecondary,
@@ -842,7 +842,7 @@ function renderEncumbrance(
   // Small "ENCUMBRANCE" label above the row.
   const labelY = rect.y + 3;
   drawCenteredTextInRect(ctx, "ENCUMBRANCE", { x: rect.x, y: labelY, width: rect.width, height: 7 }, {
-    font: "Helvetica-Bold",
+    font: "Magra-Bold",
     maxSize: 6.5,
     minSize: 5,
     color: COLORS.textPrimary,
@@ -875,7 +875,7 @@ function renderEncumbrance(
       width: boxW,
       height: 4,
     }, {
-      font: "Helvetica-Bold",
+      font: "Magra-Bold",
       maxSize: 4.5,
       minSize: 3.5,
       color: COLORS.textSecondary,
@@ -912,7 +912,7 @@ function renderInventoryFooter(
     height: 30,
   };
 
-  const textFont = "Helvetica-Bold";
+  const textFont = "Magra-Bold";
   const labelSize = 4.2;
   const valueSize = 6.5;
   const boxW = 22;
