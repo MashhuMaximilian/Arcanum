@@ -9,22 +9,21 @@ export const PAGE2_PRINT_SAFE_OFFSET = {
 
 // Page 2 regions for inventory (page 2A) — v7 layout:
 //   y=0..18     INVENTORY header (full width)
-//   y=18..420   TOP AREA (402pt) — 2 columns: Equipped (compact) | Item Descriptions
-//   y=425..475  UTILITY ROW (50pt slim) — 4 sections on the same row, same height
+//   y=18..363   TOP AREA (345pt) — 2 columns: Equipped | Item Descriptions
 //   y=480..795  BOTTOM 3 COLUMNS (315pt) — stored, additional treasure, quest items
 //                  (3 equal-width columns, same style)
 export const PAGE2_INVENTORY_REGIONS = {
   outer: { x: 10, y: 10, width: 822, height: 575 },
   inventoryHeader: { x: 10, y: 0, width: 822, height: 18 },
-  inventoryIndex: { x: 10, y: 18, width: 250, height: 285 },
-  itemDescriptions: { x: 265, y: 18, width: 567, height: 285 },
-  attuned: { x: 10, y: 308, width: 70, height: 50 },
-  currency: { x: 85, y: 308, width: 250, height: 50 },
-  encumbrance: { x: 340, y: 308, width: 120, height: 50 },
-  valuables: { x: 465, y: 308, width: 367, height: 50 },
-  storedItems: { x: 10, y: 363, width: 269, height: 212 },
-  additionalTreasure: { x: 286, y: 363, width: 269, height: 212 },
-  questItems: { x: 562, y: 363, width: 270, height: 212 },
+  inventoryIndex: { x: 10, y: 18, width: 250, height: 345 },
+  itemDescriptions: { x: 265, y: 18, width: 567, height: 345 },
+  attuned: { x: 10, y: 321, width: 70, height: 42 },
+  currency: { x: 85, y: 321, width: 250, height: 42 },
+  encumbrance: { x: 340, y: 321, width: 120, height: 42 },
+  valuables: { x: 465, y: 321, width: 367, height: 42 },
+  storedItems: { x: 10, y: 363, width: 269, height: 198 },
+  additionalTreasure: { x: 286, y: 363, width: 269, height: 198 },
+  questItems: { x: 562, y: 363, width: 270, height: 198 },
 } satisfies Record<string, PdfRect>;
 
 // Page 2 regions for companion (page 2B)

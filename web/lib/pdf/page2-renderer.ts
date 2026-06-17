@@ -7,6 +7,7 @@ import {
   drawFittedText,
   drawSvg,
   drawText,
+  insetRect,
   maskRect,
   type PdfRect,
   type PdfRenderContext,
@@ -476,96 +477,119 @@ function renderItemDescriptions(
 
   const contentStartY = rect.y + 34;
   const contentBottomY = rect.y + rect.height - 4;
-  let currentY = contentStartY;
-
-  const innerWidth = rect.width - 8;
+  const columnGap = 10;
+  const columnPadding = 4;
+  const columnWidth = (rect.width - columnGap - columnPadding * 2) / 2;
   const textFont = "Helvetica";
   const lineGap = 0.3;
 
   // Fixed body size for ALL item descriptions. Small enough that the
   // full rules text fits for typical items without overflowing.
-  const bodySize = 5.5;
-  const titleSize = 7;
+  const bodySize = 5.25;
+  const titleSize = 6.8;
+  const columnItems: Array<Array<{ item: CharacterInventoryItem; estimatedHeight: number }>> = [[], []];
+  const columnHeights = [contentStartY, contentStartY];
 
   for (const item of describedItems) {
-    // Item name (bold, primary color) on the same line as inline
-    // metadata (gray, same font size as the name).
-    const metaLine = buildItemMetadataLine(item);
-    if (currentY + titleSize + 2 > contentBottomY) break;
-
-    // Measure the item name's width so the metadata sits right next to it.
-    let nameWidth = 0;
-    ctx.doc.save();
-    ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
-    nameWidth = ctx.doc.widthOfString(item.name);
-    ctx.doc.restore();
-    const separator = metaLine ? "  —  " : "";
-    const separatorWidth = ctx.doc.widthOfString(separator);
-    const metaX = rect.x + 4 + nameWidth + separatorWidth;
-    const metaWidth = Math.max(0, innerWidth - nameWidth - separatorWidth);
-
-    // Bold black item name (with ellipsis if it doesn't fit alone)
-    drawText(ctx, item.name, { x: rect.x + 4, y: currentY, width: innerWidth, height: titleSize + 1 }, {
-      font: "Helvetica-Bold",
-      size: titleSize,
-      color: COLORS.textPrimary,
-      lineGap: 0,
-      ellipsis: true,
-    });
-
-    // Inline gray metadata (same font size as the name, sits right after)
-    if (metaLine && metaWidth > 20) {
-      if (separatorWidth > 0) {
-        drawText(ctx, separator, { x: rect.x + 4 + nameWidth, y: currentY, width: separatorWidth + 1, height: titleSize + 1 }, {
-          font: "Helvetica-Bold",
-          size: titleSize,
-          color: COLORS.textPrimary,
-          lineGap: 0,
-        });
-      }
-      drawText(ctx, metaLine, { x: metaX, y: currentY, width: metaWidth, height: titleSize + 1 }, {
-        font: "Helvetica-Bold",
-        size: titleSize,
-        color: COLORS.textSecondary,
-        lineGap: 0,
-        ellipsis: true,
-      });
-    }
-    currentY += titleSize + 1;
-
-    // Item description from the item's <sheet> description. Fixed
-    // body size so all items share the same font and the description
-    // fits within the remaining vertical space.
     const description = extractItemDescription(
       item.sheetDescription || item.detailHtml,
       item.notes ?? item.name,
     );
-    if (description) {
+    const metaLine = buildItemMetadataLine(item);
+    const separator = metaLine ? "  —  " : "";
+
+    ctx.doc.save();
+    ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
+    const titleWidth = ctx.doc.widthOfString(item.name);
+    const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
+    const metaWidth = metaLine ? Math.max(0, columnWidth - titleWidth - separatorWidth) : 0;
+    const titleMetaHeight = titleSize + 1 + (metaLine && metaWidth < 40 ? 6 : 0);
+    ctx.doc.font(textFont).fontSize(bodySize);
+    const bodyHeight = description
+      ? ctx.doc.heightOfString(description, { width: columnWidth, lineBreak: true, lineGap })
+      : 0;
+    ctx.doc.restore();
+
+    const estimatedHeight = titleMetaHeight + bodyHeight + 3;
+    const targetColumn = columnHeights[0] <= columnHeights[1] ? 0 : 1;
+    columnItems[targetColumn].push({ item, estimatedHeight });
+    columnHeights[targetColumn] += estimatedHeight;
+  }
+
+  const renderColumn = (columnIndex: number) => {
+    let currentY = contentStartY;
+    const columnX = rect.x + columnPadding + columnIndex * (columnWidth + columnGap);
+    for (const entry of columnItems[columnIndex]) {
+      const item = entry.item;
+      const metaLine = buildItemMetadataLine(item);
+      const description = extractItemDescription(
+        item.sheetDescription || item.detailHtml,
+        item.notes ?? item.name,
+      );
+      const separator = metaLine ? "  —  " : "";
+
       ctx.doc.save();
-      ctx.doc.font(textFont).fontSize(bodySize);
-      const bodyHeight = ctx.doc.heightOfString(description, {
-        width: innerWidth,
-        lineBreak: true,
-        lineGap,
-      });
+      ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
+      const nameWidth = ctx.doc.widthOfString(item.name);
+      const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
+      const metaWidth = metaLine ? Math.max(0, columnWidth - nameWidth - separatorWidth) : 0;
       ctx.doc.restore();
 
-      const remainingForBody = contentBottomY - currentY - 2;
-      const renderedHeight = Math.min(bodyHeight, Math.max(0, remainingForBody));
-      if (renderedHeight > 3) {
-        drawText(ctx, description, { x: rect.x + 4, y: currentY, width: innerWidth, height: renderedHeight }, {
-          font: textFont,
-          size: bodySize,
-          color: COLORS.textPrimary,
-          lineGap,
-          lineBreak: true,
-        });
-        currentY += renderedHeight;
-      }
-    }
+      drawText(ctx, item.name, { x: columnX, y: currentY, width: columnWidth, height: titleSize + 1 }, {
+        font: "Helvetica-Bold",
+        size: titleSize,
+        color: COLORS.textPrimary,
+        lineGap: 0,
+        ellipsis: true,
+      });
 
-    currentY += 2; // tight breathing room between items
-  }
+      if (metaLine && metaWidth > 20) {
+        if (separatorWidth > 0) {
+          drawText(ctx, separator, { x: columnX + nameWidth, y: currentY, width: separatorWidth + 1, height: titleSize + 1 }, {
+            font: "Helvetica-Bold",
+            size: titleSize,
+            color: COLORS.textPrimary,
+            lineGap: 0,
+          });
+        }
+        drawText(ctx, metaLine, { x: columnX + nameWidth + separatorWidth, y: currentY, width: metaWidth, height: titleSize + 1 }, {
+          font: "Helvetica-Bold",
+          size: titleSize,
+          color: COLORS.textSecondary,
+          lineGap: 0,
+          ellipsis: true,
+        });
+      }
+      currentY += titleSize + 1;
+
+      if (description) {
+        ctx.doc.save();
+        ctx.doc.font(textFont).fontSize(bodySize);
+        const remainingForBody = contentBottomY - currentY - 2;
+        const bodyHeight = Math.min(
+          ctx.doc.heightOfString(description, { width: columnWidth, lineBreak: true, lineGap }),
+          Math.max(0, remainingForBody),
+        );
+        ctx.doc.restore();
+
+        if (bodyHeight > 2) {
+          drawText(ctx, description, { x: columnX, y: currentY, width: columnWidth, height: bodyHeight }, {
+            font: textFont,
+            size: bodySize,
+            color: COLORS.textPrimary,
+            lineGap,
+            lineBreak: true,
+          });
+          currentY += bodyHeight;
+        }
+      }
+
+      currentY += 2;
+    }
+  };
+
+  renderColumn(0);
+  renderColumn(1);
 }
 
 function renderAttuned(
@@ -573,10 +597,11 @@ function renderAttuned(
   assets: PdfSvgAssetBundle,
   attunedCount: number,
   maxAttuned: number,
+  rectOverride?: PdfRect,
 ) {
   // Same visual language as Currency: a single _Proficiency box 1.svg
   // with the value inside, and a small label above.
-  const rect = PAGE2_INVENTORY_REGIONS.attuned;
+  const rect = rectOverride ?? PAGE2_INVENTORY_REGIONS.attuned;
 
   // Small "ATTUNED" label above the box.
   const labelY = rect.y + 3;
@@ -608,6 +633,7 @@ function renderValuables(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
   valuables: string[],
+  rectOverride?: PdfRect,
 ) {
   // Valuables: a row of standalone _Proficiency box 1.svg boxes — same
   // visual language as Currency. Each box contains the valuable's name.
@@ -617,7 +643,7 @@ function renderValuables(
     return;
   }
 
-  const rect = PAGE2_INVENTORY_REGIONS.valuables;
+  const rect = rectOverride ?? PAGE2_INVENTORY_REGIONS.valuables;
 
   // Small "VALUABLES" label above the row.
   const labelY = rect.y + 4;
@@ -662,9 +688,10 @@ function renderCurrency(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
   currency: { cp: number; sp: number; ep: number; gp: number; pp: number },
+  rectOverride?: PdfRect,
 ) {
   // Standalone boxes — no big generalContainer frame around them.
-  const rect = PAGE2_INVENTORY_REGIONS.currency;
+  const rect = rectOverride ?? PAGE2_INVENTORY_REGIONS.currency;
 
   const totalBoxesWidth = 5 * CURRENCY_BOX_WIDTH + 4 * CURRENCY_BOX_GAP;
   const startOffset = Math.max(0, (rect.width - totalBoxesWidth) / 2);
@@ -706,10 +733,11 @@ function renderEncumbrance(
   assets: PdfSvgAssetBundle,
   carriedWeight: number,
   capacity: number,
+  rectOverride?: PdfRect,
 ) {
   // Same visual language as Currency: small label above, then 3
   // standalone _Proficiency box 1.svg boxes — one per value.
-  const rect = PAGE2_INVENTORY_REGIONS.encumbrance;
+  const rect = rectOverride ?? PAGE2_INVENTORY_REGIONS.encumbrance;
 
   // Small "ENCUMBRANCE" label above the row.
   const labelY = rect.y + 3;
@@ -766,6 +794,124 @@ function renderEncumbrance(
   });
 }
 
+function renderInventoryFooter(
+  ctx: PdfRenderContext,
+  assets: PdfSvgAssetBundle,
+  data: {
+    attunedCount: number;
+    maxAttuned: number;
+    currency: { cp: number; sp: number; ep: number; gp: number; pp: number };
+    carriedWeight: number;
+    capacity: number;
+  },
+) {
+  const rect = {
+    x: PAGE2_INVENTORY_REGIONS.inventoryIndex.x + 4,
+    y: PAGE2_INVENTORY_REGIONS.inventoryIndex.y + PAGE2_INVENTORY_REGIONS.inventoryIndex.height - 43,
+    width: PAGE2_INVENTORY_REGIONS.inventoryIndex.width - 8,
+    height: 30,
+  };
+
+  const textFont = "Helvetica-Bold";
+  const labelSize = 4.2;
+  const valueSize = 6.5;
+  const boxW = 22;
+  const boxH = 16;
+  const groupGap = 3.5;
+  const boxGap = 1.25;
+
+  const attunedZone = { x: rect.x, y: rect.y, width: boxW, height: rect.height };
+  const currencyZoneWidth = 5 * boxW + 4 * boxGap;
+  const encumbranceZoneWidth = 3 * boxW + 2 * boxGap;
+  const totalWidth = boxW + groupGap + currencyZoneWidth + groupGap + encumbranceZoneWidth;
+  const startX = rect.x + Math.max(0, (rect.width - totalWidth) / 2);
+  const currencyZone = { x: startX + boxW + groupGap, y: rect.y, width: currencyZoneWidth, height: rect.height };
+  const encumbranceZone = { x: currencyZone.x + currencyZone.width + groupGap, y: rect.y, width: encumbranceZoneWidth, height: rect.height };
+
+  // Attuned
+  drawCenteredTextInRect(ctx, "ATTUNED", { x: attunedZone.x - 2, y: attunedZone.y, width: boxW + 4, height: 4 }, {
+    font: textFont,
+    maxSize: 4.9,
+    minSize: 4.1,
+    color: COLORS.textPrimary,
+    lineBreak: false,
+  });
+  const attunedBox: PdfRect = { x: attunedZone.x, y: attunedZone.y + 8, width: boxW, height: boxH };
+  drawSvg(ctx, assets.proficiencyBox1, attunedBox);
+  drawCenteredTextInRect(ctx, `${data.attunedCount}/${data.maxAttuned}`, attunedBox, {
+    font: textFont,
+    maxSize: 6.2,
+    minSize: 5.4,
+    color: COLORS.textPrimary,
+    lineBreak: false,
+  });
+
+  // Currency
+  const currencyBoxW = boxW;
+  const currencyGap = boxGap;
+  const currencyTotalW = 5 * currencyBoxW + 4 * currencyGap;
+  const currencyStartX = currencyZone.x + Math.max(0, (currencyZone.width - currencyTotalW) / 2);
+  CURRENCY_TYPES.forEach((type, index) => {
+    const boxX = currencyStartX + index * (currencyBoxW + currencyGap);
+    drawCenteredTextInRect(ctx, CURRENCY_LABELS[type], {
+      x: boxX - 1,
+      y: currencyZone.y,
+      width: currencyBoxW + 2,
+      height: 3.5,
+    }, {
+      font: textFont,
+      maxSize: labelSize,
+      minSize: 3.2,
+      color: COLORS.textSecondary,
+      lineBreak: false,
+    });
+    const boxRect: PdfRect = { x: boxX, y: currencyZone.y + 8, width: currencyBoxW, height: boxH };
+    drawSvg(ctx, assets.proficiencyBox1, boxRect);
+    drawCenteredTextInRect(ctx, String(data.currency[type]), boxRect, {
+      font: textFont,
+      maxSize: valueSize,
+      minSize: 4.6,
+      color: COLORS.textPrimary,
+      lineBreak: false,
+    });
+  });
+
+  // Encumbrance
+  const encumbranceBoxW = boxW;
+  const encumbranceGap = boxGap;
+  const encumbranceTotalW = 3 * encumbranceBoxW + 2 * encumbranceGap;
+  const encumbranceStartX = encumbranceZone.x + Math.max(0, (encumbranceZone.width - encumbranceTotalW) / 2);
+  const encumbranceValues: Array<{ label: string; value: string }> = [
+    { label: "CARRIED", value: `${data.carriedWeight} lb` },
+    { label: "CAPACITY", value: `${data.capacity} lb` },
+    { label: "PUSH/DRAG", value: `${data.capacity * 2} lb` },
+  ];
+  encumbranceValues.forEach((entry, index) => {
+    const boxX = encumbranceStartX + index * (encumbranceBoxW + encumbranceGap);
+    drawCenteredTextInRect(ctx, entry.label, {
+      x: boxX - 1,
+      y: encumbranceZone.y,
+      width: encumbranceBoxW + 2,
+      height: 3.5,
+    }, {
+      font: textFont,
+      maxSize: 4.1,
+      minSize: 3.1,
+      color: COLORS.textSecondary,
+      lineBreak: false,
+    });
+    const boxRect: PdfRect = { x: boxX, y: encumbranceZone.y + 8, width: encumbranceBoxW, height: boxH };
+    drawSvg(ctx, assets.proficiencyBox1, boxRect);
+    drawCenteredTextInRect(ctx, entry.value, boxRect, {
+      font: textFont,
+      maxSize: 6.0,
+      minSize: 4.6,
+      color: COLORS.textPrimary,
+      lineBreak: false,
+    });
+  });
+}
+
 function renderLinedSection(
   ctx: PdfRenderContext,
   assets: PdfSvgAssetBundle,
@@ -807,6 +953,10 @@ function renderAdditionalTreasure(
   const rect = PAGE2_INVENTORY_REGIONS.additionalTreasure;
   drawSvg(ctx, assets.generalContainer, rect);
   drawSectionTitle(ctx, "ADDITIONAL TREASURE", rect);
+
+  if (!additionalTreasureText || additionalTreasureText.trim().length === 0) {
+    return;
+  }
 
   const segments = parseFreeformText(additionalTreasureText);
 
@@ -1073,22 +1223,18 @@ export function renderInventoryPage(
   renderInventoryIndex(ctx, assets, data.equipment);
   renderItemDescriptions(ctx, assets, data.equipment);
 
-  // 2. Middle utility row: 4 sections on the same row, same height
-  //    Attuned | Valuables | Currency | Encumbrance
-  //    One coordinated band — no grey headers, consistent framing.
-  renderAttuned(ctx, assets, data.attunedCount, data.maxAttuned);
-  renderValuables(ctx, assets, data.valuables);
-  renderCurrency(ctx, assets, data.currency);
-  renderEncumbrance(ctx, assets, Math.round(data.carriedWeight), data.capacity);
+  // 2. Footer inside EQUIPPED: Attuned | Currency | Encumbrance
+  renderInventoryFooter(ctx, assets, {
+    attunedCount: data.attunedCount,
+    maxAttuned: data.maxAttuned,
+    currency: data.currency,
+    carriedWeight: Math.round(data.carriedWeight),
+    capacity: data.capacity,
+  });
 
   // 3. Bottom 3 equal columns: Stored Items | Additional Treasure | Quest Items
   renderStoredItems(ctx, assets, data.storedItems);
-
-  // Additional treasure only renders when the player has content. Otherwise
-  // the slot stays empty (no card, no placeholder) per the user's request.
-  if (data.additionalTreasure && data.additionalTreasure.trim().length > 0) {
-    renderAdditionalTreasure(ctx, assets, data.additionalTreasure);
-  }
+  renderAdditionalTreasure(ctx, assets, data.additionalTreasure);
 
   renderQuestItems(ctx, assets, data.questItems);
 
@@ -1404,14 +1550,14 @@ function renderCompanionHeader(
   drawSvg(ctx, assets.frontPageHeaderShell || assets.frontPageHeader, rects.header);
 
   drawFittedText(ctx, data.name, {
-    x: rects.header.x + 58,
-    y: rects.header.y + 35,
-    width: 150,
-    height: 17,
+    x: rects.header.x + 48,
+    y: rects.header.y + 28,
+    width: 170,
+    height: 30,
   }, {
     font: "Times-Bold",
-    maxSize: 17,
-    minSize: 9,
+    maxSize: 28,
+    minSize: 12,
     color: "#000000",
     lineBreak: false,
   });
@@ -1450,7 +1596,7 @@ function renderCompanionHeader(
   });
 }
 
-function renderCompanionPicture(ctx: PdfRenderContext, rect: PdfRect) {
+function renderCompanionPicture(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, rect: PdfRect) {
   const doc = ctx.doc as unknown as {
     save: () => void;
     restore: () => void;
@@ -1474,25 +1620,22 @@ function renderCompanionPicture(ctx: PdfRenderContext, rect: PdfRect) {
     };
   };
 
+  drawSvg(ctx, assets.generalContainer, rect);
+  const imageRect = insetRect(rect, 8, 10);
+
   if (ctx.companionPortraitImage) {
     doc.save();
-    doc.rect(rect.x, rect.y, rect.width, rect.height).clip();
-    doc.image(ctx.companionPortraitImage, rect.x, rect.y, {
-      fit: [rect.width, rect.height],
+    doc.rect(imageRect.x, imageRect.y, imageRect.width, imageRect.height).clip();
+    doc.image(ctx.companionPortraitImage, imageRect.x, imageRect.y, {
+      fit: [imageRect.width, imageRect.height],
       align: "center",
       valign: "center",
     });
     doc.restore();
   }
 
-  doc.save();
-  doc.rect(rect.x, rect.y, rect.width, rect.height)
-    .lineWidth(0.8)
-    .strokeColor("#b8b8b8")
-    .stroke();
-  doc.restore();
   if (!ctx.companionPortraitImage) {
-    drawCenteredTextInRect(ctx, "Picture", rect, {
+    drawCenteredTextInRect(ctx, "Picture", imageRect, {
       font: "Helvetica",
       maxSize: 14,
       minSize: 10,
@@ -1895,7 +2038,7 @@ export function renderCompanionPage(
     type: getTag("type"),
     alignment: getTag("alignment"),
   });
-  renderCompanionPicture(ctx, rects.picture);
+  renderCompanionPicture(ctx, assets, rects.picture);
   renderCompanionAbilities(ctx, assets, rects, scores);
 
   const proficiencyBonus = proficiencyBonusForCr(cr);

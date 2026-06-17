@@ -927,7 +927,6 @@ export function resolvePdfCharacter(source: PdfResolveSource): ResolvedPdfCharac
 export function buildPdfPagePlan(character: ResolvedPdfCharacter): PdfPagePlan[] {
   const pages: PdfPagePlan[] = [];
   let pageNumber = 1;
-  const backstorySourceCards = character.backstoryCards.length ? character.backstoryCards : backstoryToCards(character.backstory);
   const statsCards = character.frontPage.stats.map(statBlockToCard);
 
   pages.push(
@@ -966,24 +965,17 @@ export function buildPdfPagePlan(character: ResolvedPdfCharacter): PdfPagePlan[]
     );
   }
 
+  pageNumber += 1;
+  pages.push(
+    buildPage("backstory", pageNumber, "Backstory", [], ["Narrative content follows the inventory page."]),
+  );
+
   if (character.spellCards.length) {
     pageNumber += 1;
     pages.push(
       buildPage("spells", pageNumber, "Spell List", buildPageCards(character.spellCards, SPELL_PAGE_CAPACITY).map((cards, index) =>
         buildSection(`spells-${index + 1}`, "Spell cards", cards, "Prepared, known, or otherwise selected spells only."),
       ), ["Spell page is shown only when the character has relevant spellcasting content."]),
-    );
-  }
-
-  if (character.backstoryCards.length || character.backstory?.backstory || character.backstory?.personalityTraits) {
-    pageNumber += 1;
-    const cards = buildPageCards(backstorySourceCards, INVENTORY_PAGE_CAPACITY)
-      .map((cards, index) =>
-        buildSection(`backstory-${index + 1}`, "Backstory cards", cards, "Personality, ideals, bonds, flaws, and other narrative content."),
-      )
-      .filter((section): section is PdfPageSection => Boolean(section));
-    pages.push(
-      buildPage("backstory", pageNumber, "Backstory", cards, ["Narrative content comes after the mechanical pages."]),
     );
   }
 

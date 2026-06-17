@@ -32,6 +32,7 @@ export type PdfRenderContext = {
   doc: PDFDocument;
   svgToPdf: typeof SVGtoPDF;
   bodyFont: string;
+  characterPortraitImage?: string;
   companionPortraitImage?: string;
 };
 

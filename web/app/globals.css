@@ -19,9 +19,9 @@
   --scrollbar-thumb-active: rgba(122, 32, 13, 0.92);
   --font-display: var(--font-teko), "Arial Narrow", sans-serif;
   --font-ui: var(--font-magra), "Trebuchet MS", sans-serif;
-  --font-body: var(--font-roboto), Arial, sans-serif;
+  --font-body: var(--font-magra), "Trebuchet MS", sans-serif;
   --tracking-display: 0.035em;
-  --tracking-ui: -0.04em;
+  --tracking-ui: -0.02em;
   --tracking-ui-wide: 0.08em;
   --tracking-tag: 0.045em;
 }

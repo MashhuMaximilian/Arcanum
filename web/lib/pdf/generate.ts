@@ -10,11 +10,16 @@ import type { PdfSvgAssetBundle } from "@/lib/pdf/svg-assets.server";
 import type { ResolvedPdfCharacter } from "@/lib/pdf/types";
 import type { PdfRenderContext } from "@/lib/pdf/drawing";
 import { PAGE_SIZE } from "@/lib/pdf/front-page-layout";
+import { renderBackstoryPage } from "@/lib/pdf/backstory-page-renderer";
 import { renderFrontPage } from "@/lib/pdf/front-page-renderer";
 import { renderInventoryPage, renderCompanionPage } from "@/lib/pdf/page2-renderer";
 import { renderStandardPage } from "@/lib/pdf/page-flow";
 
-const PDF_TEXT_FONT_FAMILY = "Noto Sans";
+const PDF_MAGRA_FONT_FAMILY = "Magra";
+const PDF_MAGRA_BOLD_FONT_FAMILY = "Magra-Bold";
+const PDF_TEKO_FONT_FAMILY = "Teko";
+const PDF_TEKO_MEDIUM_FONT_FAMILY = "Teko-Medium";
+const PDF_TEKO_SEMIBOLD_FONT_FAMILY = "Teko-SemiBold";
 const MAX_PORTRAIT_BYTES = 8 * 1024 * 1024;
 
 function isPrivateIpAddress(address: string) {
@@ -138,10 +143,10 @@ async function loadRemotePortrait(value: string) {
   return undefined;
 }
 
-async function resolvePdfFontPath() {
+async function resolvePdfFontPath(fileName = "NotoSans-Regular.ttf") {
   const candidates = [
-    path.resolve(process.cwd(), "public", "pdf-fonts", "NotoSans-Regular.ttf"),
-    path.resolve(process.cwd(), "web", "public", "pdf-fonts", "NotoSans-Regular.ttf"),
+    path.resolve(process.cwd(), "public", "pdf-fonts", fileName),
+    path.resolve(process.cwd(), "web", "public", "pdf-fonts", fileName),
   ];
 
   for (const candidate of candidates) {
@@ -156,8 +161,8 @@ async function resolvePdfFontPath() {
   throw new Error("Unable to locate the PDF font asset.");
 }
 
-async function loadPdfFontBuffer() {
-  const fontPath = await resolvePdfFontPath();
+async function loadPdfFontBuffer(fileName?: string) {
+  const fontPath = await resolvePdfFontPath(fileName);
   return fsPromises.readFile(fontPath);
 }
 
@@ -173,8 +178,24 @@ function collectPdfBytes(doc: PDFDocument) {
 }
 
 export async function generatePdfBytes(character: ResolvedPdfCharacter, assets: PdfSvgAssetBundle) {
-  const [fontBuffer, companionPortraitImage] = await Promise.all([
-    loadPdfFontBuffer(),
+  const [
+    magraFontBuffer,
+    magraBoldFontBuffer,
+    tekoFontBuffer,
+    tekoMediumFontBuffer,
+    tekoSemiBoldFontBuffer,
+    characterPortraitImage,
+    companionPortraitImage,
+  ] = await Promise.all([
+    loadPdfFontBuffer("Magra-Regular.ttf"),
+    loadPdfFontBuffer("Magra-Bold.ttf"),
+    loadPdfFontBuffer("Teko-Regular.ttf"),
+    loadPdfFontBuffer("Teko-Medium.ttf"),
+    loadPdfFontBuffer("Teko-SemiBold.ttf"),
+    loadRemotePortrait(character.source?.characterPortraitUrl ?? "").catch((error) => {
+      console.warn("Unable to load character portrait for PDF", error);
+      return undefined;
+    }),
     loadRemotePortrait(character.source?.companionPortraitUrl ?? "").catch((error) => {
       console.warn("Unable to load companion portrait for PDF", error);
       return undefined;
@@ -191,13 +212,23 @@ export async function generatePdfBytes(character: ResolvedPdfCharacter, assets: 
     autoFirstPage: false,
     compress: true,
   });
-  doc.registerFont(PDF_TEXT_FONT_FAMILY, fontBuffer);
+  doc.registerFont(PDF_MAGRA_FONT_FAMILY, magraFontBuffer);
+  doc.registerFont(PDF_MAGRA_BOLD_FONT_FAMILY, magraBoldFontBuffer);
+  doc.registerFont(PDF_TEKO_FONT_FAMILY, tekoFontBuffer);
+  doc.registerFont(PDF_TEKO_MEDIUM_FONT_FAMILY, tekoMediumFontBuffer);
+  doc.registerFont(PDF_TEKO_SEMIBOLD_FONT_FAMILY, tekoSemiBoldFontBuffer);
+  doc.registerFont("Helvetica", magraFontBuffer);
+  doc.registerFont("Helvetica-Oblique", magraFontBuffer);
+  doc.registerFont("Helvetica-Bold", tekoMediumFontBuffer);
+  doc.registerFont("Helvetica-BoldOblique", tekoMediumFontBuffer);
+  doc.registerFont("Times-Bold", tekoSemiBoldFontBuffer);
 
   const done = collectPdfBytes(doc);
   const ctx: PdfRenderContext = {
     doc,
     svgToPdf: SVGtoPDF,
-    bodyFont: PDF_TEXT_FONT_FAMILY,
+    bodyFont: PDF_MAGRA_FONT_FAMILY,
+    characterPortraitImage,
     companionPortraitImage,
   };
 
@@ -216,6 +247,8 @@ export async function generatePdfBytes(character: ResolvedPdfCharacter, assets: 
       renderInventoryPage(ctx, assets, character);
     } else if (page.kind === "companion") {
       renderCompanionPage(ctx, assets, character);
+    } else if (page.kind === "backstory") {
+      renderBackstoryPage(ctx, assets, character, page);
     } else if (page.kind !== "front") {
       renderStandardPage(ctx, assets, character, page);
     }

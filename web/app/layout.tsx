@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { Magra, Roboto, Teko } from "next/font/google";
+import { Magra, Teko } from "next/font/google";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 
@@ -22,13 +22,6 @@ const uiFont = Magra({
   display: "swap",
 });
 
-const bodyFont = Roboto({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-roboto",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: "Arcanum",
   description: "Aurora web character builder scaffold",
@@ -43,7 +36,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={`${displayFont.variable} ${uiFont.variable} ${bodyFont.variable}`}>
+    <html lang="en" className={`${displayFont.variable} ${uiFont.variable}`}>
       <body suppressHydrationWarning>
         <SiteShell>{children}</SiteShell>
       </body>
