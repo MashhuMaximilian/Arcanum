@@ -1769,11 +1769,11 @@ function renderCompanionAbilities(
 
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
       ...valueOptions,
-      maxSize: 8.4,
+      maxSize: 10.4,
     });
     drawCenteredTextInRect(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
       ...valueOptions,
-      maxSize: 14.5,
+      maxSize: 16.5,
       minSize: 8,
     });
     maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
@@ -1784,13 +1784,13 @@ function renderCompanionAbilities(
     }));
     drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
       font: "Helvetica",
-      maxSize: 7,
+      maxSize: 7.2,
       minSize: 5,
       color: "#000000",
     });
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
       ...valueOptions,
-      maxSize: 8.2,
+      maxSize: 9.6,
     });
   }
 }
@@ -1805,7 +1805,7 @@ function renderCompanionBonusBox(
   drawSvg(ctx, frameOnlySvg(assets.bonusBox, 2), rect, "contain");
   drawCenteredTextInRect(ctx, value, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.value), {
     font: "Helvetica-Bold",
-    maxSize: 14,
+    maxSize: 15,
     minSize: 8,
     color: "#000000",
   });
@@ -1832,7 +1832,7 @@ function renderCompanionHpAndAc(
   // drawing directly into its local slot preserves every border and label.
   drawCenteredTextInRect(ctx, hp, componentRect(rects.hp, HP_VIEWBOX, HP_SLOTS.maxHpValue), {
     font: "Helvetica-Bold",
-    maxSize: 14,
+    maxSize: 15,
     minSize: 8,
     color: "#000000",
   });
@@ -1878,7 +1878,7 @@ function renderCompanionSpeeds(
     drawSvg(ctx, passiveFrame, rect, "contain");
     drawCenteredTextInRect(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
       font: "Helvetica-Bold",
-      maxSize: 9,
+      maxSize: 11,
       minSize: 6,
       color: "#000000",
     });
