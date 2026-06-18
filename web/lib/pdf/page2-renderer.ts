@@ -5,7 +5,6 @@ import {
   componentRect,
   drawCenteredTextInRect,
   drawFittedText,
-  drawSocketText,
   drawSvg,
   drawText,
   insetRect,
@@ -410,99 +409,6 @@ function drawFittedRichParagraph(
   );
 }
 
-/**
- * Find the largest prefix of `text` that fits inside `maxHeight` at
- * the given `width` / `size` / `lineGap`, measured using the same
- * bold/italic-aware wrapping that `drawRichParagraph` will use to
- * render it. Returns { prefix, remainder } where both are trimmed
- * and `remainder` starts at a word boundary. Used by the item-
- * description column overflow to carry long descriptions (Beads,
- * Cube of Force) from column 1 to column 2 instead of silently
- * truncating them below the SVG box.
- *
- * The split walks word-by-word through the tokenized runs, tracking
- * the y-line count vs. the available maxLines. The cut lands at the
- * last word boundary that still fits, so the continuation begins
- * cleanly in the next column.
- */
-function splitDescriptionAtLineBoundary(
-  ctx: PdfRenderContext,
-  text: string,
-  width: number,
-  maxHeight: number,
-): { prefix: string; remainder: string } {
-  if (!text) return { prefix: "", remainder: "" };
-  // Walk the text at minSize 4 (the smallest size drawFittedRichParagraph
-  // is allowed to pick). The actual rendering will also use minSize when
-  // the description overflows, so this is the right measurement target.
-  const size = 4;
-  const lineGap = 0.3;
-  const lineHeight = size + lineGap;
-  const maxLines = Math.max(1, Math.floor((maxHeight + lineGap * 0.5) / lineHeight));
-
-  const runs = tokenizeInlineRuns(text);
-  // Flatten runs into words, keeping whitespace as separate tokens so
-  // we can rejoin the prefix without leaving a dangling partial word.
-  const tokens: { text: string; bold: boolean; italic: boolean }[] = [];
-  for (const run of runs) {
-    if (!run.text) continue;
-    for (const piece of run.text.split(/(\s+)/)) {
-      if (!piece) continue;
-      tokens.push({ text: piece, bold: run.bold, italic: run.italic });
-    }
-  }
-
-  let cursorX = 0;
-  let lineCount = 1;
-  let lastSpaceToken = -1; // index of the last whitespace token on the current line
-  let consumed = 0;
-
-  for (let i = 0; i < tokens.length; i += 1) {
-    const token = tokens[i];
-    const font = token.bold
-      ? "Magra-Bold"
-      : token.italic
-        ? "Helvetica-Oblique"
-        : "Helvetica";
-    ctx.doc.save();
-    ctx.doc.font(font).fontSize(size);
-    const w = ctx.doc.widthOfString(token.text);
-    ctx.doc.restore();
-
-    if (cursorX + w > width && cursorX > 0 && !/^\s+$/.test(token.text)) {
-      lineCount += 1;
-      if (lineCount > maxLines) {
-        // Cut at the last word boundary on the previous line so the
-        // continuation begins at a word start, not mid-word.
-        const cutAt = lastSpaceToken >= 0 ? lastSpaceToken : consumed;
-        const prefixTokens = tokens.slice(0, cutAt);
-        const remainderTokens = tokens.slice(cutAt);
-        const prefix = prefixTokens.map((p) => p.text).join("").trimEnd();
-        const remainder = remainderTokens.map((p) => p.text).join("").trimStart();
-        return { prefix, remainder };
-      }
-      // Start a new line. Drop the leading whitespace that began the
-      // new line so the joined prefix doesn't re-emit it.
-      cursorX = 0;
-      if (lastSpaceToken >= 0 && tokens[lastSpaceToken] && /^\s+$/.test(tokens[lastSpaceToken].text)) {
-        i = lastSpaceToken;
-        lastSpaceToken = -1;
-        continue;
-      }
-    }
-
-    if (/^\s+$/.test(token.text) && cursorX > 0) {
-      lastSpaceToken = i;
-    }
-    cursorX += w;
-    consumed = i + 1;
-  }
-
-  // The whole text fits at minSize — caller shouldn't have called us
-  // in the first place, but return cleanly.
-  return { prefix: text, remainder: "" };
-}
-
 // (FreeformSegment type is defined earlier in the file.)
 
 
@@ -520,14 +426,6 @@ function splitDescriptionAtLineBoundary(
  *   characters that look like encoding garbage are replaced with "…"
  * - Stray non-ASCII chars that are alone (e.g. "™" with nothing
  *   before/after that makes sense in English prose)
- * - Markdown list-marker noise (`### 1.`, `* 1.`, `- 1)`)
- * - Triple-star `***` and unbalanced `*` markers from broken
- *   emphasis spans
- * - Bare `#` and templating fragments like `#t#`/`#a#` from
- *   imported catalogs
- * - LaTeX-style math fragments (`$2 \text{d}6$`, `\vext{...}`,
- *   `\texi{...}`, `2 \imes \texi{...}`) → resolved into the
- *   canonical dice/number form (`2d6`, `2`, etc.) where possible
  */
 function extractItemDescription(detailHtml: string | undefined, fallback: string): string {
   if (!detailHtml) return fallback;
@@ -556,31 +454,6 @@ function extractItemDescription(detailHtml: string | undefined, fallback: string
   cleaned = cleaned.replace(/#{1,6}\s+\d+[.)]\s*/g, "");
   cleaned = cleaned.replace(/(^|\s)\*\s+\d+[.)]\s+/g, "$1");
   cleaned = cleaned.replace(/(^|\s)-\s+\d+[.)]\s+/g, "$1");
-
-  // Collapse triple-star `***` (broken emphasis). We can keep a
-  // single `*` since `**bold**` is parsed by the rich-text renderer.
-  cleaned = cleaned.replace(/\*{3,}/g, "");
-  // Drop templating fragments like `#t#`, `#a#`, `#any-tag#` that
-  // some catalogs emit mid-sentence. Allow a final bare `#` to
-  // remain only if it's followed by a digit (looks like a list
-  // marker, which we already strip); everything else goes.
-  cleaned = cleaned.replace(/#(?:[a-zA-Z]+)#/g, "");
-  // Drop stray bare `#` markers that survived (e.g. broken list
-  // markers where the digit was already extracted).
-  cleaned = cleaned.replace(/(^|\s)#(?=\s|$)/g, "$1");
-
-  // Strip LaTeX-style math fragments. Imported catalogs sometimes
-  // embed `$2\text{d}6$` for "2d6" dice; resolve to the canonical
-  // form. Strategy: pull out `\d+d\d+` (dice), then any bare
-  // integers, then drop the rest of the LaTeX command noise.
-  cleaned = cleaned.replace(/\$(\d+d\d+)\$/g, "$1");        // $2d6$ -> 2d6
-  cleaned = cleaned.replace(/\$(\d+)\$/g, "$1");              // $2$ -> 2
-  // Drop unclosed/standalone LaTeX commands: \text{...}, \vext{...},
-  // \texi{...}, \imes, etc. The \text{...} form often wraps the dice
-  // notation that the rules parser missed, so just drop it.
-  cleaned = cleaned.replace(/\\[a-zA-Z]+\{([^}]*)\}/g, "$1"); // \text{d}6 -> d6
-  cleaned = cleaned.replace(/\\[a-zA-Z]+/g, "");             // \imes -> ''
-  cleaned = cleaned.replace(/\$/g, "");                       // any leftover $
 
   // Collapse whitespace created by the above removals.
   cleaned = cleaned.replace(/[ \t]{2,}/g, " ").replace(/\n[ \t]+/g, "\n").trim();
@@ -730,153 +603,117 @@ function renderItemDescriptions(
   // full rules text fits for typical items without overflowing.
   const bodySize = 5.25;
   const titleSize = 6.8;
-
-  /**
-   * Render a single item header (name + optional metadata) at (x, y)
-   * using the canonical title bar layout. Returns the y position after
-   * the title row (i.e. y + titleSize + 1).
-   */
-  const renderItemHeader = (item: CharacterInventoryItem, x: number, y: number): number => {
-    const metaLine = buildItemMetadataLine(item);
-    const separator = metaLine ? "  —  " : "";
-
-    ctx.doc.save();
-    ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
-    const nameWidth = ctx.doc.widthOfString(item.name);
-    const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
-    const metaWidth = metaLine ? Math.max(0, columnWidth - nameWidth - separatorWidth) : 0;
-    ctx.doc.restore();
-
-    drawText(ctx, item.name, { x, y, width: columnWidth, height: titleSize + 1 }, {
-      font: "Helvetica-Bold",
-      size: titleSize,
-      color: COLORS.textPrimary,
-      lineGap: 0,
-      ellipsis: true,
-    });
-
-    if (metaLine && metaWidth > 20) {
-      if (separatorWidth > 0) {
-        drawText(ctx, separator, { x: x + nameWidth, y, width: separatorWidth + 1, height: titleSize + 1 }, {
-          font: "Helvetica-Bold",
-          size: titleSize,
-          color: COLORS.textPrimary,
-          lineGap: 0,
-        });
-      }
-      drawText(ctx, metaLine, { x: x + nameWidth + separatorWidth, y, width: metaWidth, height: titleSize + 1 }, {
-        font: "Helvetica-Bold",
-        size: titleSize,
-        color: COLORS.textSecondary,
-        lineGap: 0,
-        ellipsis: true,
-      });
-    }
-    return y + titleSize + 1;
-  };
-
-  /**
-   * Render as much of `description` as fits in the vertical band
-   * [(x, y), (x, y+maxHeight)] at bodySize. First tries shrink-to-fit
-   * (down to minSize 4). If the description still doesn't fit even at
-   * minSize 4 (the Beads / Cube of Force case), find the largest
-   * prefix that does fit at minSize and return both the rendered
-   * height and the leftover text so the caller can flow it into the
-   * next column.
-   */
-  const renderBodyFitting = (
-    description: string,
-    x: number,
-    y: number,
-    maxHeight: number,
-  ): { renderedHeight: number; remainder: string } => {
-    if (maxHeight <= 6) {
-      return { renderedHeight: 0, remainder: description };
-    }
-    // First try: shrink-to-fit. This handles 95% of items.
-    const height = drawFittedRichParagraph(
-      ctx,
-      description,
-      { x, y, width: columnWidth, maxHeight },
-      {
-        font: textFont,
-        size: bodySize,
-        minSize: 4,
-        color: COLORS.textPrimary,
-        lineGap,
-      },
-    );
-    // drawFittedRichParagraph always renders the full text; we need to
-    // verify the description actually fit. Measure the rendered height
-    // against the input — if it exceeds maxHeight, the description
-    // overflowed even at minSize and we need to split it.
-    if (height <= maxHeight + 0.25) {
-      return { renderedHeight: height, remainder: "" };
-    }
-    // Overflow at minSize. Find the largest prefix that fits.
-    const split = splitDescriptionAtLineBoundary(ctx, description, columnWidth, maxHeight);
-    if (split.prefix) {
-      const prefixHeight = drawRichParagraph(
-        ctx,
-        split.prefix,
-        { x, y, width: columnWidth, maxHeight },
-        {
-          font: textFont,
-          size: 4, // minSize, already proven to fit
-          color: COLORS.textPrimary,
-          lineGap,
-        },
-      );
-      return { renderedHeight: prefixHeight, remainder: split.remainder };
-    }
-    return { renderedHeight: 0, remainder: description };
-  };
-
-  /**
-   * Newspaper-style two-column flow: render column 0 top-down; when
-   * an item's body doesn't fit (even at minSize 4) inside the column,
-   * render what fits, push the remainder to column 2 starting at
-   * contentStartY, and continue the column-2 cursor from there. The
-   * continuation is body-only (no repeated title).
-   */
-  const columnX = (idx: number) => rect.x + columnPadding + idx * (columnWidth + columnGap);
-  let columnIndex = 0;
-  let cursorY = contentStartY;
+  const columnItems: Array<Array<{ item: CharacterInventoryItem; estimatedHeight: number }>> = [[], []];
+  const columnHeights = [contentStartY, contentStartY];
 
   for (const item of describedItems) {
     const description = extractItemDescription(
       item.sheetDescription || item.detailHtml,
       item.notes ?? item.name,
     );
+    const metaLine = buildItemMetadataLine(item);
+    const separator = metaLine ? "  —  " : "";
 
-    // Render the item header at the current column cursor.
-    cursorY = renderItemHeader(item, columnX(columnIndex), cursorY);
+    ctx.doc.save();
+    ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
+    const titleWidth = ctx.doc.widthOfString(item.name);
+    const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
+    const metaWidth = metaLine ? Math.max(0, columnWidth - titleWidth - separatorWidth) : 0;
+    const titleMetaHeight = titleSize + 1 + (metaLine && metaWidth < 40 ? 6 : 0);
+    ctx.doc.font(textFont).fontSize(bodySize);
+    const bodyHeight = description
+      ? ctx.doc.heightOfString(description, { width: columnWidth, lineBreak: true, lineGap })
+      : 0;
+    ctx.doc.restore();
 
-    if (description) {
-      const remaining = contentBottomY - cursorY - 2;
-      const { renderedHeight, remainder } = renderBodyFitting(
-        description,
-        columnX(columnIndex),
-        cursorY,
-        remaining,
-      );
-      if (renderedHeight > 0) cursorY += renderedHeight;
-      cursorY += 2;
-
-      if (remainder) {
-        // Carry the leftover text to column 2. Body-only continuation
-        // — no repeated title, no metadata, just the trailing prose.
-        columnIndex = 1;
-        cursorY = contentStartY;
-        const col2Remaining = contentBottomY - cursorY - 2;
-        const carry = renderBodyFitting(remainder, columnX(columnIndex), cursorY, col2Remaining);
-        if (carry.renderedHeight > 0) cursorY += carry.renderedHeight;
-        cursorY += 2;
-        // If even column 2 can't hold the rest of this one item, drop
-        // the overflow rather than letting it spill past the SVG box.
-      }
-    }
+    const estimatedHeight = titleMetaHeight + bodyHeight + 3;
+    const targetColumn = columnHeights[0] <= columnHeights[1] ? 0 : 1;
+    columnItems[targetColumn].push({ item, estimatedHeight });
+    columnHeights[targetColumn] += estimatedHeight;
   }
+
+  const renderColumn = (columnIndex: number) => {
+    let currentY = contentStartY;
+    const columnX = rect.x + columnPadding + columnIndex * (columnWidth + columnGap);
+    for (const entry of columnItems[columnIndex]) {
+      const item = entry.item;
+      const metaLine = buildItemMetadataLine(item);
+      const description = extractItemDescription(
+        item.sheetDescription || item.detailHtml,
+        item.notes ?? item.name,
+      );
+      const separator = metaLine ? "  —  " : "";
+
+      ctx.doc.save();
+      ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
+      const nameWidth = ctx.doc.widthOfString(item.name);
+      const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
+      const metaWidth = metaLine ? Math.max(0, columnWidth - nameWidth - separatorWidth) : 0;
+      ctx.doc.restore();
+
+      drawText(ctx, item.name, { x: columnX, y: currentY, width: columnWidth, height: titleSize + 1 }, {
+        font: "Helvetica-Bold",
+        size: titleSize,
+        color: COLORS.textPrimary,
+        lineGap: 0,
+        ellipsis: true,
+      });
+
+      if (metaLine && metaWidth > 20) {
+        if (separatorWidth > 0) {
+          drawText(ctx, separator, { x: columnX + nameWidth, y: currentY, width: separatorWidth + 1, height: titleSize + 1 }, {
+            font: "Helvetica-Bold",
+            size: titleSize,
+            color: COLORS.textPrimary,
+            lineGap: 0,
+          });
+        }
+        drawText(ctx, metaLine, { x: columnX + nameWidth + separatorWidth, y: currentY, width: metaWidth, height: titleSize + 1 }, {
+          font: "Helvetica-Bold",
+          size: titleSize,
+          color: COLORS.textSecondary,
+          lineGap: 0,
+          ellipsis: true,
+        });
+      }
+      currentY += titleSize + 1;
+
+      if (description) {
+        const remainingForBody = contentBottomY - currentY - 2;
+        if (remainingForBody > 6) {
+          // Shrink-on-overflow rich text: walk bodySize (5.5) down to
+          // minSize (4) in 0.25pt steps until the bold/italic-aware
+          // wrapped height fits the remaining vertical space. Same
+          // pattern as the backstory's drawFittedText calls.
+          const bodyHeight = drawFittedRichParagraph(
+            ctx,
+            description,
+            {
+              x: columnX,
+              y: currentY,
+              width: columnWidth,
+              maxHeight: remainingForBody,
+            },
+            {
+              font: textFont,
+              size: bodySize,
+              minSize: 4,
+              color: COLORS.textPrimary,
+              lineGap,
+            },
+          );
+          if (bodyHeight > 2) {
+            currentY += bodyHeight;
+          }
+        }
+      }
+
+      currentY += 2;
+    }
+  };
+
+  renderColumn(0);
+  renderColumn(1);
 }
 
 function renderAttuned(
@@ -1950,18 +1787,18 @@ function renderCompanionAbilities(
     const modifier = Math.floor((score - 10) / 2);
     const valueOptions = {
       font: "Helvetica-Bold",
+      minSize: 5,
       color: "#000000",
     } as const;
 
-    drawSocketText(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
+    drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
       ...valueOptions,
-      maxSize: 12,
-      minSize: 7,
+      maxSize: 10.4,
     });
-    drawSocketText(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
+    drawCenteredTextInRect(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
       ...valueOptions,
-      maxSize: 18,
-      minSize: 9,
+      maxSize: 16.5,
+      minSize: 8,
     });
     maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
       x: 13.5,
@@ -1971,14 +1808,13 @@ function renderCompanionAbilities(
     }));
     drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
       font: "Helvetica",
-      maxSize: 7.4,
+      maxSize: 7.2,
       minSize: 5,
       color: "#000000",
     });
-    drawSocketText(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
+    drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
       ...valueOptions,
-      maxSize: 10.6,
-      minSize: 7,
+      maxSize: 9.6,
     });
   }
 }
@@ -1991,7 +1827,7 @@ function renderCompanionBonusBox(
   label: string,
 ) {
   drawSvg(ctx, frameOnlySvg(assets.bonusBox, 2), rect, "contain");
-  drawSocketText(ctx, value, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.value), {
+  drawCenteredTextInRect(ctx, value, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.value), {
     font: "Helvetica-Bold",
     maxSize: 15,
     minSize: 8,
@@ -2018,7 +1854,7 @@ function renderCompanionHpAndAc(
 
   // The HP SVG has no placeholder number in the MAX HP value socket, so
   // drawing directly into its local slot preserves every border and label.
-  drawSocketText(ctx, hp, componentRect(rects.hp, HP_VIEWBOX, HP_SLOTS.maxHpValue), {
+  drawCenteredTextInRect(ctx, hp, componentRect(rects.hp, HP_VIEWBOX, HP_SLOTS.maxHpValue), {
     font: "Helvetica-Bold",
     maxSize: 15,
     minSize: 8,
@@ -2027,7 +1863,7 @@ function renderCompanionHpAndAc(
 
   drawSvg(ctx, assets.ac, rects.ac, "contain");
   // Likewise, keep the shield's baked-in AC label and draw only the value.
-  drawSocketText(ctx, ac, componentRect(rects.ac, AC_VIEWBOX, AC_SLOTS.value), {
+  drawCenteredTextInRect(ctx, ac, componentRect(rects.ac, AC_VIEWBOX, AC_SLOTS.value), {
     font: "Helvetica-Bold",
     maxSize: 15,
     minSize: 9,
@@ -2064,7 +1900,7 @@ function renderCompanionSpeeds(
   const passiveFrame = frameOnlySvg(assets.passiveBox, 4);
   rects.speedBoxes.forEach((rect, index) => {
     drawSvg(ctx, passiveFrame, rect, "contain");
-    drawSocketText(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
+    drawCenteredTextInRect(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
       font: "Helvetica-Bold",
       maxSize: 11,
       minSize: 6,

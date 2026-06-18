@@ -6,7 +6,6 @@ import {
   componentRect,
   drawCenteredTextInRect,
   drawFittedText,
-  drawSocketText,
   drawSvg,
   drawText,
   drawWrappedClassName,
@@ -191,8 +190,8 @@ const SKILL_ROW_SLOTS = {
   circleX: 11.5,
   firstCenterY: 9.5,
   rowGap: 9,
-  bonusMask: { x: 16, yOffset: -3.35, width: 6.15, height: 6.7 },
-  bonusValue: { x: 14.8, yOffset: -3.35, width: 10.4, height: 6.7 },
+  bonusMask: { x: 16, yOffset: -2.5, width: 6.15, height: 5 },
+  bonusValue: { x: 14.8, yOffset: -2.7, width: 10.4, height: 5.4 },
   line: { x: 9, width: 57, height: 5 },
   lineLabelMask: { x: 14, width: 43, height: 5 },
   label: { x: 26.4, yOffset: -3.35, width: 46.6, height: 6.7 },
@@ -285,6 +284,59 @@ function findStatsByIdPrefix(character: ResolvedPdfCharacter, prefix: string) {
   return character.frontPage.stats.filter((candidate) => normalizeKey(candidate.id).startsWith(normalizedPrefix));
 }
 
+function fitSingleLineSize(
+  ctx: PdfRenderContext,
+  text: string,
+  rect: PdfRect,
+  options: { font?: string; maxSize: number; minSize: number },
+) {
+  for (let size = options.maxSize; size >= options.minSize; size -= 0.25) {
+    ctx.doc.save();
+    ctx.doc.font(options.font || ctx.bodyFont).fontSize(size);
+    const width = ctx.doc.widthOfString(text);
+    ctx.doc.restore();
+    if (width <= rect.width && size * 0.95 <= rect.height) {
+      return size;
+    }
+  }
+
+  return options.minSize;
+}
+
+function drawSocketText(
+  ctx: PdfRenderContext,
+  text: string,
+  rect: PdfRect,
+  options: { font?: string; maxSize: number; minSize: number; color?: string },
+) {
+  if (!text.trim()) {
+    return;
+  }
+
+  const font = options.font || ctx.bodyFont;
+  const size = fitSingleLineSize(ctx, text, rect, options);
+  ctx.doc.save();
+  ctx.doc.font(font).fontSize(size);
+  const width = ctx.doc.widthOfString(text);
+  const x = rect.x + Math.max(0, (rect.width - width) / 2);
+  // Pdfkit treats the `y` argument as the visual midline of the em-box
+  // (it internally applies `dy = ascender` so the baseline lands ~size
+  // below the y coordinate). Empirically verified: setting `y` to the
+  // rect midpoint renders cap-height band centred in the rect for both
+  // Magra-Regular and Teko-Medium (the "Helvetica-Bold" alias). Centring
+  // on the cap-top (`(rect.height - capHeight) / 2`) puts digits LOW; the
+  // earlier cap-top formula left numbers visibly sitting toward the bottom
+  // of their sockets.
+  const y = rect.y + rect.height / 2;
+  ctx.doc.fillColor(options.color || "#000000");
+  ctx.doc.text(text, x, y, {
+    width,
+    height: rect.height,
+    lineBreak: false,
+  });
+  ctx.doc.restore();
+}
+
 function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: string, mode: StatBoxSpec["mode"] = "normal") {
   if (!value) {
     return;
@@ -296,7 +348,7 @@ function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: strin
     width: mode === "shield" ? 0.74 : mode === "wide" ? 0.86 : 0.76,
     height: mode === "shield" ? 0.36 : 0.36,
   });
-  drawSocketText(ctx, value, valueRect, {
+  drawCenteredTextInRect(ctx, value, valueRect, {
     font: "Helvetica-Bold",
     maxSize: mode === "small" ? 12 : mode === "shield" ? 13 : 15,
     minSize: 7,
@@ -1347,7 +1399,7 @@ function renderWeaponAttackRows(
       ctx,
       column.label,
       { x: column.rect.x, y: rect.y, width: column.rect.width, height: headerHeight },
-      { font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.5, color: "#555555" },
+      { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.4, color: "#555555" },
     );
   });
 
@@ -1373,15 +1425,15 @@ function renderWeaponAttackRows(
       else if (column.key === "properties") value = row?.properties ?? "";
 
       if (column.key === "name") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 5.6, minSize: 3.5, align: "left" });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 4.6, minSize: 3, align: "left" });
       } else if (column.key === "hit") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 6.3, minSize: 4.0 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 5.3, minSize: 3.3 });
       } else if (column.key === "damage") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 5.9, minSize: 3.8 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 4.9, minSize: 3.1 });
       } else if (column.key === "type") {
-        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 4.7, minSize: 3.2, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 3.7, minSize: 2.4, bold: false, align: "left" });
       } else {
-        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 3.8, minSize: 3.0, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 2.8, minSize: 2.4, bold: false, align: "left" });
       }
     });
   });
@@ -1410,7 +1462,7 @@ function renderSpellTracker(
 
   drawCenteredTextInRect(ctx, "Spell List", { x: contentRect.x, y: contentRect.y, width: contentRect.width, height: 6 }, {
     font: "Helvetica-Bold",
-    maxSize: 5.0,
+    maxSize: 4.2,
     minSize: 3,
     color: "#555555",
   });
@@ -1422,8 +1474,8 @@ function renderSpellTracker(
   // Left cell: "Cantrips" label at top, no circles
   drawFittedText(ctx, "Cantrips", { x: contentRect.x, y: cantripY, width: leftCellW, height: 8 }, {
     font: "Helvetica-Bold",
-    maxSize: 4.7,
-    minSize: 4.7,
+    maxSize: 4.0,
+    minSize: 4.0,
     align: "right",
     color: "#222222",
     lineBreak: false,
@@ -1438,7 +1490,7 @@ function renderSpellTracker(
       width: contentRect.width - leftCellW - SPELL_TEXT_GAP,
       height: 8,
     },
-    { font: "Helvetica", maxSize: 4.7, minSize: 4.7, align: "left", color: "#222222", lineBreak: false },
+    { font: "Helvetica", maxSize: 3.7, minSize: 3.7, align: "left", color: "#222222", lineBreak: false },
   );
 
   const pactSummary = formatPactSlotSummary(pactSlots);
@@ -1451,8 +1503,8 @@ function renderSpellTracker(
       height: pactLineHeight,
     }, {
       font: "Helvetica-Bold",
-      maxSize: 4.0,
-      minSize: 3.5,
+      maxSize: 3.1,
+      minSize: 2.5,
       align: "right",
       color: "#555555",
       lineBreak: false,
@@ -1522,7 +1574,7 @@ function renderSpellLevelGroup(
     const spellNames = formatSpellEntriesForFrontPage(spells, "leveled");
     ctx.doc.save();
     ctx.doc.font("Helvetica");
-    ctx.doc.fontSize(4.7);
+    ctx.doc.fontSize(3.7);
     const measuredTextHeight = ctx.doc.heightOfString(spellNames === "—" && slotCount === 0 ? "" : spellNames, {
       width: nameWidth,
       lineBreak: true,
@@ -1582,8 +1634,8 @@ function renderSpellLevelGroup(
     };
     drawFittedText(ctx, `Level ${level}`, labelRect, {
       font: "Helvetica-Bold",
-      maxSize: 4.7,
-      minSize: 4.7,
+      maxSize: 4.0,
+      minSize: 4.0,
       align: "right",
       color: "#555555",
       lineBreak: false,
@@ -1612,8 +1664,8 @@ function renderSpellLevelGroup(
     };
     drawCenteredTextInRect(ctx, spellNames === "—" && slotCount === 0 ? "" : spellNames, namesRect, {
       font: "Helvetica",
-      maxSize: 4.7,
-      minSize: 4.0,
+      maxSize: 3.7,
+      minSize: 3.2,
       align: "left",
       color: "#222222",
       lineGap: SPELL_TEXT_LINE_GAP,
@@ -2460,13 +2512,9 @@ function drawTextWithBoldActionWords(
     const words = run.text.split(/(\s+)/);
     for (const w of words) {
       if (w.length === 0) continue;
-      // Measure width with correct font set. Bold runs use Magra-Bold
-      // (the body family in bold weight) so **Bonus Action** style
-      // markers share the same metric as the surrounding paragraph
-      // instead of jumping to the Teko-Medium display face, which
-      // renders blocky at small sizes.
+      // Measure width with correct font set (PDFKit API)
       doc.save();
-      doc.font(run.bold ? "Magra-Bold" : "Helvetica").fontSize(fSize);
+      doc.font(run.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fSize);
       const w2 = doc.widthOfString(w);
       doc.restore();
 
@@ -2480,7 +2528,7 @@ function drawTextWithBoldActionWords(
       // Render this run with lineBreak: false to prevent PDFKit auto page breaks
       if (cursorY > opts.y + opts.height) break;
       doc.save();
-      doc.font(run.bold ? "Magra-Bold" : "Helvetica").fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
+      doc.font(run.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
       doc.restore();
       lineX += w2;
       lineRemaining -= w2;
@@ -2976,11 +3024,8 @@ function measureFeatureListHeight(ctx: PdfRenderContext, cards: PdfPageCard[], r
       const words = run.text.split(/(\s+)/);
       for (const w of words) {
         if (w.length === 0) continue;
-        // Bold runs use Magra-Bold (body family in bold weight) so
-        // **Bonus Action** style markers share the surrounding
-        // paragraph metric instead of jumping to Teko-Medium.
         doc.save();
-        doc.font(run.bold ? "Magra-Bold" : "Helvetica").fontSize(fSize);
+        doc.font(run.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fSize);
         const w2 = doc.widthOfString(w);
         doc.restore();
         if (lineX + w2 > rect.x + maxW && lineX > rect.x) {
