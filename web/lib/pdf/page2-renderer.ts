@@ -410,6 +410,99 @@ function drawFittedRichParagraph(
   );
 }
 
+/**
+ * Find the largest prefix of `text` that fits inside `maxHeight` at
+ * the given `width` / `size` / `lineGap`, measured using the same
+ * bold/italic-aware wrapping that `drawRichParagraph` will use to
+ * render it. Returns { prefix, remainder } where both are trimmed
+ * and `remainder` starts at a word boundary. Used by the item-
+ * description column overflow to carry long descriptions (Beads,
+ * Cube of Force) from column 1 to column 2 instead of silently
+ * truncating them below the SVG box.
+ *
+ * The split walks word-by-word through the tokenized runs, tracking
+ * the y-line count vs. the available maxLines. The cut lands at the
+ * last word boundary that still fits, so the continuation begins
+ * cleanly in the next column.
+ */
+function splitDescriptionAtLineBoundary(
+  ctx: PdfRenderContext,
+  text: string,
+  width: number,
+  maxHeight: number,
+): { prefix: string; remainder: string } {
+  if (!text) return { prefix: "", remainder: "" };
+  // Walk the text at minSize 4 (the smallest size drawFittedRichParagraph
+  // is allowed to pick). The actual rendering will also use minSize when
+  // the description overflows, so this is the right measurement target.
+  const size = 4;
+  const lineGap = 0.3;
+  const lineHeight = size + lineGap;
+  const maxLines = Math.max(1, Math.floor((maxHeight + lineGap * 0.5) / lineHeight));
+
+  const runs = tokenizeInlineRuns(text);
+  // Flatten runs into words, keeping whitespace as separate tokens so
+  // we can rejoin the prefix without leaving a dangling partial word.
+  const tokens: { text: string; bold: boolean; italic: boolean }[] = [];
+  for (const run of runs) {
+    if (!run.text) continue;
+    for (const piece of run.text.split(/(\s+)/)) {
+      if (!piece) continue;
+      tokens.push({ text: piece, bold: run.bold, italic: run.italic });
+    }
+  }
+
+  let cursorX = 0;
+  let lineCount = 1;
+  let lastSpaceToken = -1; // index of the last whitespace token on the current line
+  let consumed = 0;
+
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    const font = token.bold
+      ? "Magra-Bold"
+      : token.italic
+        ? "Helvetica-Oblique"
+        : "Helvetica";
+    ctx.doc.save();
+    ctx.doc.font(font).fontSize(size);
+    const w = ctx.doc.widthOfString(token.text);
+    ctx.doc.restore();
+
+    if (cursorX + w > width && cursorX > 0 && !/^\s+$/.test(token.text)) {
+      lineCount += 1;
+      if (lineCount > maxLines) {
+        // Cut at the last word boundary on the previous line so the
+        // continuation begins at a word start, not mid-word.
+        const cutAt = lastSpaceToken >= 0 ? lastSpaceToken : consumed;
+        const prefixTokens = tokens.slice(0, cutAt);
+        const remainderTokens = tokens.slice(cutAt);
+        const prefix = prefixTokens.map((p) => p.text).join("").trimEnd();
+        const remainder = remainderTokens.map((p) => p.text).join("").trimStart();
+        return { prefix, remainder };
+      }
+      // Start a new line. Drop the leading whitespace that began the
+      // new line so the joined prefix doesn't re-emit it.
+      cursorX = 0;
+      if (lastSpaceToken >= 0 && tokens[lastSpaceToken] && /^\s+$/.test(tokens[lastSpaceToken].text)) {
+        i = lastSpaceToken;
+        lastSpaceToken = -1;
+        continue;
+      }
+    }
+
+    if (/^\s+$/.test(token.text) && cursorX > 0) {
+      lastSpaceToken = i;
+    }
+    cursorX += w;
+    consumed = i + 1;
+  }
+
+  // The whole text fits at minSize — caller shouldn't have called us
+  // in the first place, but return cleanly.
+  return { prefix: text, remainder: "" };
+}
+
 // (FreeformSegment type is defined earlier in the file.)
 
 
@@ -637,117 +730,153 @@ function renderItemDescriptions(
   // full rules text fits for typical items without overflowing.
   const bodySize = 5.25;
   const titleSize = 6.8;
-  const columnItems: Array<Array<{ item: CharacterInventoryItem; estimatedHeight: number }>> = [[], []];
-  const columnHeights = [contentStartY, contentStartY];
+
+  /**
+   * Render a single item header (name + optional metadata) at (x, y)
+   * using the canonical title bar layout. Returns the y position after
+   * the title row (i.e. y + titleSize + 1).
+   */
+  const renderItemHeader = (item: CharacterInventoryItem, x: number, y: number): number => {
+    const metaLine = buildItemMetadataLine(item);
+    const separator = metaLine ? "  —  " : "";
+
+    ctx.doc.save();
+    ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
+    const nameWidth = ctx.doc.widthOfString(item.name);
+    const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
+    const metaWidth = metaLine ? Math.max(0, columnWidth - nameWidth - separatorWidth) : 0;
+    ctx.doc.restore();
+
+    drawText(ctx, item.name, { x, y, width: columnWidth, height: titleSize + 1 }, {
+      font: "Helvetica-Bold",
+      size: titleSize,
+      color: COLORS.textPrimary,
+      lineGap: 0,
+      ellipsis: true,
+    });
+
+    if (metaLine && metaWidth > 20) {
+      if (separatorWidth > 0) {
+        drawText(ctx, separator, { x: x + nameWidth, y, width: separatorWidth + 1, height: titleSize + 1 }, {
+          font: "Helvetica-Bold",
+          size: titleSize,
+          color: COLORS.textPrimary,
+          lineGap: 0,
+        });
+      }
+      drawText(ctx, metaLine, { x: x + nameWidth + separatorWidth, y, width: metaWidth, height: titleSize + 1 }, {
+        font: "Helvetica-Bold",
+        size: titleSize,
+        color: COLORS.textSecondary,
+        lineGap: 0,
+        ellipsis: true,
+      });
+    }
+    return y + titleSize + 1;
+  };
+
+  /**
+   * Render as much of `description` as fits in the vertical band
+   * [(x, y), (x, y+maxHeight)] at bodySize. First tries shrink-to-fit
+   * (down to minSize 4). If the description still doesn't fit even at
+   * minSize 4 (the Beads / Cube of Force case), find the largest
+   * prefix that does fit at minSize and return both the rendered
+   * height and the leftover text so the caller can flow it into the
+   * next column.
+   */
+  const renderBodyFitting = (
+    description: string,
+    x: number,
+    y: number,
+    maxHeight: number,
+  ): { renderedHeight: number; remainder: string } => {
+    if (maxHeight <= 6) {
+      return { renderedHeight: 0, remainder: description };
+    }
+    // First try: shrink-to-fit. This handles 95% of items.
+    const height = drawFittedRichParagraph(
+      ctx,
+      description,
+      { x, y, width: columnWidth, maxHeight },
+      {
+        font: textFont,
+        size: bodySize,
+        minSize: 4,
+        color: COLORS.textPrimary,
+        lineGap,
+      },
+    );
+    // drawFittedRichParagraph always renders the full text; we need to
+    // verify the description actually fit. Measure the rendered height
+    // against the input — if it exceeds maxHeight, the description
+    // overflowed even at minSize and we need to split it.
+    if (height <= maxHeight + 0.25) {
+      return { renderedHeight: height, remainder: "" };
+    }
+    // Overflow at minSize. Find the largest prefix that fits.
+    const split = splitDescriptionAtLineBoundary(ctx, description, columnWidth, maxHeight);
+    if (split.prefix) {
+      const prefixHeight = drawRichParagraph(
+        ctx,
+        split.prefix,
+        { x, y, width: columnWidth, maxHeight },
+        {
+          font: textFont,
+          size: 4, // minSize, already proven to fit
+          color: COLORS.textPrimary,
+          lineGap,
+        },
+      );
+      return { renderedHeight: prefixHeight, remainder: split.remainder };
+    }
+    return { renderedHeight: 0, remainder: description };
+  };
+
+  /**
+   * Newspaper-style two-column flow: render column 0 top-down; when
+   * an item's body doesn't fit (even at minSize 4) inside the column,
+   * render what fits, push the remainder to column 2 starting at
+   * contentStartY, and continue the column-2 cursor from there. The
+   * continuation is body-only (no repeated title).
+   */
+  const columnX = (idx: number) => rect.x + columnPadding + idx * (columnWidth + columnGap);
+  let columnIndex = 0;
+  let cursorY = contentStartY;
 
   for (const item of describedItems) {
     const description = extractItemDescription(
       item.sheetDescription || item.detailHtml,
       item.notes ?? item.name,
     );
-    const metaLine = buildItemMetadataLine(item);
-    const separator = metaLine ? "  —  " : "";
 
-    ctx.doc.save();
-    ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
-    const titleWidth = ctx.doc.widthOfString(item.name);
-    const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
-    const metaWidth = metaLine ? Math.max(0, columnWidth - titleWidth - separatorWidth) : 0;
-    const titleMetaHeight = titleSize + 1 + (metaLine && metaWidth < 40 ? 6 : 0);
-    ctx.doc.font(textFont).fontSize(bodySize);
-    const bodyHeight = description
-      ? ctx.doc.heightOfString(description, { width: columnWidth, lineBreak: true, lineGap })
-      : 0;
-    ctx.doc.restore();
+    // Render the item header at the current column cursor.
+    cursorY = renderItemHeader(item, columnX(columnIndex), cursorY);
 
-    const estimatedHeight = titleMetaHeight + bodyHeight + 3;
-    const targetColumn = columnHeights[0] <= columnHeights[1] ? 0 : 1;
-    columnItems[targetColumn].push({ item, estimatedHeight });
-    columnHeights[targetColumn] += estimatedHeight;
-  }
-
-  const renderColumn = (columnIndex: number) => {
-    let currentY = contentStartY;
-    const columnX = rect.x + columnPadding + columnIndex * (columnWidth + columnGap);
-    for (const entry of columnItems[columnIndex]) {
-      const item = entry.item;
-      const metaLine = buildItemMetadataLine(item);
-      const description = extractItemDescription(
-        item.sheetDescription || item.detailHtml,
-        item.notes ?? item.name,
+    if (description) {
+      const remaining = contentBottomY - cursorY - 2;
+      const { renderedHeight, remainder } = renderBodyFitting(
+        description,
+        columnX(columnIndex),
+        cursorY,
+        remaining,
       );
-      const separator = metaLine ? "  —  " : "";
+      if (renderedHeight > 0) cursorY += renderedHeight;
+      cursorY += 2;
 
-      ctx.doc.save();
-      ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
-      const nameWidth = ctx.doc.widthOfString(item.name);
-      const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
-      const metaWidth = metaLine ? Math.max(0, columnWidth - nameWidth - separatorWidth) : 0;
-      ctx.doc.restore();
-
-      drawText(ctx, item.name, { x: columnX, y: currentY, width: columnWidth, height: titleSize + 1 }, {
-        font: "Helvetica-Bold",
-        size: titleSize,
-        color: COLORS.textPrimary,
-        lineGap: 0,
-        ellipsis: true,
-      });
-
-      if (metaLine && metaWidth > 20) {
-        if (separatorWidth > 0) {
-          drawText(ctx, separator, { x: columnX + nameWidth, y: currentY, width: separatorWidth + 1, height: titleSize + 1 }, {
-            font: "Helvetica-Bold",
-            size: titleSize,
-            color: COLORS.textPrimary,
-            lineGap: 0,
-          });
-        }
-        drawText(ctx, metaLine, { x: columnX + nameWidth + separatorWidth, y: currentY, width: metaWidth, height: titleSize + 1 }, {
-          font: "Helvetica-Bold",
-          size: titleSize,
-          color: COLORS.textSecondary,
-          lineGap: 0,
-          ellipsis: true,
-        });
+      if (remainder) {
+        // Carry the leftover text to column 2. Body-only continuation
+        // — no repeated title, no metadata, just the trailing prose.
+        columnIndex = 1;
+        cursorY = contentStartY;
+        const col2Remaining = contentBottomY - cursorY - 2;
+        const carry = renderBodyFitting(remainder, columnX(columnIndex), cursorY, col2Remaining);
+        if (carry.renderedHeight > 0) cursorY += carry.renderedHeight;
+        cursorY += 2;
+        // If even column 2 can't hold the rest of this one item, drop
+        // the overflow rather than letting it spill past the SVG box.
       }
-      currentY += titleSize + 1;
-
-      if (description) {
-        const remainingForBody = contentBottomY - currentY - 2;
-        if (remainingForBody > 6) {
-          // Shrink-on-overflow rich text: walk bodySize (5.5) down to
-          // minSize (4) in 0.25pt steps until the bold/italic-aware
-          // wrapped height fits the remaining vertical space. Same
-          // pattern as the backstory's drawFittedText calls.
-          const bodyHeight = drawFittedRichParagraph(
-            ctx,
-            description,
-            {
-              x: columnX,
-              y: currentY,
-              width: columnWidth,
-              maxHeight: remainingForBody,
-            },
-            {
-              font: textFont,
-              size: bodySize,
-              minSize: 4,
-              color: COLORS.textPrimary,
-              lineGap,
-            },
-          );
-          if (bodyHeight > 2) {
-            currentY += bodyHeight;
-          }
-        }
-      }
-
-      currentY += 2;
     }
-  };
-
-  renderColumn(0);
-  renderColumn(1);
+  }
 }
 
 function renderAttuned(
