@@ -36,7 +36,10 @@ const COLORS = {
 
 const PDF_BACKSTORY_FONTS = {
   heading: "Magra",
-  label: "Teko-Medium",
+  // Use Magra for the small field labels so the backstory header
+  // matches the front-page and companion-page header typography
+  // (both switched to Magra/Helvetica for labels in commit b77c0e1).
+  label: "Magra",
   name: "Teko-SemiBold",
   body: "Magra",
   bodyMedium: "Magra-Bold",
@@ -113,11 +116,11 @@ function drawHeaderField(
   rect: PdfRect,
   options: { valueSize?: number; labelSize?: number } = {},
 ) {
-  const labelRect = { x: rect.x + 2, y: rect.y + 2, width: rect.width - 4, height: 7 };
-  const valueRect = { x: rect.x + 2, y: rect.y + 8.8, width: rect.width - 4, height: rect.height - 10 };
+  const labelRect = { x: rect.x + 2, y: rect.y + 1, width: rect.width - 4, height: 6 };
+  const valueRect = { x: rect.x + 2, y: rect.y + 7.5, width: rect.width - 4, height: rect.height - 9 };
   drawText(ctx, label.toUpperCase(), labelRect, {
-    font: "Magra-Bold",
-    size: options.labelSize ?? 6.2,
+    font: PDF_BACKSTORY_FONTS.label,
+    size: options.labelSize ?? 5.5,
     color: COLORS.label,
     lineBreak: false,
   });
@@ -159,12 +162,12 @@ function renderTopHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
 
   const rightX = rect.x + leftWidth + 24;
   const rightWidth = rect.width - (rightX - rect.x) - 30;
-  // First row sits a touch lower than before so it doesn't crowd the
-  // dragon-art scrollwork along the top edge of the header. Pushed the
-  // row pair down by 6pt and the bottom row down by 3pt so they stay
-  // visually balanced.
-  const topRowY = rect.y + 24;
-  const bottomRowY = rect.y + 45;
+  // Move the two-row metadata block up so the bottom row has visible
+  // breathing room above the container's lower border ornament
+  // (header height = 69, so a row at y=49 + 17 = 66 used to touch the
+  // bottom). Bumped up by ~4pt to land the bottom row cleanly inside.
+  const topRowY = rect.y + 21;
+  const bottomRowY = rect.y + 42;
   const topFieldWidths = [0.25, 0.17, 0.29, 0.29].map((fraction) => Math.floor(rightWidth * fraction));
   const topFieldXs = [
     rightX,
@@ -180,8 +183,8 @@ function renderTopHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       x: topFieldXs[index] + 1,
       y: topRowY,
       width: width - 2,
-      height: 19,
-    }, { valueSize: 8.7, labelSize: 6.1 });
+      height: 17,
+    }, { valueSize: 7.6, labelSize: 5.5 });
   });
 
   const bottomFieldWidths = [0.34, 0.33, 0.33].map((fraction) => Math.floor(rightWidth * fraction));
@@ -198,8 +201,8 @@ function renderTopHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       x: bottomFieldXs[index] + 1,
       y: bottomRowY,
       width: width - 2,
-      height: 19,
-    }, { valueSize: 8.5, labelSize: 6.1 });
+      height: 17,
+    }, { valueSize: 7.6, labelSize: 5.5 });
   });
 
 }
