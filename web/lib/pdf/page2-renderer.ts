@@ -708,130 +708,445 @@ function renderItemDescriptions(
   const contentBottomY = rect.y + rect.height - 4;
   const columnGap = 10;
   const columnPadding = 4;
+  const fullWidth = rect.width - columnPadding * 2;
   const columnWidth = (rect.width - columnGap - columnPadding * 2) / 2;
   const textFont = "Helvetica";
   const lineGap = 0.3;
-
-  // Bump body size to 6pt so descriptions fill the column more
-  // confidently. The fitted-shrink inside drawFittedRichParagraph will
-  // step this down only when a single item would otherwise overflow.
-  const bodySize = 6;
+  const compactBodySize = 6;
+  const denseBodySize = 5.5;
   const titleSize = 7.2;
-  const columnItems: Array<Array<{ item: CharacterInventoryItem; estimatedHeight: number }>> = [[], []];
-  const columnHeights = [contentStartY, contentStartY];
+  const cardGap = 4;
+  const subColumnGap = 8;
+  const availableHeight = contentBottomY - contentStartY;
+  // Items whose natural height is more than 35% of the available area
+  // (e.g. Prayer Beads) get promoted to the dense strip below; in a
+  // narrow column they would either overflow or be shrunk to
+  // unreadable body sizes. 35% is a soft threshold — a slightly
+  // larger card can still be "compact" if both columns are empty.
+  const denseThreshold = availableHeight * 0.35;
 
-  for (const item of describedItems) {
+  // --- Phase 1: Prepare items ---------------------------------------
+  // Each item becomes a self-contained "card" with a measured natural
+  // height and (for dense items) a pre-parsed list of paragraph
+  // sections so the dashboard grid can render each one as its own
+  // mini-card.
+  type Section = { title: string; body: string };
+  type PreparedItem = {
+    item: CharacterInventoryItem;
+    description: string;
+    titleMetaHeight: number;
+    bodyHeight: number;
+    totalHeight: number;
+    isDense: boolean;
+    sections: Section[];
+  };
+
+  const parseSections = (description: string): Section[] => {
+    if (!description) return [];
+    // Split on single newlines. cleanHtmlText emits one \n between
+    // <p>...</p> blocks, so the natural unit for a "section" is one
+    // line. The first "**bold**" run in each line is treated as the
+    // section's visual title and lifted out of the body so the
+    // mini-card has a clear visual anchor.
+    return description
+      .split(/\n/)
+      .map((b) => b.trim())
+      .filter(Boolean)
+      .map<Section>((block) => {
+        const boldMatch = block.match(/^\*\*([^*]+)\*\*\s*[:\-—–]?\s*/);
+        if (boldMatch) {
+          const title = boldMatch[1].trim();
+          const body = block.slice(boldMatch[0].length).trim();
+          return { title, body: body || block };
+        }
+        return { title: "", body: block };
+      });
+  };
+
+  const prepared: PreparedItem[] = describedItems.map((item) => {
     const description = extractItemDescription(
       item.sheetDescription || item.detailHtml,
       item.notes ?? item.name,
     );
-    const metaLine = buildItemMetadataLine(item);
-    const separator = metaLine ? "  —  " : "";
-
-    ctx.doc.save();
-    ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
-    const titleWidth = ctx.doc.widthOfString(item.name);
-    const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
-    const metaWidth = metaLine ? Math.max(0, columnWidth - titleWidth - separatorWidth) : 0;
-    const titleMetaHeight = titleSize + 1 + (metaLine && metaWidth < 40 ? 6 : 0);
-    // Use the rich-text measurement so the column-balancing step
-    // honours paragraph breaks (which heightOfString collapses).
+    // Measure body height using the compact column width; dense items
+    // get re-measured in the wider full-width strip during render.
     const bodyHeight = description
-      ? measureRichParagraphHeight(ctx, description, columnWidth, bodySize, lineGap, textFont)
+      ? measureRichParagraphHeight(ctx, description, columnWidth, compactBodySize, lineGap, textFont)
       : 0;
-    ctx.doc.restore();
+    const titleMetaHeight = titleSize + 1;
+    const totalHeight = titleMetaHeight + bodyHeight + cardGap;
+    const sections = parseSections(description);
+    return {
+      item,
+      description,
+      titleMetaHeight,
+      bodyHeight,
+      totalHeight,
+      isDense: totalHeight > denseThreshold,
+      sections,
+    };
+  });
 
-    const estimatedHeight = titleMetaHeight + bodyHeight + 4;
-    const targetColumn = columnHeights[0] <= columnHeights[1] ? 0 : 1;
-    columnItems[targetColumn].push({ item, estimatedHeight });
-    columnHeights[targetColumn] += estimatedHeight;
+  // --- Phase 2: Layout compact items in 2 columns -------------------
+  // Greedy bin-packing with overflow protection: each card goes in
+  // the smaller column; if neither column has room, the card is
+  // promoted to the dense strip. After this pass the compact lists
+  // are final and their placement is decided purely by measured
+  // heights — no estimate-vs-actual mismatch.
+  //
+  // Items with 2+ parsed sections (e.g. Prayer Beads with its
+  // Bead Count / Activation / Mantis Style / Saving Face blocks) are
+  // routed to a dedicated "dashboard" strip below the 2-column flow.
+  // The dashboard strip renders each section as its own mini-card
+  // in a 2-column sub-grid — the "dashboard grid" the user asked
+  // for. Simple items stay in the 2-column flow.
+  const columns: PreparedItem[][] = [[], []];
+  const denseQueue: PreparedItem[] = [];
+  const dashboardQueue: PreparedItem[] = [];
+
+  for (const p of prepared) {
+    if (p.isDense) {
+      denseQueue.push(p);
+      continue;
+    }
+    if (p.sections.length >= 2) {
+      // Multi-section items always go to the dashboard strip so
+      // they get the per-section mini-card rendering.
+      dashboardQueue.push(p);
+      continue;
+    }
+    const smaller = columns[0].length === 0 || (columnHeightsSum(columns, 0) <= columnHeightsSum(columns, 1)) ? 0 : 1;
+    const other = 1 - smaller;
+    const smallerY = columnHeightsSum(columns, smaller) + contentStartY;
+    const otherY = columnHeightsSum(columns, other) + contentStartY;
+    if (smallerY + p.totalHeight <= contentBottomY) {
+      columns[smaller].push(p);
+    } else if (otherY + p.totalHeight <= contentBottomY) {
+      columns[other].push(p);
+    } else {
+      // No column has space — promote to dense strip.
+      p.isDense = true;
+      denseQueue.push(p);
+    }
   }
 
-  const renderColumn = (columnIndex: number) => {
-    let currentY = contentStartY;
-    const columnX = rect.x + columnPadding + columnIndex * (columnWidth + columnGap);
-    for (const entry of columnItems[columnIndex]) {
-      const item = entry.item;
-      const metaLine = buildItemMetadataLine(item);
-      const description = extractItemDescription(
-        item.sheetDescription || item.detailHtml,
-        item.notes ?? item.name,
-      );
-      const separator = metaLine ? "  —  " : "";
+  // --- Phase 3: Render compact items --------------------------------
+  // Walk each column top-to-bottom, using the actual rendered height
+  // for each card to update the cursorY. This is the fix for the
+  // overlap: previous versions used the estimated height to position
+  // the next card, which could place it inside the previous card's
+  // body if the estimate was low.
+  const columnCursors = [contentStartY, contentStartY];
+  for (let col = 0; col < 2; col++) {
+    for (const p of columns[col]) {
+      renderItemCard(ctx, p, {
+        x: rect.x + columnPadding + col * (columnWidth + columnGap),
+        y: columnCursors[col],
+        width: columnWidth,
+      }, { bodySize: compactBodySize, maxBottomY: contentBottomY });
+      const rendered = measureItemCardHeight(ctx, p, columnWidth, compactBodySize);
+      columnCursors[col] = columnCursors[col] + Math.min(p.totalHeight, rendered) + cardGap;
+    }
+  }
 
-      ctx.doc.save();
-      ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
-      const nameWidth = ctx.doc.widthOfString(item.name);
-      const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
-      const metaWidth = metaLine ? Math.max(0, columnWidth - nameWidth - separatorWidth) : 0;
-      ctx.doc.restore();
-
-      drawText(ctx, item.name, { x: columnX, y: currentY, width: columnWidth, height: titleSize + 1 }, {
-        font: "Helvetica-Bold",
-        size: titleSize,
-        color: COLORS.textPrimary,
-        lineGap: 0,
-        ellipsis: true,
-      });
-
-      if (metaLine && metaWidth > 20) {
-        if (separatorWidth > 0) {
-          drawText(ctx, separator, { x: columnX + nameWidth, y: currentY, width: separatorWidth + 1, height: titleSize + 1 }, {
-            font: "Helvetica-Bold",
-            size: titleSize,
-            color: COLORS.textPrimary,
-            lineGap: 0,
-          });
-        }
-        drawText(ctx, metaLine, { x: columnX + nameWidth + separatorWidth, y: currentY, width: metaWidth, height: titleSize + 1 }, {
-          font: "Helvetica-Bold",
-          size: titleSize,
-          color: COLORS.textSecondary,
-          lineGap: 0,
-          ellipsis: true,
-        });
+  // --- Phase 4: Render dense items in a wider strip -----------------
+  // The dense strip starts after the columns end. If a column ended
+  // higher, the dense strip is lifted so it doesn't leave dead space.
+  const compactEndY = Math.max(columnCursors[0], columnCursors[1]);
+  let denseY = compactEndY + 6;
+  for (const p of denseQueue) {
+    if (denseY + p.titleMetaHeight + 8 >= contentBottomY) break;
+    renderDenseItemCard(ctx, p, {
+      x: rect.x + columnPadding,
+      y: denseY,
+      width: fullWidth,
+    }, { bodySize: denseBodySize, maxBottomY: contentBottomY, subColumnGap });
+    // Approximate dense card height: title + grid height. Re-measure
+    // would require running the renderer, which we just did; use a
+    // conservative measure based on the parsed sections so the next
+    // dense card lands below this one cleanly.
+    const sectionsPerRow = 2;
+    const rows = Math.ceil(p.sections.length / sectionsPerRow);
+    const subW = (fullWidth - subColumnGap) / sectionsPerRow;
+    let maxRowH = 0;
+    for (let r = 0; r < rows; r++) {
+      let rowH = 0;
+      for (let s = 0; s < sectionsPerRow; s++) {
+        const idx = r * sectionsPerRow + s;
+        if (idx >= p.sections.length) break;
+        const sec = p.sections[idx];
+        const titleH = sec.title ? 5 : 0;
+        const bodyH = sec.body
+          ? measureRichParagraphHeight(ctx, sec.body, subW, denseBodySize, lineGap, textFont)
+          : 0;
+        rowH = Math.max(rowH, titleH + bodyH + cardGap);
       }
-      currentY += titleSize + 1;
+      maxRowH += rowH;
+    }
+    const denseCardH = p.titleMetaHeight + Math.max(maxRowH, measureRichParagraphHeight(ctx, p.description, fullWidth, denseBodySize, lineGap, textFont));
+    denseY = denseY + denseCardH + cardGap;
+  }
 
-      if (description) {
-        const remainingForBody = contentBottomY - currentY - 2;
-        if (remainingForBody > 6) {
-          // Shrink-on-overflow rich text: walk bodySize (6) down to
-          // minSize (4) in 0.25pt steps until the bold/italic-aware
-          // wrapped height fits the remaining vertical space. Same
-          // pattern as the backstory's drawFittedText calls. The
-          // renderer now respects paragraph breaks and hard line
-          // breaks, so the estimated space matches the rendered
-          // output more closely.
-          const bodyHeight = drawFittedRichParagraph(
+  // --- Phase 5: Render dashboard items -------------------------------
+  // Each dashboard item is a full-width strip below the dense strip.
+  // Sections are laid out in a 2-column sub-grid: row 1 has section 0
+  // + section 1, row 2 has section 2 + section 3, and so on. The last
+  // row may have a single section (odd count). Each cell has a bold
+  // section title and its body in the body face, giving the player
+  // scannable visual anchors instead of a wall of prose.
+  let dashY = denseY;
+  for (const p of dashboardQueue) {
+    if (dashY + p.titleMetaHeight + 8 >= contentBottomY) break;
+    renderDashboardItem(ctx, p, {
+      x: rect.x + columnPadding,
+      y: dashY,
+      width: fullWidth,
+    }, { bodySize: denseBodySize, maxBottomY: contentBottomY, subColumnGap });
+    const subW = (fullWidth - subColumnGap) / 2;
+    const rows = Math.ceil(p.sections.length / 2);
+    let totalH = 0;
+    for (let r = 0; r < rows; r++) {
+      let rowH = 0;
+      for (let s = 0; s < 2; s++) {
+        const idx = r * 2 + s;
+        if (idx >= p.sections.length) break;
+        const sec = p.sections[idx];
+        const titleH = sec.title ? 5 : 0;
+        const bodyH = sec.body ? measureRichParagraphHeight(ctx, sec.body, subW, denseBodySize, lineGap, textFont) : 0;
+        rowH = Math.max(rowH, titleH + bodyH + cardGap);
+      }
+      totalH += rowH;
+    }
+    dashY += p.titleMetaHeight + totalH + cardGap;
+  }
+}
+
+function renderDashboardItem(
+  ctx: PdfRenderContext,
+  p: PreparedItem,
+  rect: { x: number; y: number; width: number },
+  options: { bodySize: number; maxBottomY: number; subColumnGap: number },
+) {
+  // Title row spans the full width.
+  const metaLine = buildItemMetadataLine(p.item);
+  const separator = metaLine ? "  —  " : "";
+  ctx.doc.save();
+  ctx.doc.font("Helvetica-Bold").fontSize(7.2);
+  const nameWidth = ctx.doc.widthOfString(p.item.name);
+  const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
+  const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
+  ctx.doc.restore();
+  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: 8 }, {
+    font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0, ellipsis: true,
+  });
+  if (metaLine && metaWidth > 20) {
+    if (separatorWidth > 0) {
+      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: 8 }, {
+        font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0,
+      });
+    }
+    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: 8 }, {
+      font: "Helvetica-Bold", size: 7.2, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
+    });
+  }
+
+  const bodyY = rect.y + 8;
+  const subW = (rect.width - options.subColumnGap) / 2;
+  let rowY = bodyY;
+  const rows = Math.ceil(p.sections.length / 2);
+  for (let r = 0; r < rows; r++) {
+    let rowH = 0;
+    for (let s = 0; s < 2; s++) {
+      const idx = r * 2 + s;
+      if (idx >= p.sections.length) break;
+      const sec = p.sections[idx];
+      const cellX = rect.x + s * (subW + options.subColumnGap);
+      let cellCursorY = rowY;
+      if (sec.title) {
+        // Visual anchor: section title in bold uppercase, body face
+        // (Magra-Bold) so it reads as inline emphasis of the same
+        // paragraph family, not a different display face.
+        drawText(ctx, sec.title.toUpperCase(), {
+          x: cellX, y: cellCursorY, width: subW, height: 5,
+        }, {
+          font: "Magra-Bold", size: 5.5, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
+        });
+        cellCursorY += 5.5;
+      }
+      if (sec.body) {
+        const cellRemaining = options.maxBottomY - cellCursorY;
+        if (cellRemaining > 6) {
+          const h = drawFittedRichParagraph(
             ctx,
-            description,
-            {
-              x: columnX,
-              y: currentY,
-              width: columnWidth,
-              maxHeight: remainingForBody,
-            },
-            {
-              font: textFont,
-              size: bodySize,
-              minSize: 4,
-              color: COLORS.textPrimary,
-              lineGap,
-            },
+            sec.body,
+            { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
+            { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
           );
-          if (bodyHeight > 2) {
-            currentY += bodyHeight;
+          cellCursorY += h;
+        }
+      }
+      rowH = Math.max(rowH, cellCursorY - rowY);
+    }
+    rowY += rowH + 4;
+  }
+}
+
+function columnHeightsSum(columns: PreparedItem[][], _col: number): number {
+  // Helper: returns the cumulative height of cards already placed in
+  // column `col`. Used by the layout pass to decide which column is
+  // the smaller one (greedy bin-packing).
+  return columns[_col].reduce((sum, p) => sum + p.totalHeight, 0);
+}
+
+function renderItemCard(
+  ctx: PdfRenderContext,
+  p: PreparedItem,
+  rect: { x: number; y: number; width: number },
+  options: { bodySize: number; maxBottomY: number },
+) {
+  // Title row: "Name — metadata" or just "Name".
+  const metaLine = buildItemMetadataLine(p.item);
+  const separator = metaLine ? "  —  " : "";
+  ctx.doc.save();
+  ctx.doc.font("Helvetica-Bold").fontSize(7.2);
+  const nameWidth = ctx.doc.widthOfString(p.item.name);
+  const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
+  const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
+  ctx.doc.restore();
+  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: 8 }, {
+    font: "Helvetica-Bold",
+    size: 7.2,
+    color: COLORS.textPrimary,
+    lineGap: 0,
+    ellipsis: true,
+  });
+  if (metaLine && metaWidth > 20) {
+    if (separatorWidth > 0) {
+      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: 8 }, {
+        font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0,
+      });
+    }
+    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: 8 }, {
+      font: "Helvetica-Bold", size: 7.2, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
+    });
+  }
+
+  if (p.description) {
+    const remaining = options.maxBottomY - (rect.y + 7.5);
+    if (remaining > 6) {
+      drawFittedRichParagraph(
+        ctx,
+        p.description,
+        { x: rect.x, y: rect.y + 7.5, width: rect.width, maxHeight: remaining },
+        { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+      );
+    }
+  }
+}
+
+function measureItemCardHeight(
+  ctx: PdfRenderContext,
+  p: PreparedItem,
+  width: number,
+  bodySize: number,
+): number {
+  const titleH = 7.5;
+  const bodyH = p.description
+    ? measureRichParagraphHeight(ctx, p.description, width, bodySize, 0.3, "Helvetica")
+    : 0;
+  return titleH + bodyH;
+}
+
+function renderDenseItemCard(
+  ctx: PdfRenderContext,
+  p: PreparedItem,
+  rect: { x: number; y: number; width: number },
+  options: { bodySize: number; maxBottomY: number; subColumnGap: number },
+) {
+  // Title row spans the full width.
+  const metaLine = buildItemMetadataLine(p.item);
+  const separator = metaLine ? "  —  " : "";
+  ctx.doc.save();
+  ctx.doc.font("Helvetica-Bold").fontSize(7.2);
+  const nameWidth = ctx.doc.widthOfString(p.item.name);
+  const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
+  const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
+  ctx.doc.restore();
+  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: 8 }, {
+    font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0, ellipsis: true,
+  });
+  if (metaLine && metaWidth > 20) {
+    if (separatorWidth > 0) {
+      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: 8 }, {
+        font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0,
+      });
+    }
+    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: 8 }, {
+      font: "Helvetica-Bold", size: 7.2, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
+    });
+  }
+
+  const bodyY = rect.y + 8;
+  const remaining = options.maxBottomY - bodyY;
+  if (remaining < 6) return;
+
+  // If we have 2+ sections, render them as a 2-column sub-grid
+  // (the "dashboard grid" the user asked for). Each section is a
+  // mini-card with a bold title and its own body, giving the player
+  // a scannable visual anchor for each Mantra / Style / Face.
+  if (p.sections.length >= 2) {
+    const subW = (rect.width - options.subColumnGap) / 2;
+    const sectionsPerRow = 2;
+    const rows = Math.ceil(p.sections.length / sectionsPerRow);
+    let rowY = bodyY;
+    for (let r = 0; r < rows; r++) {
+      let rowH = 0;
+      for (let s = 0; s < sectionsPerRow; s++) {
+        const idx = r * sectionsPerRow + s;
+        if (idx >= p.sections.length) break;
+        const sec = p.sections[idx];
+        const cellX = rect.x + s * (subW + options.subColumnGap);
+        const cellY = rowY;
+        let cellCursorY = cellY;
+        if (sec.title) {
+          drawText(ctx, sec.title.toUpperCase(), {
+            x: cellX, y: cellCursorY, width: subW, height: 5.5,
+          }, {
+            font: "Helvetica-Bold", size: 5.5, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
+          });
+          cellCursorY += 5.5;
+        }
+        if (sec.body) {
+          const cellRemaining = options.maxBottomY - cellCursorY;
+          if (cellRemaining > 6) {
+            const h = drawFittedRichParagraph(
+              ctx,
+              sec.body,
+              { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
+              { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+            );
+            cellCursorY += h;
           }
         }
+        rowH = Math.max(rowH, cellCursorY - cellY);
       }
-
-      currentY += 2;
+      rowY += rowH + 4;
     }
-  };
+    return;
+  }
 
-  renderColumn(0);
-  renderColumn(1);
+  // Single-section dense item (or description with no parseable
+  // paragraphs): render the body across the full width, falling
+  // back to a fitted-shrink so the text never overflows the
+  // container bounds.
+  if (p.description) {
+    drawFittedRichParagraph(
+      ctx,
+      p.description,
+      { x: rect.x, y: bodyY, width: rect.width, maxHeight: remaining },
+      { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+    );
+  }
 }
 
 function renderAttuned(
