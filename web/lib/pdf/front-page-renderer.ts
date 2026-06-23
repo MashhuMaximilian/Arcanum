@@ -1111,15 +1111,17 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       // drawSocketText used a loose `size*0.95 <= height` check which
       // let the score render at 16.25pt in a 15.5pt slot — pushing
       // cap-tops above the save pip and descenders below the modifier.
+      // Bumped sizes to match the companion page so both pages use the
+      // same stat-block geometry.
       drawCenteredTextInRect(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
         font: "Helvetica-Bold",
-        maxSize: 10.4,
+        maxSize: 12,
         minSize: 5,
         color: "#000000",
       });
       drawCenteredTextInRect(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
         font: "Helvetica-Bold",
-        maxSize: 16.5,
+        maxSize: 19,
         minSize: 8,
         color: "#000000",
       });
@@ -1133,7 +1135,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       }
       drawCenteredTextInRect(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
-        maxSize: 9.6,
+        maxSize: 11,
         minSize: 5,
         color: "#000000",
       });

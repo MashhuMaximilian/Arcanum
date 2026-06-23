@@ -1422,8 +1422,10 @@ const AC_SLOTS = {
 } as const;
 
 const PASSIVE_BOX_SLOTS = {
-  // Top half: speed value. Bottom: speed mode label.
-  value: { x: 2, y: 8, width: 25, height: 18 },
+  // Top half: speed value (nudged up from y=8 → y=4 so the digit sits
+  // centered in the box above the label, matching the user's request).
+  // Bottom: speed mode label.
+  value: { x: 2, y: 4, width: 25, height: 18 },
   label: { x: 1, y: 25, width: 27, height: 8 },
 } as const;
 
@@ -1793,11 +1795,11 @@ function renderCompanionAbilities(
 
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
       ...valueOptions,
-      maxSize: 10.4,
+      maxSize: 12,
     });
     drawCenteredTextInRect(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
       ...valueOptions,
-      maxSize: 16.5,
+      maxSize: 19,
       minSize: 8,
     });
     maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
@@ -1814,7 +1816,7 @@ function renderCompanionAbilities(
     });
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
       ...valueOptions,
-      maxSize: 9.6,
+      maxSize: 11,
     });
   }
 }
@@ -1829,7 +1831,7 @@ function renderCompanionBonusBox(
   drawSvg(ctx, frameOnlySvg(assets.bonusBox, 2), rect, "contain");
   drawCenteredTextInRect(ctx, value, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.value), {
     font: "Helvetica-Bold",
-    maxSize: 15,
+    maxSize: 22,
     minSize: 8,
     color: "#000000",
   });
@@ -1856,7 +1858,7 @@ function renderCompanionHpAndAc(
   // drawing directly into its local slot preserves every border and label.
   drawCenteredTextInRect(ctx, hp, componentRect(rects.hp, HP_VIEWBOX, HP_SLOTS.maxHpValue), {
     font: "Helvetica-Bold",
-    maxSize: 15,
+    maxSize: 22,
     minSize: 8,
     color: "#000000",
   });
@@ -1865,7 +1867,7 @@ function renderCompanionHpAndAc(
   // Likewise, keep the shield's baked-in AC label and draw only the value.
   drawCenteredTextInRect(ctx, ac, componentRect(rects.ac, AC_VIEWBOX, AC_SLOTS.value), {
     font: "Helvetica-Bold",
-    maxSize: 15,
+    maxSize: 18,
     minSize: 9,
     color: "#000000",
   });
@@ -1902,7 +1904,7 @@ function renderCompanionSpeeds(
     drawSvg(ctx, passiveFrame, rect, "contain");
     drawCenteredTextInRect(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
       font: "Helvetica-Bold",
-      maxSize: 11,
+      maxSize: 14,
       minSize: 6,
       color: "#000000",
     });
