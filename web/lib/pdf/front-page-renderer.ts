@@ -527,12 +527,16 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
   };
 
   HEADER_FIELD_SLOTS.forEach((field) => {
+    // Use the same Magra body face as the companion page header so the
+    // typography reads consistently across page 1 and the companion —
+    // companion uses Helvetica (Magra) for both label and value at
+    // 3.5pt / 6.4pt. Keep label color secondary to match companion.
     drawFittedText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
-      font: "Helvetica-Bold",
-      maxSize: 3.8,
+      font: "Helvetica",
+      maxSize: 3.5,
       minSize: 2.8,
       align: "left",
-      color: "#555555",
+      color: "#777777",
     });
     const line = headerRect(field.lineRect);
     drawHeaderUnderline(ctx, line);
@@ -544,7 +548,7 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
 
     if (lines.length === 1) {
       drawFittedText(ctx, lines[0], headerRect(field.valueRect), {
-        font: "Helvetica-Bold",
+        font: "Helvetica",
         maxSize: field.maxSize,
         minSize: field.minSize,
         align: "left",
@@ -562,7 +566,7 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     lines.forEach((lineText, idx) => {
       const lineRect = { x: fullRect.x, y: fullRect.y + idx * perLineH, width: fullRect.width, height: perLineH };
       drawFittedText(ctx, lineText, lineRect, {
-        font: "Helvetica-Bold",
+        font: "Helvetica",
         maxSize: field.maxSize,
         minSize: field.minSize,
         align: "left",
