@@ -267,54 +267,127 @@ function drawRichParagraph(
 ): number {
   if (!text) return 0;
 
-  const runs = tokenizeInlineRuns(text);
-
+  // Split into paragraph blocks on blank lines. Hard `\n` inside a
+  // paragraph is preserved as a soft line break; double `\n\n`
+  // becomes a paragraph break with extra vertical space.
+  const paragraphBlocks = text.split(/\n{2,}/);
   let y = rect.y;
-  let cursorX = rect.x;
+  const paragraphSpacing = options.lineGap + options.size * 0.4;
+  let firstBlock = true;
 
-  for (const run of runs) {
-    if (!run.text) continue;
-    const isBold = run.bold;
-    const isItalic = run.italic || options.italic;
-    // Bold body text uses Magra-Bold (the body family in bold weight) so
-    // **Bonus Action** style markers render in the same metric as the
-    // surrounding paragraph instead of jumping to the Teko-Medium
-    // display face. Italic reuses Magra (we have no italic cut; the
-    // visual distinction still reads through run separation).
-    const font = isBold && isItalic
-      ? "Magra-Bold"
-      : isBold
-        ? "Magra-Bold"
-        : isItalic
-          ? "Helvetica-Oblique"
-          : options.font;
+  for (const blockRaw of paragraphBlocks) {
+    const block = blockRaw.trim();
+    if (!block) continue;
 
-    // Split on spaces so we can wrap.
-    const words = run.text.split(/(\s+)/); // keep spaces
-    for (const word of words) {
-      if (!word) continue;
-      ctx.doc.save();
-      ctx.doc.font(font).fontSize(options.size);
-      const wordWidth = ctx.doc.widthOfString(word);
-      ctx.doc.restore();
-      if (cursorX + wordWidth > rect.x + rect.width && cursorX > rect.x) {
+    if (!firstBlock) {
+      y += paragraphSpacing;
+    }
+    firstBlock = false;
+
+    // Within a block, honor hard `\n` as soft line breaks. Tokenize
+    // each line independently so soft breaks reset the cursor cleanly
+    // instead of being treated as wrap-eligible whitespace.
+    const hardLines = block.split(/\n/);
+    let firstLine = true;
+    for (const lineRaw of hardLines) {
+      const line = lineRaw.trim();
+      if (!line) {
+        // Empty soft-break line still gets a line height so consecutive
+        // `\n` inside a paragraph reads as vertical breathing room.
         y += options.size + options.lineGap;
-        cursorX = rect.x;
-        if (y - rect.y > rect.maxHeight) return y - rect.y;
+        firstLine = false;
+        continue;
       }
-      drawText(ctx, word, {
-        x: cursorX,
-        y,
-        width: wordWidth + 1,
-        height: options.size + options.lineGap,
-      }, {
-        font,
-        size: options.size,
-        color: options.color,
-        lineBreak: false,
-        lineGap: 0,
-      });
-      cursorX += wordWidth;
+      if (!firstLine) {
+        y += options.size + options.lineGap;
+      }
+      firstLine = false;
+
+      if (y - rect.y + options.size > rect.maxHeight) {
+        return y - rect.y;
+      }
+
+      const runs = tokenizeInlineRuns(line);
+      let cursorX = rect.x;
+      let lineHasContent = false;
+
+      for (const run of runs) {
+        if (!run.text) continue;
+        const isBold = run.bold;
+        const isItalic = run.italic || options.italic;
+        // Bold body text uses Magra-Bold (the body family in bold
+        // weight) so **Bonus Action** style markers render in the same
+        // metric as the surrounding paragraph instead of jumping to
+        // the Teko-Medium display face. Italic reuses Magra (we have
+        // no italic cut; the visual distinction still reads through
+        // run separation).
+        const font = isBold && isItalic
+          ? "Magra-Bold"
+          : isBold
+            ? "Magra-Bold"
+            : isItalic
+              ? "Helvetica-Oblique"
+              : options.font;
+
+        // Split on spaces so we can wrap. Use a non-newline split
+        // since newlines are already handled at the block level above.
+        const words = run.text.split(/[ \t]+/);
+        for (let wi = 0; wi < words.length; wi++) {
+          const word = words[wi];
+          if (!word) continue;
+          ctx.doc.save();
+          ctx.doc.font(font).fontSize(options.size);
+          const wordWidth = ctx.doc.widthOfString(word);
+          ctx.doc.restore();
+
+          if (cursorX + wordWidth > rect.x + rect.width && cursorX > rect.x) {
+            y += options.size + options.lineGap;
+            cursorX = rect.x;
+            if (y - rect.y + options.size > rect.maxHeight) {
+              return y - rect.y;
+            }
+          }
+
+          // Add a space before the word if not at the start of a line
+          // and not directly after another word. The trailing-space
+          // marker on the previous run is omitted; we just emit a
+          // single space-width gap using a single space character.
+          if (cursorX > rect.x && lineHasContent) {
+            ctx.doc.save();
+            ctx.doc.font(font).fontSize(options.size);
+            const spaceWidth = ctx.doc.widthOfString(" ");
+            ctx.doc.restore();
+            drawText(ctx, " ", {
+              x: cursorX,
+              y,
+              width: spaceWidth,
+              height: options.size + options.lineGap,
+            }, {
+              font,
+              size: options.size,
+              color: options.color,
+              lineBreak: false,
+              lineGap: 0,
+            });
+            cursorX += spaceWidth;
+          }
+
+          drawText(ctx, word, {
+            x: cursorX,
+            y,
+            width: wordWidth + 1,
+            height: options.size + options.lineGap,
+          }, {
+            font,
+            size: options.size,
+            color: options.color,
+            lineBreak: false,
+            lineGap: 0,
+          });
+          cursorX += wordWidth;
+          lineHasContent = true;
+        }
+      }
     }
   }
   return y + options.size + options.lineGap - rect.y;
@@ -322,8 +395,10 @@ function drawRichParagraph(
 
 /**
  * Measure the wrapped height of a rich-text paragraph (with **bold**
- * and *italic* inline runs) at the given font size. Used as the
- * measurement primitive for `drawFittedRichParagraph`.
+ * and *italic* inline runs) at the given font size. Mirrors the
+ * paragraph / hard-line-break / word-wrap accounting in
+ * `drawRichParagraph` so the fitted-sizing primitive reports the
+ * height the renderer will actually consume.
  */
 function measureRichParagraphHeight(
   ctx: PdfRenderContext,
@@ -334,37 +409,75 @@ function measureRichParagraphHeight(
   baseFont: string,
 ): number {
   if (!text) return 0;
-  const runs = tokenizeInlineRuns(text);
-  let cursorX = 0;
-  let lines = 1;
-  const lineHeight = size + lineGap;
-  for (const run of runs) {
-    if (!run.text) continue;
-    // Same bold/italic -> font mapping as drawRichParagraph so the
-    // measurement matches what we actually render.
-    const font = run.bold && run.italic
-      ? "Magra-Bold"
-      : run.bold
-        ? "Magra-Bold"
-        : run.italic
-          ? "Helvetica-Oblique"
-          : baseFont;
-    const words = run.text.split(/(\s+)/);
-    for (const word of words) {
-      if (!word) continue;
-      ctx.doc.save();
-      ctx.doc.font(font).fontSize(size);
-      const wordWidth = ctx.doc.widthOfString(word);
-      ctx.doc.restore();
-      if (cursorX + wordWidth > width && cursorX > 0) {
-        lines += 1;
-        cursorX = 0;
-        if (/^\s+$/.test(word)) continue;
+  const paragraphSpacing = lineGap + size * 0.4;
+  const paragraphBlocks = text.split(/\n{2,}/);
+  let totalHeight = 0;
+  let firstBlock = true;
+
+  for (const blockRaw of paragraphBlocks) {
+    const block = blockRaw.trim();
+    if (!block) continue;
+
+    if (!firstBlock) {
+      totalHeight += paragraphSpacing;
+    }
+    firstBlock = false;
+
+    const hardLines = block.split(/\n/);
+    let firstLine = true;
+    for (const lineRaw of hardLines) {
+      const line = lineRaw.trim();
+      if (!line) {
+        totalHeight += size + lineGap;
+        firstLine = false;
+        continue;
       }
-      cursorX += wordWidth;
+      if (!firstLine) {
+        totalHeight += size + lineGap;
+      }
+      firstLine = false;
+
+      const runs = tokenizeInlineRuns(line);
+      let cursorX = 0;
+      let lineHasContent = false;
+      for (const run of runs) {
+        if (!run.text) continue;
+        const font = run.bold && run.italic
+          ? "Magra-Bold"
+          : run.bold
+            ? "Magra-Bold"
+            : run.italic
+              ? "Helvetica-Oblique"
+              : baseFont;
+        const words = run.text.split(/[ \t]+/);
+        for (const word of words) {
+          if (!word) continue;
+          ctx.doc.save();
+          ctx.doc.font(font).fontSize(size);
+          const wordWidth = ctx.doc.widthOfString(word);
+          ctx.doc.restore();
+
+          if (cursorX + wordWidth > width && cursorX > 0) {
+            totalHeight += size + lineGap;
+            cursorX = 0;
+          }
+
+          // Account for the inter-word space the renderer emits.
+          if (cursorX > 0 && lineHasContent) {
+            ctx.doc.save();
+            ctx.doc.font(font).fontSize(size);
+            const spaceWidth = ctx.doc.widthOfString(" ");
+            ctx.doc.restore();
+            cursorX += spaceWidth;
+          }
+
+          cursorX += wordWidth;
+          lineHasContent = true;
+        }
+      }
     }
   }
-  return lines * lineHeight;
+  return totalHeight + size + lineGap;
 }
 
 /**
@@ -599,10 +712,11 @@ function renderItemDescriptions(
   const textFont = "Helvetica";
   const lineGap = 0.3;
 
-  // Fixed body size for ALL item descriptions. Small enough that the
-  // full rules text fits for typical items without overflowing.
-  const bodySize = 5.25;
-  const titleSize = 6.8;
+  // Bump body size to 6pt so descriptions fill the column more
+  // confidently. The fitted-shrink inside drawFittedRichParagraph will
+  // step this down only when a single item would otherwise overflow.
+  const bodySize = 6;
+  const titleSize = 7.2;
   const columnItems: Array<Array<{ item: CharacterInventoryItem; estimatedHeight: number }>> = [[], []];
   const columnHeights = [contentStartY, contentStartY];
 
@@ -620,13 +734,14 @@ function renderItemDescriptions(
     const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
     const metaWidth = metaLine ? Math.max(0, columnWidth - titleWidth - separatorWidth) : 0;
     const titleMetaHeight = titleSize + 1 + (metaLine && metaWidth < 40 ? 6 : 0);
-    ctx.doc.font(textFont).fontSize(bodySize);
+    // Use the rich-text measurement so the column-balancing step
+    // honours paragraph breaks (which heightOfString collapses).
     const bodyHeight = description
-      ? ctx.doc.heightOfString(description, { width: columnWidth, lineBreak: true, lineGap })
+      ? measureRichParagraphHeight(ctx, description, columnWidth, bodySize, lineGap, textFont)
       : 0;
     ctx.doc.restore();
 
-    const estimatedHeight = titleMetaHeight + bodyHeight + 3;
+    const estimatedHeight = titleMetaHeight + bodyHeight + 4;
     const targetColumn = columnHeights[0] <= columnHeights[1] ? 0 : 1;
     columnItems[targetColumn].push({ item, estimatedHeight });
     columnHeights[targetColumn] += estimatedHeight;
@@ -681,10 +796,13 @@ function renderItemDescriptions(
       if (description) {
         const remainingForBody = contentBottomY - currentY - 2;
         if (remainingForBody > 6) {
-          // Shrink-on-overflow rich text: walk bodySize (5.5) down to
+          // Shrink-on-overflow rich text: walk bodySize (6) down to
           // minSize (4) in 0.25pt steps until the bold/italic-aware
           // wrapped height fits the remaining vertical space. Same
-          // pattern as the backstory's drawFittedText calls.
+          // pattern as the backstory's drawFittedText calls. The
+          // renderer now respects paragraph breaks and hard line
+          // breaks, so the estimated space matches the rendered
+          // output more closely.
           const bodyHeight = drawFittedRichParagraph(
             ctx,
             description,
