@@ -342,16 +342,21 @@ function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: strin
     return;
   }
 
+  // Match the companion bonus-box slot proportions: value sits in the
+  // top ~62% of the box (y=8/42..30/42 in the 45×42 viewBox), so the
+  // label can occupy the lower third without colliding. With this
+  // larger slot the digits can scale up to a maxSize that the old
+  // 15.5pt slot could never accommodate.
   const valueRect = rectFromFractions(rect, {
-    x: mode === "shield" ? 0.13 : mode === "wide" ? 0.07 : 0.12,
-    y: mode === "shield" ? 0.20 : mode === "wide" ? 0.17 : 0.16,
-    width: mode === "shield" ? 0.74 : mode === "wide" ? 0.86 : 0.76,
-    height: mode === "shield" ? 0.36 : 0.36,
+    x: mode === "shield" ? 0.10 : mode === "wide" ? 0.04 : 0.10,
+    y: mode === "shield" ? 0.16 : mode === "wide" ? 0.12 : 0.14,
+    width: mode === "shield" ? 0.80 : mode === "wide" ? 0.92 : 0.80,
+    height: mode === "shield" ? 0.50 : 0.50,
   });
   drawCenteredTextInRect(ctx, value, valueRect, {
     font: "Helvetica-Bold",
-    maxSize: mode === "small" ? 12 : mode === "shield" ? 13 : 15,
-    minSize: 7,
+    maxSize: mode === "small" ? 16 : mode === "shield" ? 18 : 22,
+    minSize: 8,
     color: "#000000",
   });
 }
@@ -591,14 +596,14 @@ function renderStatStrip(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
     if (spec.key === "hit dice") {
       // The hit dice cell is wider than the other stat boxes (54.71pt × 42pt)
       // but the value string can be long ("3d8 • 3d8 • 1d6 • 1d6" for a 4-class
-      // multiclass). Teko-Medium (current "Helvetica-Bold" alias) is narrower
-      // than Helvetica-Bold, so a single short string now fits at maxSize 9
-      // and we keep the long-string fallback at 4pt.
+      // multiclass). Match the other stat boxes' top-half slot and let the
+      // shrink-on-overflow center fit drop to a small size when the string
+      // runs long.
       const value = statValue(character, spec.key, spec.fallback);
-      const valueRect = rectFromFractions(rect, { x: 0.07, y: 0.17, width: 0.86, height: 0.36 });
+      const valueRect = rectFromFractions(rect, { x: 0.04, y: 0.12, width: 0.92, height: 0.50 });
       drawCenteredTextInRect(ctx, value, valueRect, {
         font: "Helvetica-Bold",
-        maxSize: 9,
+        maxSize: 18,
         minSize: 4,
         color: "#000000",
       });
