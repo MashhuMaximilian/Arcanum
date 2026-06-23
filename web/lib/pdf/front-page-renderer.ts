@@ -1100,15 +1100,21 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         const saveMarker = componentPoint(block, STAT_BLOCK_VIEWBOX, { x: 27.7, y: 3 });
         fillCircle(ctx, saveMarker.x, saveMarker.y, componentRadius(block, STAT_BLOCK_VIEWBOX, 2.1), "#000000");
       }
-      drawSocketText(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
+      // Use the same measured-height fitting as the companion so the
+      // score digit and the save/modifier pips stay cleanly inside
+      // their slots instead of overflowing into each other. The old
+      // drawSocketText used a loose `size*0.95 <= height` check which
+      // let the score render at 16.25pt in a 15.5pt slot — pushing
+      // cap-tops above the save pip and descenders below the modifier.
+      drawCenteredTextInRect(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
         font: "Helvetica-Bold",
-        maxSize: 12,
-        minSize: 4.4,
+        maxSize: 10.4,
+        minSize: 5,
         color: "#000000",
       });
-      drawSocketText(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
+      drawCenteredTextInRect(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
         font: "Helvetica-Bold",
-        maxSize: 18,
+        maxSize: 16.5,
         minSize: 8,
         color: "#000000",
       });
@@ -1120,9 +1126,9 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
           color: "#000000",
         });
       }
-      drawSocketText(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
+      drawCenteredTextInRect(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
-        maxSize: 10.6,
+        maxSize: 9.6,
         minSize: 5,
         color: "#000000",
       });
