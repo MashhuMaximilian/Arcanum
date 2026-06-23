@@ -219,7 +219,26 @@ const character = {
   },
 };
 
-// Build a minimal pagePlan so the export route emits inventory + spells pages.
+// Build a minimal pagePlan so the export route emits inventory + spells + backstory pages.
+character.backstory = {
+  name: "Artific",
+  age: "27",
+  height: "5 ft 9 in",
+  weight: "152 lbs",
+  gender: "Nonbinary",
+  eyes: "Copper",
+  skin: "Bronze",
+  hair: "Black",
+  appearance: "Bronze-scaled dragonborn with copper eyes and a long scar across the left forearm.",
+  backstory: "Born in the Draconic Warrens, Artific was apprenticed to a tinker who taught them to combine arcane theory with mechanical craft.",
+  personalityTraits: "Methodical, curious, quietly confident.",
+  ideals: "Knowledge is the sharpest tool.",
+  bonds: "My mentor's journal, half-burned, is my most prized possession.",
+  flaws: "I over-explain when I'm nervous.",
+  alliesAndOrganizations: "The Tinkers' Guild of [City].",
+  additionalFeatures: "A small mechanical bird that still ticks.",
+};
+
 character.pagePlan = [
   {
     kind: "inventory",
@@ -247,6 +266,13 @@ character.pagePlan = [
         cards: character.spellCards,
       },
     ],
+    notes: [],
+  },
+  {
+    kind: "backstory",
+    number: 4,
+    title: "Backstory",
+    sections: [],
     notes: [],
   },
 ];
