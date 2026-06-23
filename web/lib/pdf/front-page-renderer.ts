@@ -87,12 +87,12 @@ const DAMAGE_TYPE_ABBREV: Record<string, string> = {
 };
 
 const FEATURE_CARD_TYPOGRAPHY = {
-  title: { max: 6.5, min: 4.5 },
+  title: { max: 8.5, min: 5.5 },
   body: { max: 6.4, min: 3.6 },
-  meta: { max: 5.0, min: 2.7 },
-  charges: { max: 4.8, min: 3.0 },
-  titleRowHeight: 6.0,
-  metaRowHeight: 4.6,
+  meta: { max: 5.5, min: 3.0 },
+  charges: { max: 5.0, min: 3.0 },
+  titleRowHeight: 8.0,
+  metaRowHeight: 5.4,
   bodyTopPad: 2.5,
   separatorGap: 7,
   circleRadius: 1.45,
@@ -1204,16 +1204,19 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
           height: SKILL_ROW_SLOTS.bonusValue.height,
         }), {
           font: "Helvetica-Bold",
-          maxSize: 7,
+          maxSize: 8,
           minSize: 2.5,
           color: "#000000",
         });
         if (!hasPrintedTemplate || canRecompose) {
           drawFittedText(ctx, skill, componentRect(block, SKILL_BLOCK_VIEWBOX, {
             x: SKILL_ROW_SLOTS.label.x,
-            y: centerY + SKILL_ROW_SLOTS.label.yOffset,
+            // Use the same yOffset as the bonus value so the digit and
+            // the label sit on a shared visual baseline; the previous
+            // -3.35 vs -2.7 split dropped the label below the digit.
+            y: centerY + SKILL_ROW_SLOTS.bonusValue.yOffset,
             width: SKILL_ROW_SLOTS.label.width,
-            height: SKILL_ROW_SLOTS.label.height,
+            height: SKILL_ROW_SLOTS.bonusValue.height,
           }), {
             font: "Helvetica",
             maxSize: 5.45,
@@ -2529,9 +2532,13 @@ function drawTextWithBoldActionWords(
     const words = run.text.split(/(\s+)/);
     for (const w of words) {
       if (w.length === 0) continue;
-      // Measure width with correct font set (PDFKit API)
+      // Bold action words use the same Magra body face (just bold
+      // weight) so inline emphasis never switches to a different font
+      // mid-paragraph. The visual difference reads through the weight,
+      // not the typeface.
+      const wordFont = run.bold ? "Magra-Bold" : "Helvetica";
       doc.save();
-      doc.font(run.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fSize);
+      doc.font(wordFont).fontSize(fSize);
       const w2 = doc.widthOfString(w);
       doc.restore();
 
@@ -2545,7 +2552,7 @@ function drawTextWithBoldActionWords(
       // Render this run with lineBreak: false to prevent PDFKit auto page breaks
       if (cursorY > opts.y + opts.height) break;
       doc.save();
-      doc.font(run.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
+      doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
       doc.restore();
       lineX += w2;
       lineRemaining -= w2;
