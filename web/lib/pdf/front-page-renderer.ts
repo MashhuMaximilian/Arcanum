@@ -87,11 +87,11 @@ const DAMAGE_TYPE_ABBREV: Record<string, string> = {
 };
 
 const FEATURE_CARD_TYPOGRAPHY = {
-  title: { max: 8.5, min: 5.5 },
+  title: { max: 11, min: 6.0 },
   body: { max: 6.4, min: 3.6 },
   meta: { max: 5.5, min: 3.0 },
   charges: { max: 5.0, min: 3.0 },
-  titleRowHeight: 8.0,
+  titleRowHeight: 11.0,
   metaRowHeight: 5.4,
   bodyTopPad: 2.5,
   separatorGap: 7,
@@ -532,16 +532,17 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
   };
 
   HEADER_FIELD_SLOTS.forEach((field) => {
-    // Use the same Magra body face as the companion page header so the
-    // typography reads consistently across page 1 and the companion —
-    // companion uses Helvetica (Magra) for both label and value at
-    // 3.5pt / 6.4pt. Keep label color secondary to match companion.
+    // Use Teko-Medium (display face) for the section header labels so
+    // they read as proper section anchors instead of body text. The
+    // companion page uses Teko-Medium for the same labels (CREATURE,
+    // OWNER, SIZE, TYPE, ALIGNMENT) — matching that style here keeps
+    // all three page headers (first, companion, backstory) in lockstep.
     drawFittedText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
-      font: "Helvetica",
-      maxSize: 3.5,
-      minSize: 2.8,
+      font: "Helvetica-Bold",
+      maxSize: 5.2,
+      minSize: 3.4,
       align: "left",
-      color: "#777777",
+      color: "#555555",
     });
     const line = headerRect(field.lineRect);
     drawHeaderUnderline(ctx, line);

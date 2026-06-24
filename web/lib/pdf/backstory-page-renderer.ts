@@ -36,10 +36,11 @@ const COLORS = {
 
 const PDF_BACKSTORY_FONTS = {
   heading: "Magra",
-  // Use Magra for the small field labels so the backstory header
-  // matches the front-page and companion-page header typography
-  // (both switched to Magra/Helvetica for labels in commit b77c0e1).
-  label: "Magra",
+  // Use Teko-Medium (display face) for the small field labels so they
+  // match the first-page and companion-page header labels — both
+  // pages now use Teko-Medium for GENDER/AGE/HEIGHT/WEIGHT-style
+  // labels. Magra stays the body face for prose.
+  label: "Helvetica-Bold",
   name: "Teko-SemiBold",
   body: "Magra",
   bodyMedium: "Magra-Bold",
@@ -120,7 +121,7 @@ function drawHeaderField(
   const valueRect = { x: rect.x + 2, y: rect.y + 7.5, width: rect.width - 4, height: rect.height - 9 };
   drawText(ctx, label.toUpperCase(), labelRect, {
     font: PDF_BACKSTORY_FONTS.label,
-    size: options.labelSize ?? 5.5,
+    size: options.labelSize ?? 5.4,
     color: COLORS.label,
     lineBreak: false,
   });
