@@ -2271,9 +2271,17 @@ function renderCompanionAbilities(
 ) {
   const slots = {
     save: { x: 11, y: 7.2, width: 33, height: 9.2 },
-    score: { x: 10.5, y: 26.8, width: 34, height: 15.5 },
-    label: { x: 10, y: 45, width: 35, height: 8 },
-    modifier: { x: 12, y: 57.2, width: 31, height: 10.6 },
+    // Score slot grown 15.5 → 30pt tall (y 26.8 → 18, height 30) so
+    // 28pt scores have room to render — fitTextSize was clamping
+    // them to ~15pt in the old slot, making the digit look small
+    // despite the 28pt request. Text overflows the original SVG
+    // white-rect frame (which is only 20pt tall) — this is OK
+    // because drawCenteredTextInRect doesn't apply a mask, it just
+    // centers text in the rect. Modifier slot shifted down to make
+    // room.
+    score: { x: 10.5, y: 18, width: 34, height: 30 },
+    label: { x: 10, y: 49, width: 35, height: 8 },
+    modifier: { x: 12, y: 56, width: 31, height: 13 },
   } satisfies Record<string, PdfRect>;
 
   for (const cell of rects.abilityCells) {

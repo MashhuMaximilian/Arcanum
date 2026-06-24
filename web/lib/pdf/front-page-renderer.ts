@@ -212,10 +212,14 @@ const STAT_ROW_BACKGROUNDS = [
 
 const STAT_VALUE_SLOTS = {
   save: { x: 11, y: 7.2, width: 33, height: 9.2 },
-  score: { x: 10.5, y: 26.8, width: 34, height: 15.5 },
-  labelMask: { x: 14, y: 44.4, width: 28, height: 6.8 },
-  label: { x: 10, y: 45, width: 35, height: 8 },
-  modifier: { x: 12, y: 57.2, width: 31, height: 10.6 },
+  // Score slot grown 15.5 → 30pt tall (y 26.8 → 18, height 30) so
+  // 28pt scores have room to render — see companion page2-renderer
+  // comment for the same change. Modifier slot y 57.2 → 56 to stay
+  // aligned with the new score slot.
+  score: { x: 10.5, y: 18, width: 34, height: 30 },
+  labelMask: { x: 14, y: 48.4, width: 28, height: 6.8 },
+  label: { x: 10, y: 49, width: 35, height: 8 },
+  modifier: { x: 12, y: 56, width: 31, height: 13 },
 } as const;
 
 const SKILL_ROW_SLOTS = {
