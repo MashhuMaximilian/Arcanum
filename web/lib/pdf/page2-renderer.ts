@@ -723,7 +723,11 @@ function renderItemDescriptions(
   const compactBodySize = 6;
   const denseBodySize = 5.5;
   const titleSize = 7.2;
-  const cardGap = 4;
+  // Tightened cardGap 4 → 1.5 so consecutive item cards stack with
+  // less dead space between them. The user said "space between rows too
+  // big" in the 2-column compact flow — the previous 4pt gap was
+  // adding ~10% vertical waste on a column of 5 items.
+  const cardGap = 1.5;
   const subColumnGap = 8;
   const availableHeight = contentBottomY - contentStartY;
   // Items whose natural height is more than 35% of the available area
@@ -802,7 +806,10 @@ function renderItemDescriptions(
     const bodyHeight = description
       ? measureRichParagraphHeight(ctx, description, columnWidth, compactBodySize, lineGap, textFont)
       : 0;
-    const titleMetaHeight = titleSize + 1;
+    // Bumped from titleSize + 1 (8.2) → 12 to match the new titleH in
+    // renderItemCard so compact-card height estimates don't under-count
+    // and collide with the row below.
+    const titleMetaHeight = 12;
     const totalHeight = titleMetaHeight + bodyHeight + cardGap;
     const sections = parseSections(description);
     return {
@@ -956,30 +963,35 @@ function renderDashboardItem(
   rect: { x: number; y: number; width: number },
   options: { bodySize: number; maxBottomY: number; subColumnGap: number },
 ) {
-  // Title row spans the full width.
+  // Title row spans the full width. Bumped 7.2 → 8.5pt + 2pt body gap
+  // to match the compact renderItemCard layout — the user wants
+  // item titles more prominent and a visible gap before body text.
+  const titleFSize = 8.5;
+  const titleH = 10;
+  const titleBodyGap = 2;
   const metaLine = buildItemMetadataLine(p.item);
   const separator = metaLine ? "  —  " : "";
   ctx.doc.save();
-  ctx.doc.font("Helvetica-Bold").fontSize(7.2);
+  ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
   const nameWidth = ctx.doc.widthOfString(p.item.name);
   const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
   const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
   ctx.doc.restore();
-  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: 8 }, {
-    font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0, ellipsis: true,
+  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: titleH }, {
+    font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0, ellipsis: true,
   });
   if (metaLine && metaWidth > 20) {
     if (separatorWidth > 0) {
-      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: 8 }, {
-        font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0,
+      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: titleH }, {
+        font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0,
       });
     }
-    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: 8 }, {
-      font: "Helvetica-Bold", size: 7.2, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
+    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: titleH }, {
+      font: "Helvetica-Bold", size: titleFSize, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
     });
   }
 
-  const bodyY = rect.y + 8;
+  const bodyY = rect.y + titleH + titleBodyGap;
   const subW = (rect.width - options.subColumnGap) / 2;
   let rowY = bodyY;
   const rows = Math.ceil(p.sections.length / 2);
@@ -998,9 +1010,9 @@ function renderDashboardItem(
         drawText(ctx, sec.title.toUpperCase(), {
           x: cellX, y: cellCursorY, width: subW, height: 5,
         }, {
-          font: "Magra-Bold", size: 5.5, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
+          font: "Magra-Bold", size: 6, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
         });
-        cellCursorY += 5.5;
+        cellCursorY += 6;
       }
       if (sec.body) {
         const cellRemaining = options.maxBottomY - cellCursorY;
@@ -1016,7 +1028,7 @@ function renderDashboardItem(
       }
       rowH = Math.max(rowH, cellCursorY - rowY);
     }
-    rowY += rowH + 4;
+    rowY += rowH + 1.5;
   }
 }
 
@@ -1033,40 +1045,48 @@ function renderItemCard(
   rect: { x: number; y: number; width: number },
   options: { bodySize: number; maxBottomY: number },
 ) {
-  // Title row: "Name — metadata" or just "Name".
+  // Title row: "Name — metadata" or just "Name". Bumped 7.2pt → 8.5pt
+  // for better visual weight against the body face (the user said
+  // card titles are too small). Title height 7.5 → 10pt and adds a
+  // 2pt breathing gap before the body so the body doesn't visually
+  // crash into the title (user: "titles too close to description").
+  const titleFSize = 8.5;
+  const titleH = 10;
+  const titleBodyGap = 2;
   const metaLine = buildItemMetadataLine(p.item);
   const separator = metaLine ? "  —  " : "";
   ctx.doc.save();
-  ctx.doc.font("Helvetica-Bold").fontSize(7.2);
+  ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
   const nameWidth = ctx.doc.widthOfString(p.item.name);
   const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
   const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
   ctx.doc.restore();
-  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: 8 }, {
+  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: titleH }, {
     font: "Helvetica-Bold",
-    size: 7.2,
+    size: titleFSize,
     color: COLORS.textPrimary,
     lineGap: 0,
     ellipsis: true,
   });
   if (metaLine && metaWidth > 20) {
     if (separatorWidth > 0) {
-      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: 8 }, {
-        font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0,
+      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: titleH }, {
+        font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0,
       });
     }
-    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: 8 }, {
-      font: "Helvetica-Bold", size: 7.2, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
+    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: titleH }, {
+      font: "Helvetica-Bold", size: titleFSize, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
     });
   }
 
   if (p.description) {
-    const remaining = options.maxBottomY - (rect.y + 7.5);
+    const bodyY = rect.y + titleH + titleBodyGap;
+    const remaining = options.maxBottomY - bodyY;
     if (remaining > 6) {
       drawFittedRichParagraph(
         ctx,
         p.description,
-        { x: rect.x, y: rect.y + 7.5, width: rect.width, maxHeight: remaining },
+        { x: rect.x, y: bodyY, width: rect.width, maxHeight: remaining },
         { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
       );
     }
@@ -1079,7 +1099,7 @@ function measureItemCardHeight(
   width: number,
   bodySize: number,
 ): number {
-  const titleH = 7.5;
+  const titleH = 12;
   const bodyH = p.description
     ? measureRichParagraphHeight(ctx, p.description, width, bodySize, 0.3, "Helvetica")
     : 0;
@@ -1092,30 +1112,34 @@ function renderDenseItemCard(
   rect: { x: number; y: number; width: number },
   options: { bodySize: number; maxBottomY: number; subColumnGap: number },
 ) {
-  // Title row spans the full width.
+  // Title row spans the full width. Bumped 7.2 → 8.5pt + 2pt body gap
+  // to match the compact renderItemCard layout.
+  const titleFSize = 8.5;
+  const titleH = 10;
+  const titleBodyGap = 2;
   const metaLine = buildItemMetadataLine(p.item);
   const separator = metaLine ? "  —  " : "";
   ctx.doc.save();
-  ctx.doc.font("Helvetica-Bold").fontSize(7.2);
+  ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
   const nameWidth = ctx.doc.widthOfString(p.item.name);
   const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
   const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
   ctx.doc.restore();
-  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: 8 }, {
-    font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0, ellipsis: true,
+  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: titleH }, {
+    font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0, ellipsis: true,
   });
   if (metaLine && metaWidth > 20) {
     if (separatorWidth > 0) {
-      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: 8 }, {
-        font: "Helvetica-Bold", size: 7.2, color: COLORS.textPrimary, lineGap: 0,
+      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: titleH }, {
+        font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0,
       });
     }
-    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: 8 }, {
-      font: "Helvetica-Bold", size: 7.2, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
+    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: titleH }, {
+      font: "Helvetica-Bold", size: titleFSize, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
     });
   }
 
-  const bodyY = rect.y + 8;
+  const bodyY = rect.y + titleH + titleBodyGap;
   const remaining = options.maxBottomY - bodyY;
   if (remaining < 6) return;
 
@@ -1139,11 +1163,11 @@ function renderDenseItemCard(
         let cellCursorY = cellY;
         if (sec.title) {
           drawText(ctx, sec.title.toUpperCase(), {
-            x: cellX, y: cellCursorY, width: subW, height: 5.5,
+            x: cellX, y: cellCursorY, width: subW, height: 6,
           }, {
-            font: "Helvetica-Bold", size: 5.5, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
+            font: "Helvetica-Bold", size: 6, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
           });
-          cellCursorY += 5.5;
+          cellCursorY += 6;
         }
         if (sec.body) {
           const cellRemaining = options.maxBottomY - cellCursorY;
