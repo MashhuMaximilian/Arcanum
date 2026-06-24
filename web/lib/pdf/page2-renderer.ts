@@ -1003,6 +1003,11 @@ function renderDashboardItem(
   let rowY = bodyY;
   const rows = Math.ceil(p.sections.length / 2);
   for (let r = 0; r < rows; r++) {
+    // BUGFIX: stop rendering additional rows once rowY exceeds
+    // maxBottomY. Previous version always ran all 13 rows for
+    // Prayer Beads, drawing past the content bottom and overlapping
+    // the next item.
+    if (rowY >= options.maxBottomY) break;
     let rowH = 0;
     for (let s = 0; s < 2; s++) {
       const idx = r * 2 + s;
@@ -1010,27 +1015,32 @@ function renderDashboardItem(
       const sec = p.sections[idx];
       const cellX = rect.x + s * (subW + options.subColumnGap);
       let cellCursorY = rowY;
-      if (sec.title) {
-        // Visual anchor: section title in bold uppercase, body face
-        // (Magra-Bold) so it reads as inline emphasis of the same
-        // paragraph family, not a different display face.
-        drawText(ctx, sec.title.toUpperCase(), {
-          x: cellX, y: cellCursorY, width: subW, height: 5,
-        }, {
-          font: "Magra-Bold", size: 6, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
-        });
-        cellCursorY += 6;
-      }
-      if (sec.body) {
-        const cellRemaining = options.maxBottomY - cellCursorY;
-        if (cellRemaining > 6) {
-          const h = drawFittedRichParagraph(
-            ctx,
-            sec.body,
-            { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
-            { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
-          );
-          cellCursorY += h;
+      // BUGFIX: also stop per-cell when cellCursorY exceeds
+      // maxBottomY (a single section can be tall enough to overflow
+      // even on its first row).
+      if (cellCursorY < options.maxBottomY) {
+        if (sec.title) {
+          // Visual anchor: section title in bold uppercase, body face
+          // (Magra-Bold) so it reads as inline emphasis of the same
+          // paragraph family, not a different display face.
+          drawText(ctx, sec.title.toUpperCase(), {
+            x: cellX, y: cellCursorY, width: subW, height: 5,
+          }, {
+            font: "Magra-Bold", size: 6, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
+          });
+          cellCursorY += 6;
+        }
+        if (sec.body) {
+          const cellRemaining = options.maxBottomY - cellCursorY;
+          if (cellRemaining > 6) {
+            const h = drawFittedRichParagraph(
+              ctx,
+              sec.body,
+              { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
+              { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+            );
+            cellCursorY += h;
+          }
         }
       }
       rowH = Math.max(rowH, cellCursorY - rowY);
