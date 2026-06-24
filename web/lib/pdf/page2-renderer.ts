@@ -2257,12 +2257,12 @@ function renderCompanionAbilities(
 
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
       ...valueOptions,
-      maxSize: 12,
+      maxSize: 13,
     });
     drawCenteredTextInRect(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
       ...valueOptions,
-      maxSize: 19,
-      minSize: 8,
+      maxSize: 23,
+      minSize: 10,
     });
     maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
       x: 13.5,

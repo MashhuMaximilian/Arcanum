@@ -223,15 +223,18 @@ const SKILL_ROW_SLOTS = {
   firstCenterY: 9.5,
   rowGap: 9,
   bonusMask: { x: 16, yOffset: -2.5, width: 6.15, height: 5 },
-  // Bumped bonusValue height 5.4 → 6.4 and width 10.4 → 11.4 to match
-  // the save pip slot above the ability score (12pt save / 19pt score).
-  // The previous slot was tuned for a 7pt digit and forced fitSingleLineSize
-  // to shrink every bonus to ~5pt, leaving the bonuses visibly smaller
-  // than the proficiency circle marker next to them.
-  bonusValue: { x: 14.5, yOffset: -3.2, width: 11.4, height: 6.4 },
+  // Bonus digit slot — taller height 7.2pt + matching slot yOffset so
+  // the digit and the skill label below share a baseline. The previous
+  // 6.4pt slot forced fitSingleLineSize to shrink the digit to ~5pt,
+  // making bonuses look like footnotes next to the proficiency pip.
+  bonusValue: { x: 14.5, yOffset: -3.6, width: 11.4, height: 7.2 },
   line: { x: 9, width: 57, height: 5 },
   lineLabelMask: { x: 14, width: 43, height: 5 },
-  label: { x: 26.4, yOffset: -3.2, width: 46.6, height: 6.7 },
+  // Label slot — same yOffset as bonusValue so both anchor at the
+  // same vertical position. drawCenteredTextInRect centers the
+  // remaining glyph height, so with matching yOffset + height the
+  // baseline aligns visually.
+  label: { x: 26.4, yOffset: -3.6, width: 46.6, height: 7.2 },
 } as const;
 
 const PASSIVE_BOXES = [
@@ -1153,14 +1156,14 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       // same stat-block geometry.
       drawCenteredTextInRect(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
         font: "Helvetica-Bold",
-        maxSize: 12,
-        minSize: 5,
+        maxSize: 13,
+        minSize: 6,
         color: "#000000",
       });
       drawCenteredTextInRect(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
         font: "Helvetica-Bold",
-        maxSize: 19,
-        minSize: 8,
+        maxSize: 23,
+        minSize: 10,
         color: "#000000",
       });
       if (!hasPrintedTemplate) {
@@ -1235,7 +1238,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         }
         drawSkillMarker(ctx, circleCenter, row);
 
-        drawSocketText(ctx, signed(row.total), componentRect(block, SKILL_BLOCK_VIEWBOX, {
+        drawCenteredTextInRect(ctx, signed(row.total), componentRect(block, SKILL_BLOCK_VIEWBOX, {
           x: SKILL_ROW_SLOTS.bonusValue.x,
           y: centerY + SKILL_ROW_SLOTS.bonusValue.yOffset,
           width: SKILL_ROW_SLOTS.bonusValue.width,
@@ -1243,21 +1246,21 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         }), {
           font: "Helvetica-Bold",
           maxSize: 10.5,
-          minSize: 3,
+          minSize: 4,
           color: "#000000",
         });
         if (!hasPrintedTemplate || canRecompose) {
-          drawFittedText(ctx, skill, componentRect(block, SKILL_BLOCK_VIEWBOX, {
+          drawCenteredTextInRect(ctx, skill, componentRect(block, SKILL_BLOCK_VIEWBOX, {
             x: SKILL_ROW_SLOTS.label.x,
-            // Use the same yOffset as the bonus value so the digit and
-            // the label sit on a shared visual baseline; the previous
-            // -3.35 vs -2.7 split dropped the label below the digit.
-            y: centerY + SKILL_ROW_SLOTS.bonusValue.yOffset,
+            // Match bonus slot yOffset + height so both text runs are
+            // vertically centered in the same row band, putting the
+            // digit and the label baseline on a shared visual line.
+            y: centerY + SKILL_ROW_SLOTS.label.yOffset,
             width: SKILL_ROW_SLOTS.label.width,
-            height: SKILL_ROW_SLOTS.bonusValue.height,
+            height: SKILL_ROW_SLOTS.label.height,
           }), {
             font: "Helvetica",
-            maxSize: 5.8,
+            maxSize: 6.2,
             minSize: 3.1,
             color: "#000000",
           });
