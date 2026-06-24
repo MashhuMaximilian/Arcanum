@@ -118,6 +118,14 @@ function drawCenteredSectionTitle(ctx: PdfRenderContext, title: string, rect: Pd
 
 function cleanHtmlText(html: string): string {
   return html
+    // Preserve inline emphasis as markdown so the rich-text
+    // renderer (and downstream section parser) still sees bold/italic
+    // runs after HTML tags are stripped. Without this, a description
+    // that uses <strong>Section:</strong> loses its visual anchors
+    // and the dashboard-grid layout can't detect section boundaries.
+    .replace(/<strong>([\s\S]*?)<\/strong>/gi, "**$1**")
+    .replace(/<em>([\s\S]*?)<\/em>/gi, "*$1*")
+    .replace(/<code>([\s\S]*?)<\/code>/gi, "`$1`")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>|<\/div>|<\/li>/gi, "\n")
     .replace(/<li>/gi, "• ")
@@ -741,26 +749,47 @@ function renderItemDescriptions(
     sections: Section[];
   };
 
+  const stripTrailingPunct = (s: string) =>
+    s.replace(/[\s]*[:\-—–=]+[\s]*$/, "").trim();
+  const extractTitleAndBody = (block: string): Section => {
+    const boldMatch = block.match(/^\*\*([^*]+)\*\*\s*[:\-—–=]?\s*/);
+    if (boldMatch) {
+      const title = stripTrailingPunct(boldMatch[1]);
+      const body = block.slice(boldMatch[0].length).trim();
+      return { title, body: body || block };
+    }
+    return { title: "", body: block };
+  };
   const parseSections = (description: string): Section[] => {
     if (!description) return [];
-    // Split on single newlines. cleanHtmlText emits one \n between
-    // <p>...</p> blocks, so the natural unit for a "section" is one
-    // line. The first "**bold**" run in each line is treated as the
-    // section's visual title and lifted out of the body so the
-    // mini-card has a clear visual anchor.
-    return description
-      .split(/\n/)
-      .map((b) => b.trim())
-      .filter(Boolean)
-      .map<Section>((block) => {
-        const boldMatch = block.match(/^\*\*([^*]+)\*\*\s*[:\-—–]?\s*/);
-        if (boldMatch) {
-          const title = boldMatch[1].trim();
-          const body = block.slice(boldMatch[0].length).trim();
-          return { title, body: body || block };
-        }
-        return { title: "", body: block };
-      });
+    // Two-pass parser: handle both newline-bounded descriptions
+    // (cleanHtmlText emits `\n` between <p>...</p> blocks) and
+    // single-paragraph descriptions where the user has bolded inline
+    // section markers (e.g. Prayer Beads description: a single wall
+    // of prose with `**Bead Count:**`, `**Iron Feet** = ...`,
+    // `**Mantra of Evasion**` markers, all separated only by `. `).
+    // The first pass uses newlines (legacy behavior). When the
+    // description has no newlines but contains 2+ bold-prefixed
+    // sentences, we split on `(?<=\.)\s+(?=\*\*[^*]+\*\*)` — period
+    // boundary followed by a new bold-starting sentence — to
+    // reconstruct the implicit section list.
+    const text = description.trim();
+    if (text.includes("\n")) {
+      return text
+        .split(/\n+/)
+        .map((b) => b.trim())
+        .filter(Boolean)
+        .map(extractTitleAndBody);
+    }
+    // Single block: split on period + space + new bold sentence.
+    const sentenceSplit = text.split(/(?<=\.)\s+(?=\*\*[^*]+\*\*)/);
+    if (sentenceSplit.length >= 2) {
+      return sentenceSplit
+        .map((b) => b.trim())
+        .filter(Boolean)
+        .map(extractTitleAndBody);
+    }
+    return [{ title: "", body: text }];
   };
 
   const prepared: PreparedItem[] = describedItems.map((item) => {
