@@ -1,0 +1,14 @@
+[
+  {
+    "url": "http://localhost:3000/api/srd-catalogs?step=race",
+    "status": 200,
+    "len": 1962790,
+    "head": "{\"races\":[{\"race\":{\"id\":\"ID_RACE_DRAGONBORN\",\"type\":\"Race\",\"name\":\"Dragonborn\",\"source\":\"Player’s Handbook\",\"source_url\":\"https://raw.githubusercontent.com/aurorabuilder/elements/master/core/players-h"
+  },
+  {
+    "url": "http://localhost:3000/api/srd-catalogs",
+    "status": 200,
+    "len": 4232025,
+    "head": "{\"backgrounds\":[{\"background\":{\"id\":\"ID_BACKGROUND_ACOLYTE\",\"type\":\"Background\",\"name\":\"Acolyte\",\"source\":\"Player’s Handbook\",\"source_url\":\"https://raw.githubusercontent.com/aurorabuilder/elements/mas"
+  }
+]

@@ -595,6 +595,10 @@ function toCompactTrait(card: PdfPageCard): PdfRightColumnCompactTrait {
     summary: compactTraitSummary(card),
     sourceCardId: card.id,
     priority: card.priority,
+    // Preserve the source kind so the renderer can pick the bigger
+    // RACIAL_CARD_TYPOGRAPHY for racial/subclass/subracial/feat cards
+    // and the smaller FEATURE_CARD_TYPOGRAPHY for plain traits.
+    kind: (card.kind as PdfRightColumnCompactTrait["kind"]) ?? "trait",
   };
 }
 
@@ -622,10 +626,10 @@ function buildRightColumnComposition(railCards: PdfPageCard[], featureCards: Pdf
     }
 
     if (cardHasGroup(card, "subrace")) {
-      subracialCards.push(toCompactTrait(card));
+      subracialCards.push(toCompactTrait({ ...card, kind: "subracial" }));
       return;
     }
-    racialCards.push(toCompactTrait(card));
+    racialCards.push(toCompactTrait({ ...card, kind: "racial" }));
   });
 
   const maxNotes = 8;

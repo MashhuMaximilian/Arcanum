@@ -1,0 +1,35 @@
+[
+  {
+    "type": "info",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "location": {
+      "url": "webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js",
+      "line": 25630,
+      "column": 16,
+      "lineNumber": 25630,
+      "columnNumber": 16
+    }
+  },
+  {
+    "type": "info",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "location": {
+      "url": "webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js",
+      "line": 25630,
+      "column": 16,
+      "lineNumber": 25630,
+      "columnNumber": 16
+    }
+  },
+  {
+    "type": "log",
+    "text": "[DEBUG] character-list - pdfCharacter.companionCards: []",
+    "location": {
+      "url": "webpack-internal:///(app-pages-browser)/./components/character-list.tsx",
+      "line": 62,
+      "column": 20,
+      "lineNumber": 62,
+      "columnNumber": 20
+    }
+  }
+]

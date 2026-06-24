@@ -97,6 +97,12 @@ export type PdfRightColumnCompactTrait = {
   summary: string;
   sourceCardId: string;
   priority: number;
+  // Source card kind — racial/subclass/subracial/feat get the bigger
+  // RACIAL_CARD_TYPOGRAPHY (13pt title) while trait cards stay at
+  // FEATURE_CARD_TYPOGRAPHY (8.5pt). Without this, all compact trait
+  // rows collapse to the same small size regardless of which section
+  // header they're under.
+  kind?: "trait" | "racial" | "subclass" | "subracial" | "feat";
 };
 
 export type PdfRightColumnComposition = {

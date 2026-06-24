@@ -29,7 +29,10 @@ const COLORS = {
   title: "#2a1c15",
   text: "#111111",
   secondary: "#6f625a",
-  label: "#8b847e",
+  // Bumped label grey #8b847e → #444 so the bigger GENDER / AGE / HEIGHT
+  // labels stay legible at the new 7pt size (the old grey was tuned for
+  // 5.4pt and disappeared at 7pt).
+  label: "#444444",
   line: "#c9c0b7",
   placeholder: "#666666",
 } as const;
@@ -117,11 +120,16 @@ function drawHeaderField(
   rect: PdfRect,
   options: { valueSize?: number; labelSize?: number } = {},
 ) {
-  const labelRect = { x: rect.x + 2, y: rect.y + 1, width: rect.width - 4, height: 6 };
-  const valueRect = { x: rect.x + 2, y: rect.y + 7.5, width: rect.width - 4, height: rect.height - 9 };
+  // Bumped label height 6 → 7 and label size 5.4 → 7 so the GENDER /
+  // AGE / HEIGHT etc. anchors read as proper section headers (user
+  // reference shows them at the same size as the first-page labels,
+  // ~7pt). Value offset 7.5 → 8.5 keeps the gap between label and
+  // value consistent with the new label height.
+  const labelRect = { x: rect.x + 2, y: rect.y + 1, width: rect.width - 4, height: 7 };
+  const valueRect = { x: rect.x + 2, y: rect.y + 8.5, width: rect.width - 4, height: rect.height - 10 };
   drawText(ctx, label.toUpperCase(), labelRect, {
     font: PDF_BACKSTORY_FONTS.label,
-    size: options.labelSize ?? 5.4,
+    size: options.labelSize ?? 7,
     color: COLORS.label,
     lineBreak: false,
   });

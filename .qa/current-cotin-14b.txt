@@ -1,0 +1,264 @@
+                                                                                                                                                                       RACE                                                     CLASS & LEVEL                                                                             EXP
+                                                                                                                                                                       Dragonborn                                               (Lvl 10) | 3 College of Lore Bard / 3 Circle of the Land Druid / 2 School of Abjuration Wizard / 2 Wild Magic 
+                                                                                                                                                                                                                                Sorcerer
+                                     cotin                                                                                                                             BACKGROUND                                       ALIGNMENT                                        DEITY                                            PLAYER NAME
+                                                                                                                                                                       Acolyte                                                                                                                                            max
+                                   +4                              +1                               1                                                                                        39                                                                                   3d8 • 3d8 •…                             11
+                                                                                                                                                                                                                                                                                                                                                  Unarmored | 10 +1 AC
+                                  +0                                   +5                                   +3                                                                      ABILITY CHECKS                                                                              SPELLCASTING                                             CLASS RESOURCES
+                                                                                                                                                    +2 Athletics                                             +6 Arcana                                                 CLASS     BONUS       DC      ABL                    VAL            RESOURCE              RECHARGE
+                                                                                                                                                          Acrobatics                                                History                                          BARD          +6        14      CHA                   2 d6      Bardic Inspiration          Long 
+                                                                                                                                                    +3                                                       +6                                                                                                                                                   Rest
+                                11                                   13                                     9                                             Sleight of Hand                                           Investigation                                    DRUID         +5        13      WIS                 2 uses          Wild Shape             Short 
+                                                                                                                                                    +3                                                       +6                                                      WIZARD        +6        14      INT                                                          Rest
+                                                                                                                                                                                                                                                                                                                          1 use      Arcane Recovery             Long 
+                                 STR                                  DEX                                  CON                                      +3 Stealth                                               +6 Nature                                               SORCERER      +6        14      CHA                                                          Rest
+                                                                                                                                                                                                                                                                                                                             2         Sorcery Points            Long 
+                                  +0                                   +1                                    -1                                                                                              +10 Religion                                                                                                                                         Rest
+                                                                                                                                                          STR + DEX                                                       INT                                      Senses & Conditions
+                                  +6                                   +5                                   +6                                      +3 Animal Handling                                       +4 Deception
+                                                                                                                                                    +9 Insight                                               +6 Intimidation
+                                15                                   13                                   15                                        +5 Medicine                                              +6 Performance                                        Racial & Subracial Features
+                                                                                                                                                    +5 Perception                                            +6 Persuasion                                          Racial Traits
+                                  INT                                  WIS                                 CHA                                      +3 Survival                                                                                                     DAMAGE RESISTANCE
+                                  +2                                   +1                                   +2                                                  WIS                                                      CHA                                        You have resistance to —.
+                                                                                                                                                                                                                                                                    BREATH WEAPON ActionShort Rest
+                                                                                                                                                                                                                                                                    Exhale destructive energy.
+                                                                                                                                                                                                                                                                    DRACONIC ANCESTRY
+                        11                 3              330                                           11                19                16                         30                                                                                           You have draconic ancestry.
+                          Simple Weapons, Hand 
+                                                                                                                       Herbalism Kit, Drum, 
+                                                                         Light Armor,                                                                                                                              Common, 
+                          Crossbow, Longsword, Rapier, 
+                                                                                                                       Bagpipes, Flute, Set Of 
+                          Shortsword, Club, Dagger, Dart, 
+                                                                                                                       Common Clothes, DRUM, 
+                                                                         Medium Armor,                                                                                                                             Draconic, Abyssal, 
+                          Javelin, Mace, Quarterstaff, 
+                                                                                                                       BAGPIPES, FLUTE, 
+                          Scimitar, Sickle, Sling, Spear, 
+                                                                         Shields                                                                                                                                   Celestial
+                          Crossbow Light, Crossbow Hand
+                                                                                                                       HERBALISM KIT
+                                      WEAPONS                                        ARMOR                                     TOOLS & INSTR.                                   VEHICLES                                     LANGUAGES
+                                            NAME                               HIT                     DAMAGE                         TYPE                        PROPERTIES                                                                                                     Spell List
+                                                                                                                                                                                                 Cantrips Dancing Lights; Blade Ward; Poison Spray; Produce Flame; Mending; Acid Splash; Chill Touch
+                                                                                                                                                                                                   Level 1 Comprehend Languages; Charm Person; Bane; Silent Image;                         Level 4
+                                                                                                                                                                                                             Longstrider; Illusory Script; Animal Friendship; Cure Wounds; Detect                    —
+                                                                                                                                                                                                             Magic; Burning Hands; Expeditious Retreat; Disguise Self; Mage Armor; 
+                                                                                                                                                                                                             Unseen Servant; Chromatic Orb
+                                                                                                                                                                                                   Level 2 —                                                                               Level 5
+                                                                                                                                                                                                   Level 3                                                                                           —
+                                                                                                                                                                                                             —
+                                                                                                                                                                                  FEATURES & TRAITS
+                     CLASS                                                                                                                                                                               SUBCLASS
+                     DRUIDIC                                                                                                                                                                             ABJURATION SAVANT                                                                      BONUS CANTRIP
+                     You can use it to leave hidden messages. You and others who know this language automatically spot such a message. Others spot the message’s                                         The gold and time you must spend to copy an abjuration spell into your                 When you choose this circle at 2nd level, you learn one additional druid 
+                     presence with a successful DC 15 Perception check but can’t decipher it without magic.                                                                                              spellbook is halved.                                                                   cantrip of your choice.
+                     EXPERTISE                                                                              JACK OF ALL TRADES                                                                           BONUS PROFICIENCIES
+                     At 3rd level, choose two of your skill proficiencies.                                  Starting at 2nd level, you can add half your proficiency bonus, rounded                      When you join the College of Lore at 3rd level, you gain proficiency with three skills of your choice.
+                                                                                                            down, to any ability check you make that doesn’t already include your 
+                                                                                                            proficiency bonus.                                                                           ARCANE WARD Long Rest
+                     SORCEROUS ORIGIN                                                                       ARCANE RECOVERY                                                                              When you cast an abjuration spell of 1st level or higher, you can create a magical ward on yourself that lasts until you finish a long rest. The ward has 6 hp.
+                                                                                                                                                                                                          Whenever you take damage, the ward takes the damage instead. If this damage reduces the ward to 0 hp, you take any remaining damage. While the 
+                     Choose a sorcerous origin, which describes the source of your innate                   Once per day when you finish a short rest, you can choose expended spell                     ward has 0 hp, it can’t absorb damage, but its magic remains. Whenever you cast an abjuration spell of 1st level or higher, the ward regains a number of hp
+                     magical power: Draconic Bloodline or Wild Magic, both detailed at the end              slots to recover. The spell slots can have a combined level that is equal to                  equal to twice the level of the spell.
+                     of the class description.                                                              or less than 1.
+                     BARDIC INSPIRATION Bonus actionLong Rest                                                                                                                                            CIRCLE SPELLS
+                                                                                                                                                                                                         Your mystical connection to the land infuses you with the ability to cast certain spells.
+                     Inspire one creature other than yourself within 60 feet of you who can hear you. It gains one Bardic Inspiration die, a d8. Once within the next 10 minutes, 
+                     the creature can roll the die and add the number rolled to one ability check, attack roll, or saving throw it makes.                                                                CUTTING WORDS Reaction
+                     SONG OF REST                                                                                                                                                                        Also at 3rd level, you learn how to use your wit to distract, confuse, and otherwise sap the confidence and competence of others. When a creature that you
+                                                                                                                                                                                                          can see within 60 feet of you makes an attack roll, an ability check, or a damage roll, you can use your reaction to expend one of your uses of Bardic 
+                     You or any friendly creatures who can hear your performance regain hp at the end of the short rest by spending one or more Hit Dice, each of those                                  Inspiration, rolling a Bardic Inspiration die and subtracting the number rolled from the creature’s roll. You can choose to use this feature after the creature 
+                     creatures regains an extra 1d6 hit points.                                                                                                                                          makes its roll, but before the GM determines whether the attack roll or ability check succeeds or fails, or before the creature deals its damage. The creature
+                                                                                                                                                                                                          is immune if it can’t hear you or if it’s immune to being charmed. (When a creature that you can see within 60 feet of you makes an attack roll, an ability 
+                                                                                                                                                                                                         check, or a damage roll, you can use your reaction to expend one of your uses of Bardic Inspiration, rolling a Bardic Inspiration die and subtracting the 
+                                                                                                                                                                                                         number rolled from the creature’s roll. You can choose to use this feature after the creature makes its roll, but before the GM determines whether the attack
+                                                                                                                                                                                                          roll or ability check succeeds or fails, or before the creature deals its damage. The creature is immune if it can’t hear you or if it’s immune to being 
+                                                                                                                                                                                                         charmed.)
+                                                                                                                                                                                                         NATURAL RECOVERY Long Rest
+                                                                                                                                                                                                         During a short rest, you choose expended spell slots to recover. The spell slots can have a combined level of 2, and none of the slots can be 6th level or 
+                                                                                                                                                                                                         higher.
+                     ADDITIONAL                                                                                                                                                                          TIDES OF CHAOS Long Rest
+                     FEATURE: SHELTER OF THE FAITHFUL                                                                                                                                                    You can gain advantage on one attack roll, ability check, or saving throw. Any time before you regain the use of this feature, the DM can have you roll on 
+                     As an acolyte, you command the respect of those who share your faith, and you can perform the religious ceremonies of your deity. You and your                                      the Wild Magic Surge table immediately after you cast a sorcerer spell of 1st level or higher. You then regain the use of this feature.
+                     adventuring companions can expect to receive free healing and care at a temple, shrine, or other established presence of your faith, though you must 
+                     provide any material components needed for spells. Those who share your religion will support you (but only you) at a modest lifestyle. You might also have                         WILD MAGIC SURGE
+                      ties to a specific temple dedicated to your chosen deity or pantheon, and you have a residence there. This could be the temple where you used to serve, if
+                      you remain on good terms with it, or a temple where you have found a new home. While near your temple, you can call upon the priests for assistance,                               Once per turn, the DM can have you roll a d20 immediately after you cast a sorcerer spell of 1st level or higher. If you roll a 1, roll on the Wild Magic Surge 
+                     provided the assistance you ask for is not hazardous and you remain in good standing with your temple.                                                                              table to create a magical effect. If that effect is a spell, it is too wild to be affected by your Metamagic, and if it normally requires concentration, it doesn’t 
+                                                                                                                                                                                                         require concentration in this case; the spell lasts for its full duration.
+                     OTHER / CONDITIONAL
+                     DRACONIC ANCESTRY (BLUE)                                                               SKILL EXPERTISE (INSIGHT)
+                     Your draconic ancestry is —. Your damage type is —. Your breath weapon                 Your proficiency bonus is doubled for any Insight check you make.
+                     is —.
+                     SKILL EXPERTISE (RELIGION)                                                             SPIDER CLIMB
+                     Your proficiency bonus is doubled for any Religion check you make.                     Until the spell ends, one willing creature you touch gains the ability to move
+                                                                                                             up, down, and across vertical surfaces and upside down along ceilings, 
+                                                                                                            while leaving its hands free.
+                     STONESKIN                                                                              LIGHTNING BOLT
+                     This spell turns the flesh of a willing creature you touch as hard as stone.           A stroke of lightning forming a line of 100 feet long and 5 feet wide blasts 
+                                                                                                            out from you in a direction you choose.
+                     MELD INTO STONE                                                                        MOUNTAIN CIRCLE
+                     You step into a stone object or surface large enough to fully contain your             At 3rd, 5th, 7th, and 9th level you gain access to circle spells connected to 
+                     body, melding yourself and all the equipment you carry with the stone for              the land where you became a druid.
+                     the duration.
+                     PASSWALL                                                                               SPIKE GROWTH
+                     A passage appears at a point of your choice that you can see on a                      The ground in a 20-foot radius centered on a point within range twists and 
+                     wooden, plaster, or stone surface (such as a wall, a ceiling, or a floor)              sprouts hard spikes and thorns.
+                     within range, and lasts for the duration.
+                     STONE SHAPE
+                     You touch a stone object of Medium size or smaller or a section of stone no more than 5 feet in any dimension and form it into any shape that suits your 
+                     purpose.
+          INVENTORY
+          #     Name                             Qty                         lb                                                 ITEM DESCRIPTIONS
+                                                                                                                                 No magic items or attuned equipment.
+           ATTUNED                            VALUABLES                              CURRENCY
+           0/3                                —                                                       COPPER          SILVER        ELECTRUM        GOLD          PLATINUM
+                                                                                                        0              0              0             126             0
+           ENCUMBRANCE
+           Carried: 0 lb                      Capacity: 150 lb               Push/Drag/Lift: 300 lb
+          ADDITIONAL TREASURE
+           STORED ITEMS #1                                                                          STORED ITEMS #2
+           Holy Symbol
+           5x Sticks of Incense
+           Vestments
+           Set of Common Clothes
+           Prayer Book
+          QUEST ITEMS & TRINKETS
+                                                                                                                                                                     Page 3
+       cotin
+                                                                                                                                                                          SPELLS
+       Spell List
+       Spell cards
+       Prepared, known, or otherwise selected spells only.
+          Acid Splash                                                                             Blade Ward
+                                                                           Player’s Handbook                                                                       Player’s Handbook
+          You hurl a bubble of acid.                                                              You extend your hand and trace a sigil of warding in the air.
+          Cure Wounds                                                                             Expeditious Retreat
+                                                                           Player’s Handbook                                                                       Player’s Handbook
+          A creature you touch regains a number of hit points equal to 1d8 + your                 This spell allows you to move at an incredible pace.
+          spellcasting ability modifier.
+          Longstrider                                                                             Mage Armor
+                                                                           Player’s Handbook                                                                       Player’s Handbook
+          You touch a creature.                                                                   You touch a willing creature who isn’t wearing armor, and a protective magical 
+                                                                                                  force surrounds it until the spell ends.
+          Poison Spray                                                                            Animal Friendship
+                                                                           Player’s Handbook                                                                       Player’s Handbook
+          You extend your hand toward a creature you can see within range and project a           This spell lets you convince a beast that you mean it no harm.
+          puff of noxious gas from your palm.
+          Bane                                                                                    Burning Hands
+                                                                           Player’s Handbook                                                                       Player’s Handbook
+          Up to three creatures of your choice that you can see within range must make            As you hold your hands with thumbs touching and fingers spread, a thin sheet 
+          Charisma saving throws.                                                                 of flames shoots forth from your outstretched fingertips.
+          Charm Person                                                                            Chill Touch
+                                                                           Player’s Handbook                                                                       Player’s Handbook
+          You attempt to charm a humanoid you can see within range.                               You create a ghostly, skeletal hand in the space of a creature within range.
+          Chromatic Orb                                                                           Comprehend Languages
+                                                                           Player’s Handbook                                                                       Player’s Handbook
+          You hurl a 4-inch-diameter sphere of energy at a creature that you can see              For the duration, you understand the literal meaning of any spoken language 
+          within range.                                                                           that you hear.
+          Dancing Lights                                                                          Detect Magic
+                                                                           Player’s Handbook                                                                       Player’s Handbook
+          You create up to four torch-sized lights within range, making them appear as            For the duration, you sense the presence of magic within 30 feet of you.
+          torches, lanterns, or glowing orbs that hover in the air for the duration.
+       Spell cards
+       Prepared, known, or otherwise selected spells only.
+                                                                                                                                                                      Page 3
+       cotin
+                                                                                                                                                                           SPELLS
+       Spell List
+          Disguise Self                                                                           Illusory Script
+                                                                            Player’s Handbook                                                                       Player’s Handbook
+          You make yourself—including your clothing, armor, weapons, and other                    You write on parchment, paper, or some other suitable writing material and 
+          belongings on your person—look different until the spell ends or until you use          imbue it with a potent illusion that lasts for the duration.
+          your action to dismiss it.
+          Mending                                                                                 Produce Flame
+                                                                            Player’s Handbook                                                                       Player’s Handbook
+          This spell repairs a single break or tear in an object you touch, such as broken        A flickering flame appears in your hand.
+          chain link, two halves of a broken key, a torn cloak, or a leaking wineskin.
+          Silent Image                                                                            Unseen Servant
+                                                                            Player’s Handbook                                                                       Player’s Handbook
+          You create the image of an object, a creature, or some other visible                    This spell creates an invisible, mindless, shapeless, Medium force that performs 
+          phenomenon that is no larger than a 15-foot cube.                                       simple tasks at your command until the spell ends.
+       Spell page is shown only when the character has relevant spellcasting content.
+                                                                                                                                                                 Page 4
+       cotin
+                                                                                                                                                                  APPENDIX
+       Appendix
+       Verbose details
+       Long-form detail pages for spells, items, features, and similar content.
+         Arcane Recovery                                                                       Arcane Ward
+                                                                         Player’s Handbook                                                                     Player’s Handbook
+         You have learned to regain some of your magical energy by studying your               Starting at 2nd level, you can weave magic around yourself for protection.
+         spellbook.
+         Bardic Inspiration                                                                    Circle Spells
+                                                                         Player’s Handbook                                                                     Player’s Handbook
+         You can inspire others through stirring words or music.                               Your mystical connection to the land infuses you with the ability to cast certain 
+                                                                                               spells.
+         Cutting Words                                                                         Feature: Shelter of the Faithful
+                                                                         Player’s Handbook                                                                     Player’s Handbook
+         Also at 3rd level, you learn how to use your wit to distract, confuse, and            As an acolyte, you command the respect of those who share your faith, and you 
+         otherwise sap the confidence and competence of others.                                can perform the religious ceremonies of your deity.
+       Appendix pages hold overflow and long-form detail content.
+                                                                                                                                                                          Page 5
+       cotin
+                                                                                                                                                                            APPENDIX
+       Appendix 2
+       Verbose details
+       Long-form detail pages for spells, items, features, and similar content.
+          Font of Magic                                                                              Lightning Bolt
+                                                                              Player’s Handbook                                                                         Player’s Handbook
+          At 2nd level, you tap into a deep wellspring of magic within yourself.                     A stroke of lightning forming a line of 100 feet long and 5 feet wide blasts out 
+                                                                                                     from you in a direction you choose.
+          Meld into Stone                                                                            Mountain Circle
+                                                                              Player’s Handbook                                                                         Player’s Handbook
+          You step into a stone object or surface large enough to fully contain your body,           At 3rd, 5th, 7th, and 9th level you gain access to circle spells connected to the 
+          melding yourself and all the equipment you carry with the stone for the                    land where you became a druid.
+          duration.
+          Natural Recovery                                                                           Passwall
+                                                                              Player’s Handbook                                                                         Player’s Handbook
+          Starting at 2nd level, you can regain some of your magical energy by sitting in            A passage appears at a point of your choice that you can see on a wooden, 
+          meditation and communing with nature.                                                      plaster, or stone surface (such as a wall, a ceiling, or a floor) within range, and 
+                                                                                                     lasts for the duration.
+       Appendix pages hold overflow and long-form detail content.
+                                                                                                                                                                          Page 6
+       cotin
+                                                                                                                                                                           APPENDIX
+       Appendix 3
+       Verbose details
+       Long-form detail pages for spells, items, features, and similar content.
+          Song of Rest                                                                              Spellcasting
+                                                                             Player’s Handbook                                                                          Player’s Handbook
+          Beginning at 2nd level, you can use soothing music or oration to help revitalize          You have learned to untangle and reshape the fabric of reality in harmony with 
+          your wounded allies during a short rest.                                                  your wishes and music.
+          Spellcasting                                                                              Spellcasting
+                                                                             Player’s Handbook                                                                          Player’s Handbook
+          Drawing on the divine essence of nature itself, you can cast spells to shape that         As a student of arcane magic, you have a spellbook containing spells that show 
+          essence to your will.                                                                     the first glimmerings of your true power.
+          Spellcasting                                                                              Spike Growth
+                                                                             Player’s Handbook                                                                          Player’s Handbook
+          An event in your past, or in the life of a parent or ancestor, left an indelible          The ground in a 20-foot radius centered on a point within range twists and 
+          mark on you, infusing you with arcane magic.                                              sprouts hard spikes and thorns.
+       Appendix pages hold overflow and long-form detail content.
+                                                                                                                                                                       Page 7
+       cotin
+                                                                                                                                                                        APPENDIX
+       Appendix 4
+       Verbose details
+       Long-form detail pages for spells, items, features, and similar content.
+          Stone Shape                                                                              Tides of Chaos
+                                                                            Player’s Handbook                                                                        Player’s Handbook
+          You touch a stone object of Medium size or smaller or a section of stone no              Starting at 1st level, you can manipulate the forces of chance and chaos to gain 
+          more than 5 feet in any dimension and form it into any shape that suits your             advantage on one attack roll, ability check, or saving throw.
+          purpose.
+          Wall of Stone                                                                            Wild Magic Surge
+                                                                            Player’s Handbook                                                                        Player’s Handbook
+          A nonmagical wall of solid stone springs into existence at a point you choose            Starting when you choose this origin at 1st level, your spellcasting can unleash 
+          within range.                                                                            surges of untamed magic.
+          Wildshape
+                                                                            Player’s Handbook
+          Starting at 2nd level, you can use your action to magically assume the shape of 
+          a beast that you have seen before.
+       Appendix pages hold overflow and long-form detail content.

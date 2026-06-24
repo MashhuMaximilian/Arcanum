@@ -932,12 +932,6 @@ function renderItemDescriptions(
   // scannable visual anchors instead of a wall of prose.
   let dashY = denseY;
   for (const p of dashboardQueue) {
-    if (dashY + p.titleMetaHeight + 8 >= contentBottomY) break;
-    renderDashboardItem(ctx, p, {
-      x: rect.x + columnPadding,
-      y: dashY,
-      width: fullWidth,
-    }, { bodySize: denseBodySize, maxBottomY: contentBottomY, subColumnGap });
     const subW = (fullWidth - subColumnGap) / 2;
     const rows = Math.ceil(p.sections.length / 2);
     let totalH = 0;
@@ -947,13 +941,26 @@ function renderItemDescriptions(
         const idx = r * 2 + s;
         if (idx >= p.sections.length) break;
         const sec = p.sections[idx];
-        const titleH = sec.title ? 5 : 0;
+        const titleH = sec.title ? 6 : 0;
         const bodyH = sec.body ? measureRichParagraphHeight(ctx, sec.body, subW, denseBodySize, lineGap, textFont) : 0;
         rowH = Math.max(rowH, titleH + bodyH + cardGap);
       }
       totalH += rowH;
     }
-    dashY += p.titleMetaHeight + totalH + cardGap;
+    const fullDashboardH = p.titleMetaHeight + totalH + cardGap;
+    // BUGFIX: previous version only checked titleMetaHeight + 8,
+    // which always passed for Prayer Beads (25 sections) even when
+    // the full dashboard card (100+ pt tall) overflowed. Then the
+    // next item was placed at dashY + under-measured totalH, so it
+    // overlapped the bottom of Prayer Beads. Check the FULL height
+    // before rendering so overlapping cards never enter the pipeline.
+    if (dashY + fullDashboardH >= contentBottomY) break;
+    renderDashboardItem(ctx, p, {
+      x: rect.x + columnPadding,
+      y: dashY,
+      width: fullWidth,
+    }, { bodySize: denseBodySize, maxBottomY: contentBottomY, subColumnGap });
+    dashY += fullDashboardH;
   }
 }
 
@@ -2281,12 +2288,12 @@ function renderCompanionAbilities(
 
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
       ...valueOptions,
-      maxSize: 13,
+      maxSize: 14,
     });
     drawCenteredTextInRect(ctx, String(score), componentRect(cell.rect, STAT_VIEWBOX, slots.score), {
       ...valueOptions,
-      maxSize: 23,
-      minSize: 10,
+      maxSize: 28,
+      minSize: 12,
     });
     maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
       x: 13.5,

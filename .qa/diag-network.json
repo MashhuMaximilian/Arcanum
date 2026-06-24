@@ -1,0 +1,72 @@
+[
+  {
+    "ts": 1780571664504,
+    "method": "GET",
+    "url": "/builder/new",
+    "status": 200,
+    "type": "document"
+  },
+  {
+    "ts": 1780571664518,
+    "method": "GET",
+    "url": "/_next/static/css/app/layout.css?v=1780571664421",
+    "status": 200,
+    "type": "stylesheet"
+  },
+  {
+    "ts": 1780571664531,
+    "method": "GET",
+    "url": "/logo-arcanum.png",
+    "status": 200,
+    "type": "image"
+  },
+  {
+    "ts": 1780571664586,
+    "method": "GET",
+    "url": "/_next/static/chunks/webpack.js?v=1780571664421",
+    "status": 200,
+    "type": "script"
+  },
+  {
+    "ts": 1780571664588,
+    "method": "GET",
+    "url": "/_next/static/chunks/app-pages-internals.js",
+    "status": 200,
+    "type": "script"
+  },
+  {
+    "ts": 1780571664646,
+    "method": "GET",
+    "url": "/_next/static/chunks/app/layout.js",
+    "status": 200,
+    "type": "script"
+  },
+  {
+    "ts": 1780571664647,
+    "method": "GET",
+    "url": "/_next/static/chunks/app/page.js",
+    "status": 200,
+    "type": "script"
+  },
+  {
+    "ts": 1780571664756,
+    "method": "GET",
+    "url": "/_next/static/chunks/main-app.js?v=1780571664421",
+    "status": 200,
+    "type": "script"
+  },
+  {
+    "ts": 1780571665261,
+    "method": "GET",
+    "url": "/_next/static/chunks/app/builder/new/page.js",
+    "status": 200,
+    "type": "script"
+  },
+  {
+    "ts": 1780571665515,
+    "method": "GET",
+    "url": "/api/srd-catalogs",
+    "status": 200,
+    "type": "fetch"
+  }
+]

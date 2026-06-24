@@ -577,12 +577,14 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     // companion page uses Teko-Medium for the same labels (CREATURE,
     // OWNER, SIZE, TYPE, ALIGNMENT) — matching that style here keeps
     // all three page headers (first, companion, backstory) in lockstep.
+    // Bumped maxSize 5.2 → 7 to match the user's reference rendering
+    // where these labels read as proper section anchors, not footnotes.
     drawFittedText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
       font: "Helvetica-Bold",
-      maxSize: 5.2,
-      minSize: 3.4,
+      maxSize: 7,
+      minSize: 4,
       align: "left",
-      color: "#555555",
+      color: "#444444",
     });
     const line = headerRect(field.lineRect);
     drawHeaderUnderline(ctx, line);
@@ -1156,14 +1158,14 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       // same stat-block geometry.
       drawCenteredTextInRect(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
         font: "Helvetica-Bold",
-        maxSize: 13,
+        maxSize: 14,
         minSize: 6,
         color: "#000000",
       });
       drawCenteredTextInRect(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
         font: "Helvetica-Bold",
-        maxSize: 23,
-        minSize: 10,
+        maxSize: 28,
+        minSize: 12,
         color: "#000000",
       });
       if (!hasPrintedTemplate) {
@@ -1270,8 +1272,8 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         maskRect(ctx, componentRect(block, SKILL_BLOCK_VIEWBOX, { x: 24, y: 52, width: 30, height: 8 }));
         drawCenteredTextInRect(ctx, slot.ability, componentRect(block, SKILL_BLOCK_VIEWBOX, { x: 0, y: 53, width: 78, height: 7 }), {
           font: "Helvetica-Bold",
-          maxSize: 5.2,
-          minSize: 3.8,
+          maxSize: 6.5,
+          minSize: 4,
           color: "#9a9a9a",
         });
       }
@@ -2180,7 +2182,12 @@ const MIN_FEATURE_CONFIG: FeatureLayoutConfig = {
 };
 
 function summarizeCompactTraitCard(card: PdfRightColumnCompactTrait) {
-  return summarizeCardParts(card.title, "Trait", card.summary, undefined, [], "trait");
+  // Propagate the source kind so RACIAL_CARD_TYPOGRAPHY (13pt title)
+  // actually fires for racial/subclass/subracial/feat cards instead
+  // of collapsing to the 8.5pt trait typography. Plain traits keep
+  // the smaller inline-header style.
+  const kind = card.kind ?? "trait";
+  return summarizeCardParts(card.title, "Trait", card.summary, undefined, [], kind);
 }
 
 function getFeatureMetaWidth(width: number, summary: FeatureSummary) {
@@ -3198,14 +3205,18 @@ function renderCompactTraitLines(
 ) {
   let nextY = cursorY;
   if (cards.length) {
-    drawFittedText(ctx, `${title} Traits`, { x: content.x, y: nextY, width: content.width, height: 6 }, {
+    // Section header uses RACIAL typography size (13pt) so the
+    // "Racial Traits" / "Subracial Traits" anchor reads as a panel
+    // header, not a footnote. Down-clamped to 10pt max so it doesn't
+    // overwhelm the right column.
+    drawFittedText(ctx, `${title} Traits`, { x: content.x, y: nextY, width: content.width, height: 8 }, {
       font: "Helvetica-Bold",
-      maxSize: FEATURE_CARD_TYPOGRAPHY.title.max,
-      minSize: FEATURE_CARD_TYPOGRAPHY.title.min,
-      color: "#333333",
+      maxSize: 10,
+      minSize: 6,
+      color: "#222222",
     });
-    strokeRule(ctx, content.x, nextY + 6.2, content.width, "#bdbdbd");
-    nextY += 8.4;
+    strokeRule(ctx, content.x, nextY + 7.5, content.width, "#bdbdbd");
+    nextY += 10;
   }
 
   cards.forEach((card, index) => {

@@ -1,0 +1,75 @@
+° Human
+| | Test Wizard/Sorcerer = | eaokanouno
+Sage True Neutral
+
+CLASS & LEVEL
+
+(Lvl 2) | 2Wizard 1 /2 Sorcerer 1
+
+ALIGNMENT
+
+DEITY
+
+PLAYER NAME
+
+QA
+
+PROFICENCY
+BONUS
+
+INITIATIVE
+BONUS
+
+ATTACKS
+PER ACTION
+
+INSPIRATION
+
+EXHAUTION
+
+LVL MAXHP jt, HP
+
+TEMP. HP
+
+HIT DICE
+
+Lift / Drag Dark Vision, Perception Investig.
+[yy
+a ™
+
+DEFENSES
+
+SPELLCASTING
+
+cLAss BONUS.
+
+CLASS RESOURCES
+
+RESOURCE RECHARGE
+
+WIZARD +6
+
+Long Rest
+
+Arcane Recovery
+
+SORCERER +5
+
+Sorcery Points Long Rest
+
+Senses & Conditions
+
+f
+
+‘4 Racial & Subracial Features
+
+am
+
+NAME,
+
+DAMAGE
+
+TYPE
+
+PROPERTIES
+
