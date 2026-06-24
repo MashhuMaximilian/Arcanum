@@ -87,17 +87,34 @@ const DAMAGE_TYPE_ABBREV: Record<string, string> = {
 };
 
 const FEATURE_CARD_TYPOGRAPHY = {
-  title: { max: 11, min: 6.0 },
+  // Revert title 11 → 8.5 (user rejected the round-8 bump as too
+  // disruptive — class feature titles should read as inline headers,
+  // not as competing display anchors inside a busy column).
+  title: { max: 8.5, min: 5.5 },
   body: { max: 6.4, min: 3.6 },
   meta: { max: 5.5, min: 3.0 },
   charges: { max: 5.0, min: 3.0 },
-  titleRowHeight: 11.0,
+  titleRowHeight: 8.0,
   metaRowHeight: 5.4,
   bodyTopPad: 2.5,
   separatorGap: 7,
   circleRadius: 1.45,
   circleGap: 1.55,
   metaWidth: { max: 72, min: 44 },
+} as const;
+
+// Racial / Subclass / Subracial / Feat cards render in the right
+// column rail as standalone panels — they need a more impactful title
+// than the inline-style class feature cards. Bump title to 13pt with
+// a 13pt row height so the title reads as the visual anchor of the
+// card instead of getting buried in body text.
+const RACIAL_CARD_TYPOGRAPHY = {
+  title: { max: 13, min: 7 },
+  body: { max: 6.6, min: 4 },
+  meta: { max: 5.5, min: 3 },
+  titleRowHeight: 13,
+  metaRowHeight: 5.4,
+  bodyTopPad: 3,
 } as const;
 
 type StatBoxSpec = {
@@ -111,6 +128,10 @@ type FeatureSummary = {
   title: string;
   category: string;
   body: string;
+  // Card kind drives typography selection: racial/subclass/subracial/
+  // feat cards use RACIAL_CARD_TYPOGRAPHY (bigger 13pt title), class
+  // features use FEATURE_CARD_TYPOGRAPHY (smaller 8.5pt title).
+  kind: "class" | "subclass" | "racial" | "subracial" | "feat" | "trait" | "other";
   actionHint?: string;
   rechargeHint?: string;
   usageHint?: string;
@@ -121,6 +142,17 @@ type FeatureSummary = {
   };
   tags: string[];
 };
+
+// Pick typography config based on card kind. Racial/subclass/subracial/
+// feat cards get the bigger title because they render as standalone
+// panels in the right rail; class features get the inline title
+// because they live inside the FEATURES & TRAITS column.
+function cardTypography(kind: FeatureSummary["kind"]) {
+  if (kind === "racial" || kind === "subclass" || kind === "subracial" || kind === "feat") {
+    return RACIAL_CARD_TYPOGRAPHY;
+  }
+  return FEATURE_CARD_TYPOGRAPHY;
+}
 
 type DashedLineDocument = PdfRenderContext["doc"] & {
   dash: (length: number, options?: { space?: number }) => DashedLineDocument;
@@ -2010,7 +2042,16 @@ function parseFeatureUsageHintRaw(_value: string): FeatureUsageResult {
   return {};
 }
 
-function summarizeCardParts(title: string, category: string, summary: string, detail: string | undefined, tags: string[], element?: { sheet?: { action?: string } }, level = 5) {
+function summarizeCardParts(
+  title: string,
+  category: string,
+  summary: string,
+  detail: string | undefined,
+  tags: string[],
+  kind: FeatureSummary["kind"],
+  element?: { sheet?: { action?: string } },
+  level = 5,
+) {
   const parts = summary
     .split(" | ")
     .map((part) => cleanText(part))
@@ -2071,6 +2112,7 @@ function summarizeCardParts(title: string, category: string, summary: string, de
     title: cleanText(title, "Feature"),
     category,
     body,
+    kind,
     actionHint,
     rechargeHint,
     usageHint,
@@ -2086,6 +2128,7 @@ function summarizeCard(card: PdfPageCard, level = 5): FeatureSummary {
     card.summary || "",
     card.detail,
     card.tags || [],
+    card.kind ?? "class",
     card.sourceAction ? { sheet: { action: card.sourceAction } } : undefined,
     level,
   );
@@ -2123,7 +2166,7 @@ const MIN_FEATURE_CONFIG: FeatureLayoutConfig = {
 };
 
 function summarizeCompactTraitCard(card: PdfRightColumnCompactTrait) {
-  return summarizeCardParts(card.title, "Trait", card.summary, undefined, []);
+  return summarizeCardParts(card.title, "Trait", card.summary, undefined, [], "trait");
 }
 
 function getFeatureMetaWidth(width: number, summary: FeatureSummary) {
@@ -2427,8 +2470,9 @@ function measureSingleCardHeight(
   lineH: number,
   cfg: FeatureLayoutConfig,
 ): number {
-  const titleFSize = FEATURE_CARD_TYPOGRAPHY.title.max;
-  const metaFSize = FEATURE_CARD_TYPOGRAPHY.meta.max;
+  const typo = cardTypography(summary.kind);
+  const titleFSize = typo.title.max;
+  const metaFSize = typo.meta.max;
 
   ctx.doc.save();
   ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
@@ -2464,9 +2508,9 @@ function measureSingleCardHeight(
   const bodyHeight = bodyLines * lineH;
 
   if (singleRowFits) {
-    return FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad + bodyHeight;
+    return typo.titleRowHeight + typo.bodyTopPad + bodyHeight;
   } else {
-    return FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.metaRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad + bodyHeight;
+    return typo.titleRowHeight + typo.metaRowHeight + typo.bodyTopPad + bodyHeight;
   }
 }
 
@@ -2582,8 +2626,9 @@ function getPairedFeatureHeights(
   bodyMaxSize: number,
   bodyMinSize: number,
 ): { headerH: number; bodyH: number } {
-  const titleFSize = FEATURE_CARD_TYPOGRAPHY.title.max;
-  const metaFSize = FEATURE_CARD_TYPOGRAPHY.meta.max;
+  const typo = cardTypography(summary.kind);
+  const titleFSize = typo.title.max;
+  const metaFSize = typo.meta.max;
   const fSize = Math.max(bodyMinSize, bodyMaxSize * 0.85);
   const lineH = fSize + 1.2;
 
@@ -2619,10 +2664,10 @@ function getPairedFeatureHeights(
   const bodyLines = Math.max(1, Math.ceil(summary.body.length / bodyCharsPerLine));
 
   if (singleRowFits) {
-    const headerH = FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+    const headerH = typo.titleRowHeight + typo.bodyTopPad;
     return { headerH, bodyH: bodyLines * lineH };
   } else {
-    const headerH = FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.metaRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+    const headerH = typo.titleRowHeight + typo.metaRowHeight + typo.bodyTopPad;
     return { headerH, bodyH: bodyLines * lineH };
   }
 }
@@ -2638,8 +2683,9 @@ function drawPairedFeatureFull(
   bodyMinSize: number,
   cfg: FeatureLayoutConfig,
 ): number {
-  const titleFSize = FEATURE_CARD_TYPOGRAPHY.title.max;
-  const metaFSize = FEATURE_CARD_TYPOGRAPHY.meta.max;
+  const typo = cardTypography(summary.kind);
+  const titleFSize = typo.title.max;
+  const metaFSize = typo.meta.max;
 
   ctx.doc.save();
   ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
@@ -2671,7 +2717,7 @@ function drawPairedFeatureFull(
 
   let bodyTopOffset: number;
   if (singleRowFits) {
-    bodyTopOffset = FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+    bodyTopOffset = typo.titleRowHeight + typo.bodyTopPad;
     ctx.doc.save();
     ctx.doc.font("Helvetica-Bold").fontSize(titleFSize).fillColor("#000000");
     ctx.doc.text(summary.title.toUpperCase(), x, y, { lineBreak: false });
@@ -2680,7 +2726,7 @@ function drawPairedFeatureFull(
     const metaStartX = x + renderedTitleWidth + gapAfterTitle;
     const metaAvailableWidth = Math.max(4, width - renderedTitleWidth - gapAfterTitle);
     drawFeatureMetaBlock(ctx, summary, {
-      x: metaStartX, y, width: metaAvailableWidth, height: FEATURE_CARD_TYPOGRAPHY.titleRowHeight,
+      x: metaStartX, y, width: metaAvailableWidth, height: typo.titleRowHeight,
     });
   } else {
     // Two-row: title, then meta row, then body.
@@ -2690,15 +2736,15 @@ function drawPairedFeatureFull(
     ctx.doc.restore();
 
     if (hasMeta) {
-      const metaRowY = y + FEATURE_CARD_TYPOGRAPHY.titleRowHeight;
+      const metaRowY = y + typo.titleRowHeight;
       drawFeatureMetaBlock(ctx, summary, {
-        x, y: metaRowY, width, height: FEATURE_CARD_TYPOGRAPHY.metaRowHeight,
+        x, y: metaRowY, width, height: typo.metaRowHeight,
       });
     }
     bodyTopOffset =
-      FEATURE_CARD_TYPOGRAPHY.titleRowHeight +
-      (hasMeta ? FEATURE_CARD_TYPOGRAPHY.metaRowHeight : 0) +
-      FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+      typo.titleRowHeight +
+      (hasMeta ? typo.metaRowHeight : 0) +
+      typo.bodyTopPad;
   }
 
   // Draw body text — use rect.y + rect.height as absolute bottom boundary
@@ -2764,8 +2810,9 @@ function renderFeatureList(ctx: PdfRenderContext, cards: PdfPageCard[], rect: Pd
       i += 2; // skip both paired cards
     } else {
       // Draw single feature card
-      const titleFSize = FEATURE_CARD_TYPOGRAPHY.title.max;
-      const metaFSize = FEATURE_CARD_TYPOGRAPHY.meta.max;
+      const typo = cardTypography(summary.kind);
+      const titleFSize = typo.title.max;
+      const metaFSize = typo.meta.max;
 
       ctx.doc.save();
       ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
@@ -2799,7 +2846,7 @@ function renderFeatureList(ctx: PdfRenderContext, cards: PdfPageCard[], rect: Pd
       if (singleRowFits) {
         // Single-row: title left, meta right after. Always use fixed offset so body starts below header.
         // The meta text is drawn above rect.y (aligned to title cap-height) but body always starts below header row.
-        const bodyTopOffset = FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+        const bodyTopOffset = typo.titleRowHeight + typo.bodyTopPad;
         ctx.doc.save();
         ctx.doc.font("Helvetica-Bold").fontSize(titleFSize).fillColor("#000000");
         ctx.doc.text(summary.title.toUpperCase(), column.x, column.y, { lineBreak: false });
@@ -2808,7 +2855,7 @@ function renderFeatureList(ctx: PdfRenderContext, cards: PdfPageCard[], rect: Pd
         const metaStartX = column.x + renderedTitleWidth + gapAfterTitle;
         const metaAvailableWidth = Math.max(4, column.width - renderedTitleWidth - gapAfterTitle);
         drawFeatureMetaBlock(ctx, summary, {
-          x: metaStartX, y: column.y, width: metaAvailableWidth, height: FEATURE_CARD_TYPOGRAPHY.titleRowHeight,
+          x: metaStartX, y: column.y, width: metaAvailableWidth, height: typo.titleRowHeight,
         });
 
         const bodyResult = drawTextWithBoldActionWords(ctx, summary.body, {
@@ -2836,14 +2883,14 @@ function renderFeatureList(ctx: PdfRenderContext, cards: PdfPageCard[], rect: Pd
 
         const hasMeta = Boolean(summary.actionHint || summary.rechargeHint || summary.chargeDisplay);
         if (hasMeta) {
-          const metaRowY = column.y + FEATURE_CARD_TYPOGRAPHY.titleRowHeight;
+          const metaRowY = column.y + typo.titleRowHeight;
           drawFeatureMetaBlock(ctx, summary, {
-            x: column.x, y: metaRowY, width: column.width, height: FEATURE_CARD_TYPOGRAPHY.metaRowHeight,
+            x: column.x, y: metaRowY, width: column.width, height: typo.metaRowHeight,
           });
-          column.y = metaRowY + FEATURE_CARD_TYPOGRAPHY.metaRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+          column.y = metaRowY + typo.metaRowHeight + typo.bodyTopPad;
         } else {
           // No meta — body starts at titleRowHeight + bodyTopPad from original y
-          column.y += FEATURE_CARD_TYPOGRAPHY.titleRowHeight + FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+          column.y += typo.titleRowHeight + typo.bodyTopPad;
         }
 
         const bodyResult = drawTextWithBoldActionWords(ctx, summary.body, {
@@ -3149,9 +3196,10 @@ function renderCompactTraitLines(
 
   cards.forEach((card, index) => {
     const summary = summarizeCompactTraitCard(card);
-    const titleFSize = FEATURE_CARD_TYPOGRAPHY.title.max; // 5.5pt — same as Features section
-    const bodyFontSize = FEATURE_CARD_TYPOGRAPHY.body.max;
-    const bodyMinSize = FEATURE_CARD_TYPOGRAPHY.body.min;
+    const typo = cardTypography(summary.kind);
+    const titleFSize = typo.title.max;
+    const bodyFontSize = typo.body.max;
+    const bodyMinSize = typo.body.min;
     const bodyLineGap = 0.35;
 
     // Title width: leave room for meta on same row
@@ -3165,13 +3213,13 @@ function renderCompactTraitLines(
     let totalMetaWidth = 0;
     if (summary.actionHint) {
       ctx.doc.save();
-      ctx.doc.font("Helvetica-Bold").fontSize(FEATURE_CARD_TYPOGRAPHY.meta.max);
+      ctx.doc.font("Helvetica-Bold").fontSize(typo.meta.max);
       totalMetaWidth += ctx.doc.widthOfString(summary.actionHint) + 2;
       ctx.doc.restore();
     }
     if (summary.rechargeHint) {
       ctx.doc.save();
-      ctx.doc.font("Helvetica").fontSize(FEATURE_CARD_TYPOGRAPHY.meta.max);
+      ctx.doc.font("Helvetica").fontSize(typo.meta.max);
       totalMetaWidth += ctx.doc.widthOfString(summary.rechargeHint) + 2;
       ctx.doc.restore();
     }
@@ -3183,8 +3231,8 @@ function renderCompactTraitLines(
     const hasMeta = Boolean(summary.actionHint || summary.rechargeHint || summary.chargeDisplay);
     const allFits = hasMeta && (titleW + 4 + totalMetaWidth <= content.width);
 
-    const titleRowHeight = FEATURE_CARD_TYPOGRAPHY.titleRowHeight;
-    const bodyTopPad = FEATURE_CARD_TYPOGRAPHY.bodyTopPad;
+    const titleRowHeight = typo.titleRowHeight;
+    const bodyTopPad = typo.bodyTopPad;
 
     if (nextY + titleRowHeight > content.y + content.height) return;
 
@@ -3224,13 +3272,13 @@ function renderCompactTraitLines(
       if (hasMeta) {
         drawFeatureMetaBlock(ctx, summary, {
           x: content.x, y: nextY + titleRowHeight, width: content.width,
-          height: FEATURE_CARD_TYPOGRAPHY.metaRowHeight,
+          height: typo.metaRowHeight,
         });
       }
       const bodyY =
         nextY +
         titleRowHeight +
-        (hasMeta ? FEATURE_CARD_TYPOGRAPHY.metaRowHeight : 0) +
+        (hasMeta ? typo.metaRowHeight : 0) +
         bodyTopPad;
       const maxBodyH = (content.y + content.height) - bodyY - (index < cards.length - 1 ? 2 : 0);
       const bodyResult = drawTextWithBoldActionWords(ctx, summary.body, {
