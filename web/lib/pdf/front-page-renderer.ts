@@ -1455,12 +1455,15 @@ function renderWeaponAttackRows(
   });
 
   // Headers render once; all data rows below still draw blank cells when empty.
+  // Bumped header maxSize 3.5 → 5pt + color #555 → #444 so they read
+  // as proper section anchors instead of tiny grey footnotes (user
+  // said weapon attack labels were too small).
   columns.forEach((column) => {
     drawCenteredTextInRect(
       ctx,
       column.label,
       { x: column.rect.x, y: rect.y, width: column.rect.width, height: headerHeight },
-      { font: "Helvetica-Bold", maxSize: 3.5, minSize: 2.4, color: "#555555" },
+      { font: "Helvetica-Bold", maxSize: 5, minSize: 3.5, color: "#444444" },
     );
   });
 
@@ -1485,16 +1488,19 @@ function renderWeaponAttackRows(
       else if (column.key === "type") value = row?.type ?? "";
       else if (column.key === "properties") value = row?.properties ?? "";
 
+      // Bumped cell sizes: name 4.6 → 6pt, hit 5.3 → 7pt, damage
+      // 4.9 → 6.5pt, type 3.7 → 5pt, properties 2.8 → 4pt. User said
+      // weapon attack values were too small to read at arm's length.
       if (column.key === "name") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 4.6, minSize: 3, align: "left" });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 6, minSize: 3.5, align: "left" });
       } else if (column.key === "hit") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 5.3, minSize: 3.3 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 7, minSize: 4 });
       } else if (column.key === "damage") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 4.9, minSize: 3.1 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 6.5, minSize: 4 });
       } else if (column.key === "type") {
-        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 3.7, minSize: 2.4, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 5, minSize: 3, bold: false, align: "left" });
       } else {
-        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 2.8, minSize: 2.4, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 4, minSize: 3, bold: false, align: "left" });
       }
     });
   });
@@ -1532,16 +1538,19 @@ function renderSpellTracker(
   const cantripNames = formatSpellEntriesForFrontPage(cantrips, "cantrip");
   const cantripY = contentRect.y + 9;
   const leftCellW = SPELL_LEFT_CELL_W;
-  // Left cell: "Cantrips" label at top, no circles
+  // Left cell: "Cantrips" label at top, no circles. Bumped 4.0 → 5.5pt
+  // so the section label reads as a proper anchor, not a footnote
+  // (user: "cantrips and lvl too small").
   drawFittedText(ctx, "Cantrips", { x: contentRect.x, y: cantripY, width: leftCellW, height: 8 }, {
     font: "Helvetica-Bold",
-    maxSize: 4.0,
+    maxSize: 5.5,
     minSize: 4.0,
     align: "right",
     color: "#222222",
     lineBreak: false,
   });
-  // Right cell: cantrip spell names
+  // Right cell: cantrip spell names. Bumped 3.7 → 5pt so the actual
+  // spell list is readable from across the table.
   drawFittedText(
     ctx,
     cantripNames,
@@ -1551,7 +1560,7 @@ function renderSpellTracker(
       width: contentRect.width - leftCellW - SPELL_TEXT_GAP,
       height: 8,
     },
-    { font: "Helvetica", maxSize: 3.7, minSize: 3.7, align: "left", color: "#222222", lineBreak: false },
+    { font: "Helvetica", maxSize: 5, minSize: 4, align: "left", color: "#222222", lineBreak: false },
   );
 
   const pactSummary = formatPactSlotSummary(pactSlots);
@@ -1686,7 +1695,9 @@ function renderSpellLevelGroup(
     const slotCount = row.slotCount;
     const spellNames = row.spellNames;
 
-    // LEFT CELL — "Level N" label right-aligned at top, circles directly below
+    // LEFT CELL — "Level N" label right-aligned at top, circles directly below.
+    // Bumped 4.0 → 5pt and color #555 → #222 so the level anchors
+    // match the new "Cantrips" label weight.
     const labelRect: PdfRect = {
       x: rowRect.x,
       y: rowTop,
@@ -1695,10 +1706,10 @@ function renderSpellLevelGroup(
     };
     drawFittedText(ctx, `Level ${level}`, labelRect, {
       font: "Helvetica-Bold",
-      maxSize: 4.0,
-      minSize: 4.0,
+      maxSize: 5,
+      minSize: 4,
       align: "right",
-      color: "#555555",
+      color: "#222222",
       lineBreak: false,
     });
 
@@ -1725,8 +1736,8 @@ function renderSpellLevelGroup(
     };
     drawCenteredTextInRect(ctx, spellNames === "—" && slotCount === 0 ? "" : spellNames, namesRect, {
       font: "Helvetica",
-      maxSize: 3.7,
-      minSize: 3.2,
+      maxSize: 5,
+      minSize: 4,
       align: "left",
       color: "#222222",
       lineGap: SPELL_TEXT_LINE_GAP,
