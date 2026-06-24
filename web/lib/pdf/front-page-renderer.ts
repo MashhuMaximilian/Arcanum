@@ -191,10 +191,15 @@ const SKILL_ROW_SLOTS = {
   firstCenterY: 9.5,
   rowGap: 9,
   bonusMask: { x: 16, yOffset: -2.5, width: 6.15, height: 5 },
-  bonusValue: { x: 14.8, yOffset: -2.7, width: 10.4, height: 5.4 },
+  // Bumped bonusValue height 5.4 → 6.4 and width 10.4 → 11.4 to match
+  // the save pip slot above the ability score (12pt save / 19pt score).
+  // The previous slot was tuned for a 7pt digit and forced fitSingleLineSize
+  // to shrink every bonus to ~5pt, leaving the bonuses visibly smaller
+  // than the proficiency circle marker next to them.
+  bonusValue: { x: 14.5, yOffset: -3.2, width: 11.4, height: 6.4 },
   line: { x: 9, width: 57, height: 5 },
   lineLabelMask: { x: 14, width: 43, height: 5 },
-  label: { x: 26.4, yOffset: -3.35, width: 46.6, height: 6.7 },
+  label: { x: 26.4, yOffset: -3.2, width: 46.6, height: 6.7 },
 } as const;
 
 const PASSIVE_BOXES = [
@@ -1205,8 +1210,8 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
           height: SKILL_ROW_SLOTS.bonusValue.height,
         }), {
           font: "Helvetica-Bold",
-          maxSize: 8,
-          minSize: 2.5,
+          maxSize: 10.5,
+          minSize: 3,
           color: "#000000",
         });
         if (!hasPrintedTemplate || canRecompose) {
@@ -1220,7 +1225,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
             height: SKILL_ROW_SLOTS.bonusValue.height,
           }), {
             font: "Helvetica",
-            maxSize: 5.45,
+            maxSize: 5.8,
             minSize: 3.1,
             color: "#000000",
           });
@@ -2475,7 +2480,14 @@ function drawTextWithBoldActionWords(
     text: string;
     bold: boolean;
   }
-  // Tokenize: longest phrase first, case-insensitive
+  // Tokenize: longest phrase first, case-insensitive. Strip markdown
+  // ** / * / ` markers first so bold-tagged source text ("use your
+  // **action** and...") doesn't leave the asterisks visible in the
+  // output — the marker is the signal, not content.
+  const stripped = text
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1");
   const tokens: TextRun[] = [];
   const actionWords: [string][] = [
     ["bonus action"],
@@ -2485,7 +2497,7 @@ function drawTextWithBoldActionWords(
     ["object interaction"],
     ["action"],
   ];
-  let remaining = text;
+  let remaining = stripped;
   while (remaining.length > 0) {
     let matched = false;
     for (const [phrase] of actionWords) {
