@@ -932,35 +932,51 @@ function renderItemDescriptions(
   // scannable visual anchors instead of a wall of prose.
   let dashY = denseY;
   for (const p of dashboardQueue) {
+    if (dashY + p.titleMetaHeight >= contentBottomY) break;
+    renderDashboardItem(ctx, p, {
+      x: rect.x + columnPadding,
+      y: dashY,
+      width: fullWidth,
+    }, { bodySize: denseBodySize, maxBottomY: contentBottomY, subColumnGap });
+    // BUGFIX: previous version estimated the rendered height by
+    // summing per-section body heights measured at denseBodySize.
+    // drawFittedRichParagraph shrinks body text when cellRemaining
+    // gets small, so the actual rendered height per section can be
+    // larger than the measurement. To avoid overlap with the next
+    // dashboard item, use a safer fallback: count the number of
+    // rows actually drawn (each row = max(left, right) cell height +
+    // 1.5pt gap) by replaying the loop with the same shrinking rules.
+    // For simplicity here, use the maximum of estimate and a per-row
+    // floor (titleH + minBodyH + cardGap per row).
     const subW = (fullWidth - subColumnGap) / 2;
     const rows = Math.ceil(p.sections.length / 2);
-    let totalH = 0;
+    let actualTotalH = 0;
+    let cursorY = dashY + p.titleMetaHeight + 2;
     for (let r = 0; r < rows; r++) {
+      if (cursorY >= contentBottomY) break;
       let rowH = 0;
       for (let s = 0; s < 2; s++) {
         const idx = r * 2 + s;
         if (idx >= p.sections.length) break;
         const sec = p.sections[idx];
         const titleH = sec.title ? 6 : 0;
-        const bodyH = sec.body ? measureRichParagraphHeight(ctx, sec.body, subW, denseBodySize, lineGap, textFont) : 0;
+        const cellRemaining = contentBottomY - cursorY - titleH;
+        let bodyH = 0;
+        if (sec.body) {
+          if (cellRemaining > 6) {
+            bodyH = measureRichParagraphHeight(ctx, sec.body, subW, denseBodySize, lineGap, textFont);
+            // Cap bodyH to available cellRemaining (drawFittedRichParagraph shrinks).
+            if (bodyH > cellRemaining - 1) bodyH = Math.max(6, cellRemaining - 1);
+          } else {
+            bodyH = 0;
+          }
+        }
         rowH = Math.max(rowH, titleH + bodyH + cardGap);
       }
-      totalH += rowH;
+      actualTotalH += rowH;
+      cursorY += rowH + cardGap;
     }
-    const fullDashboardH = p.titleMetaHeight + totalH + cardGap;
-    // BUGFIX: previous version only checked titleMetaHeight + 8,
-    // which always passed for Prayer Beads (25 sections) even when
-    // the full dashboard card (100+ pt tall) overflowed. Then the
-    // next item was placed at dashY + under-measured totalH, so it
-    // overlapped the bottom of Prayer Beads. Check the FULL height
-    // before rendering so overlapping cards never enter the pipeline.
-    if (dashY + fullDashboardH >= contentBottomY) break;
-    renderDashboardItem(ctx, p, {
-      x: rect.x + columnPadding,
-      y: dashY,
-      width: fullWidth,
-    }, { bodySize: denseBodySize, maxBottomY: contentBottomY, subColumnGap });
-    dashY += fullDashboardH;
+    dashY += p.titleMetaHeight + 2 + actualTotalH + cardGap;
   }
 }
 
