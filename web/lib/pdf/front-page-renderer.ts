@@ -3377,6 +3377,34 @@ function renderRail(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character:
     x: railX,
     width: railRight - railX,
   });
+
+  // BUGFIX: racial/subracial cards were populated into
+  // character.frontPage.rightColumn.racialCards/subracialCards by
+  // buildRightColumnComposition but renderRightColumnFeatureCard was
+  // never invoked, so the FEATURES & TRAITS column only showed
+  // deck-level feature cards (PRIMEVAL AWARENESS etc.) and the
+  // racial cards (ELF SUBRACE / FEY ANCESTRY / KEEN SENSES) silently
+  // dropped. Now render the racial & subracial card box at the
+  // BOTTOM of the FEATURES & TRAITS column (below the deck cards),
+  // taking the remaining vertical space.
+  const hasRacial = rightColumn.racialCards.length || rightColumn.subracialCards.length;
+  if (hasRacial) {
+    const featuresRect = FRONT_PAGE_REGIONS.features;
+    // Estimate the deck height: max(0, height - reserved) where
+    // reserved is the space we want for racial cards. Use a floor
+    // of 80pt for the racial box (3-4 compact trait lines).
+    const racialBoxHeight = 80;
+    const racialBottom = featuresRect.y + featuresRect.height - 4;
+    const racialTop = racialBottom - racialBoxHeight;
+    if (racialTop > featuresRect.y + 40) {
+      renderRightColumnFeatureCard(ctx, assets, character, {
+        x: featuresRect.x,
+        y: racialTop,
+        width: featuresRect.width,
+        height: racialBoxHeight,
+      });
+    }
+  }
 }
 
 function collectFrontPageFeatureCards(character: ResolvedPdfCharacter) {
