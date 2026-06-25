@@ -714,21 +714,29 @@ function renderItemDescriptions(
 
   const contentStartY = rect.y + 36;
   const contentBottomY = rect.y + rect.height - 4;
-  const columnGap = 10;
+  const columnGap = 6;
   const columnPadding = 4;
+  // Bumped column count 2 → 3 per user request: "we have 2 columns
+  // there which is ok, but we need to make it like a page. In column 1
+  // we write, then what does not fit goes to second column and so on.
+  // Now that I think of it, let's make 3 columns in item description
+  // cards." 3 columns give a true newspaper-style flow with shorter
+  // column heights per item card, more even rhythm, and less wasted
+  // white space at the bottom of the page.
+  const columnCount = 3;
   const fullWidth = rect.width - columnPadding * 2;
-  const columnWidth = (rect.width - columnGap - columnPadding * 2) / 2;
+  const columnWidth = (rect.width - columnGap * (columnCount - 1) - columnPadding * 2) / columnCount;
   const textFont = "Helvetica";
   const lineGap = 0.3;
   const compactBodySize = 6;
   const denseBodySize = 5.5;
-  const titleSize = 7.2;
-  // Tightened cardGap 4 → 1.5 so consecutive item cards stack with
-  // less dead space between them. The user said "space between rows too
-  // big" in the 2-column compact flow — the previous 4pt gap was
-  // adding ~10% vertical waste on a column of 5 items.
-  const cardGap = 1.5;
-  const subColumnGap = 8;
+  const titleSize = 8.5;
+  // Tightened cardGap 1.5 → 0.5 so consecutive item cards stack with
+  // minimal dead space between them. The user said "we have too much
+  // space for each end line" — a 0.5pt gap is essentially a hairline
+  // that visually unifies the column without leaving awkward gaps.
+  const cardGap = 0.5;
+  const subColumnGap = 6;
   const availableHeight = contentBottomY - contentStartY;
   // Items whose natural height is more than 35% of the available area
   // (e.g. Prayer Beads) get promoted to the dense strip below; in a
@@ -809,7 +817,7 @@ function renderItemDescriptions(
     // Bumped from titleSize + 1 (8.2) → 12 to match the new titleH in
     // renderItemCard so compact-card height estimates don't under-count
     // and collide with the row below.
-    const titleMetaHeight = 12;
+    const titleMetaHeight = 14;
     const totalHeight = titleMetaHeight + bodyHeight + cardGap;
     const sections = parseSections(description);
     return {
@@ -836,29 +844,40 @@ function renderItemDescriptions(
   // The dashboard strip renders each section as its own mini-card
   // in a 2-column sub-grid — the "dashboard grid" the user asked
   // for. Simple items stay in the 2-column flow.
-  const columns: PreparedItem[][] = [[], []];
+  const columns: PreparedItem[][] = Array.from({ length: columnCount }, () => []);
   const denseQueue: PreparedItem[] = [];
   const dashboardQueue: PreparedItem[] = [];
 
   for (const p of prepared) {
+    // BUGFIX: previously isDense took priority and routed multi-
+    // section items (like Prayer Beads with 25 sections) to the
+    // dense strip, where renderDenseItemCard uses the same 2-column
+    // sub-grid but with much less vertical space available (denseY
+    // starts late, after the compact columns end). Result: Prayer
+    // Beads overflowed the column. Now route multi-section items
+    // to the dashboard FIRST so they get the wider denseY = contentStartY
+    // strip at the top of the layout.
+    if (p.sections.length >= 2) {
+      dashboardQueue.push(p);
+      continue;
+    }
     if (p.isDense) {
       denseQueue.push(p);
       continue;
     }
-    if (p.sections.length >= 2) {
-      // Multi-section items always go to the dashboard strip so
-      // they get the per-section mini-card rendering.
-      dashboardQueue.push(p);
-      continue;
+    // Pick the shortest column that has space. Now 3 columns so we
+    // iterate all of them and pick the minimum.
+    let bestCol = 0;
+    let bestY = columnHeightsSum(columns, 0) + contentStartY;
+    for (let c = 1; c < columnCount; c++) {
+      const candidateY = columnHeightsSum(columns, c) + contentStartY;
+      if (candidateY < bestY) {
+        bestY = candidateY;
+        bestCol = c;
+      }
     }
-    const smaller = columns[0].length === 0 || (columnHeightsSum(columns, 0) <= columnHeightsSum(columns, 1)) ? 0 : 1;
-    const other = 1 - smaller;
-    const smallerY = columnHeightsSum(columns, smaller) + contentStartY;
-    const otherY = columnHeightsSum(columns, other) + contentStartY;
-    if (smallerY + p.totalHeight <= contentBottomY) {
-      columns[smaller].push(p);
-    } else if (otherY + p.totalHeight <= contentBottomY) {
-      columns[other].push(p);
+    if (bestY + p.totalHeight <= contentBottomY) {
+      columns[bestCol].push(p);
     } else {
       // No column has space — promote to dense strip.
       p.isDense = true;
@@ -872,8 +891,8 @@ function renderItemDescriptions(
   // overlap: previous versions used the estimated height to position
   // the next card, which could place it inside the previous card's
   // body if the estimate was low.
-  const columnCursors = [contentStartY, contentStartY];
-  for (let col = 0; col < 2; col++) {
+  const columnCursors = Array.from({ length: columnCount }, () => contentStartY);
+  for (let col = 0; col < columnCount; col++) {
     for (const p of columns[col]) {
       renderItemCard(ctx, p, {
         x: rect.x + columnPadding + col * (columnWidth + columnGap),
@@ -888,7 +907,7 @@ function renderItemDescriptions(
   // --- Phase 4: Render dense items in a wider strip -----------------
   // The dense strip starts after the columns end. If a column ended
   // higher, the dense strip is lifted so it doesn't leave dead space.
-  const compactEndY = Math.max(columnCursors[0], columnCursors[1]);
+  const compactEndY = Math.max(...columnCursors);
   let denseY = compactEndY + 6;
   for (const p of denseQueue) {
     if (denseY + p.titleMetaHeight + 8 >= contentBottomY) break;
@@ -930,9 +949,14 @@ function renderItemDescriptions(
   // row may have a single section (odd count). Each cell has a bold
   // section title and its body in the body face, giving the player
   // scannable visual anchors instead of a wall of prose.
+  console.log(`[DEBUG-DASH] contentStartY=${contentStartY} contentBottomY=${contentBottomY} denseY=${denseY} dashboardQueue=${dashboardQueue.length} fullWidth=${fullWidth} subColumnGap=${subColumnGap} cardGap=${cardGap}`);
   let dashY = denseY;
   for (const p of dashboardQueue) {
-    if (dashY + p.titleMetaHeight >= contentBottomY) break;
+    console.log(`[DEBUG-DASH] item="${p.item.name}" dashY=${dashY} sections=${p.sections.length} titleMeta=${p.titleMetaHeight}`);
+    if (dashY + p.titleMetaHeight >= contentBottomY) {
+      console.log(`[DEBUG-DASH] SKIP ${p.item.name}: dashY+titleMeta=${dashY + p.titleMetaHeight} >= contentBottomY=${contentBottomY}`);
+      break;
+    }
     renderDashboardItem(ctx, p, {
       x: rect.x + columnPadding,
       y: dashY,
@@ -952,6 +976,7 @@ function renderItemDescriptions(
     const rows = Math.ceil(p.sections.length / 2);
     let actualTotalH = 0;
     let cursorY = dashY + p.titleMetaHeight + 2;
+    let drawnRows = 0;
     for (let r = 0; r < rows; r++) {
       if (cursorY >= contentBottomY) break;
       let rowH = 0;
@@ -975,7 +1000,9 @@ function renderItemDescriptions(
       }
       actualTotalH += rowH;
       cursorY += rowH + cardGap;
+      drawnRows++;
     }
+    console.log(`[DEBUG-DASH] drew ${drawnRows}/${rows} rows for ${p.item.name}, actualTotalH=${actualTotalH}, new dashY=${dashY + p.titleMetaHeight + 2 + actualTotalH + cardGap}`);
     dashY += p.titleMetaHeight + 2 + actualTotalH + cardGap;
   }
 }
@@ -1080,12 +1107,12 @@ function renderItemCard(
 ) {
   // Title row: "Name — metadata" or just "Name". Bumped 7.2pt → 8.5pt
   // for better visual weight against the body face (the user said
-  // card titles are too small). Title height 7.5 → 10pt and adds a
-  // 2pt breathing gap before the body so the body doesn't visually
-  // crash into the title (user: "titles too close to description").
+  // card titles are too small). Title height 10 → 14pt and a 3pt
+  // breathing gap before the body so the body doesn't visually crash
+  // into the title (user: "titles too close to description").
   const titleFSize = 8.5;
-  const titleH = 10;
-  const titleBodyGap = 2;
+  const titleH = 14;
+  const titleBodyGap = 3;
   const metaLine = buildItemMetadataLine(p.item);
   const separator = metaLine ? "  —  " : "";
   ctx.doc.save();
@@ -1132,11 +1159,15 @@ function measureItemCardHeight(
   width: number,
   bodySize: number,
 ): number {
-  const titleH = 12;
+  // Bumped titleH 12→14 and titleBodyGap 2→3 so item titles sit
+  // visibly above the body description (user: "names of the features
+  // are too close to the descriptions"). The denser rendering needs
+  // a touch more breathing room when stacked in a column.
+  const titleH = 14;
   const bodyH = p.description
     ? measureRichParagraphHeight(ctx, p.description, width, bodySize, 0.3, "Helvetica")
     : 0;
-  return titleH + bodyH;
+  return titleH + 3 + bodyH;
 }
 
 function renderDenseItemCard(
@@ -1145,11 +1176,13 @@ function renderDenseItemCard(
   rect: { x: number; y: number; width: number },
   options: { bodySize: number; maxBottomY: number; subColumnGap: number },
 ) {
-  // Title row spans the full width. Bumped 7.2 → 8.5pt + 2pt body gap
-  // to match the compact renderItemCard layout.
+  // Title row spans the full width. Bumped titleH 10→14 and
+  // titleBodyGap 2→3 so item titles sit visibly above the body
+  // description (user: "names of the features are too close to the
+  // descriptions").
   const titleFSize = 8.5;
-  const titleH = 10;
-  const titleBodyGap = 2;
+  const titleH = 14;
+  const titleBodyGap = 3;
   const metaLine = buildItemMetadataLine(p.item);
   const separator = metaLine ? "  —  " : "";
   ctx.doc.save();
@@ -1186,6 +1219,12 @@ function renderDenseItemCard(
     const rows = Math.ceil(p.sections.length / sectionsPerRow);
     let rowY = bodyY;
     for (let r = 0; r < rows; r++) {
+      // BUGFIX: stop rendering additional rows once rowY exceeds
+      // maxBottomY. Without this, renderDenseItemCard renders all
+      // 13 rows for Prayer Beads even when denseY is so low (after
+      // the compact columns) that only ~57pt remain, overflowing
+      // into the next item.
+      if (rowY >= options.maxBottomY) break;
       let rowH = 0;
       for (let s = 0; s < sectionsPerRow; s++) {
         const idx = r * sectionsPerRow + s;
@@ -1194,24 +1233,36 @@ function renderDenseItemCard(
         const cellX = rect.x + s * (subW + options.subColumnGap);
         const cellY = rowY;
         let cellCursorY = cellY;
-        if (sec.title) {
-          drawText(ctx, sec.title.toUpperCase(), {
-            x: cellX, y: cellCursorY, width: subW, height: 6,
-          }, {
-            font: "Helvetica-Bold", size: 6, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
-          });
-          cellCursorY += 6;
-        }
-        if (sec.body) {
-          const cellRemaining = options.maxBottomY - cellCursorY;
-          if (cellRemaining > 6) {
-            const h = drawFittedRichParagraph(
-              ctx,
-              sec.body,
-              { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
-              { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
-            );
-            cellCursorY += h;
+        // BUGFIX: also stop per-cell when cellCursorY exceeds
+        // maxBottomY (a single section can be tall enough to overflow
+        // even on its first row).
+        if (cellCursorY < options.maxBottomY) {
+          if (sec.title) {
+            // Use Magra-Bold (the body's font family in bold weight) so
+            // the section header sits on the same baseline as the body
+            // text underneath. The previous Helvetica-Bold (= Teko-Medium
+            // display face) had a different ascender bbox and rendered
+            // visibly LOWER than the body line (user: "bold items are
+            // still lower than the line of writing"). Magra-Bold shares
+            // ascender 968 with Magra body so the baselines align.
+            drawText(ctx, sec.title.toUpperCase(), {
+              x: cellX, y: cellCursorY, width: subW, height: 7,
+            }, {
+              font: "Magra-Bold", size: 6, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
+            });
+            cellCursorY += 7;
+          }
+          if (sec.body) {
+            const cellRemaining = options.maxBottomY - cellCursorY;
+            if (cellRemaining > 6) {
+              const h = drawFittedRichParagraph(
+                ctx,
+                sec.body,
+                { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
+                { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+              );
+              cellCursorY += h;
+            }
           }
         }
         rowH = Math.max(rowH, cellCursorY - cellY);
