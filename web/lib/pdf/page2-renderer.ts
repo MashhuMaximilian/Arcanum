@@ -768,7 +768,15 @@ function renderItemDescriptions(
     if (boldMatch) {
       const title = stripTrailingPunct(boldMatch[1]);
       const body = block.slice(boldMatch[0].length).trim();
-      return { title, body: body || block };
+      // BUGFIX: the previous `body || block` fallback returned the
+      // ENTIRE block (including the original `**Title**` markers)
+      // when the section body was empty. That made the section title
+      // appear twice in the rendered PDF: once as the uppercased
+      // section title and once again as a body line that still
+      // contained `**...**`. Now return an empty string when there
+      // is no body content after the title — the renderer already
+      // skips empty bodies.
+      return { title, body };
     }
     return { title: "", body: block };
   };
