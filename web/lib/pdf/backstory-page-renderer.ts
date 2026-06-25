@@ -125,6 +125,13 @@ function drawHeaderField(
   // reference shows them at the same size as the first-page labels,
   // ~7pt). Value offset 7.5 → 8.5 keeps the gap between label and
   // value consistent with the new label height.
+  //
+  // Value font changed Magra-Bold → Magra (regular weight) to match
+  // the first-page header values exactly: first page uses
+  // `font: "Helvetica"` (which aliases to Magra regular). The
+  // previous Magra-Bold made the backstory values look heavier and
+  // visually distinct from the first-page values (user: "now it has
+  // different font and weight").
   const labelRect = { x: rect.x + 2, y: rect.y + 1, width: rect.width - 4, height: 7 };
   const valueRect = { x: rect.x + 2, y: rect.y + 8.5, width: rect.width - 4, height: rect.height - 10 };
   drawText(ctx, label.toUpperCase(), labelRect, {
@@ -135,10 +142,10 @@ function drawHeaderField(
   });
   if (value.trim()) {
     drawFittedText(ctx, value, valueRect, {
-      font: PDF_BACKSTORY_FONTS.bodyMedium,
-      maxSize: options.valueSize ?? 8.6,
-      minSize: 5.7,
-      color: COLORS.text,
+      font: PDF_BACKSTORY_FONTS.body,
+      maxSize: options.valueSize ?? 9,
+      minSize: 6,
+      color: "#000000",
       lineBreak: true,
     });
   }
@@ -193,7 +200,7 @@ function renderTopHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       y: topRowY,
       width: width - 2,
       height: 17,
-    }, { valueSize: 7.6, labelSize: 5.5 });
+    }, { valueSize: 9, labelSize: 7 });
   });
 
   const bottomFieldWidths = [0.34, 0.33, 0.33].map((fraction) => Math.floor(rightWidth * fraction));
@@ -211,7 +218,7 @@ function renderTopHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       y: bottomRowY,
       width: width - 2,
       height: 17,
-    }, { valueSize: 7.6, labelSize: 5.5 });
+    }, { valueSize: 9, labelSize: 7 });
   });
 
 }
