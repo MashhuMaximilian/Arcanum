@@ -92,8 +92,12 @@ const FEATURE_CARD_TYPOGRAPHY = {
   // not as competing display anchors inside a busy column).
   title: { max: 8.5, min: 5.5 },
   body: { max: 6.4, min: 3.6 },
-  meta: { max: 5.5, min: 3.0 },
-  charges: { max: 5.0, min: 3.0 },
+  // Bumped meta 5.5 → 6.4 so "Action" / "Long Rest" / "1/day" labels
+  // match the smallest-font-is-feature-body floor.
+  meta: { max: 6.4, min: 4.0 },
+  // Bumped charges 5.0 → 6.4 for same reason (the "3 / LR" charge
+  // counter).
+  charges: { max: 6.4, min: 4.0 },
   titleRowHeight: 8.0,
   metaRowHeight: 5.4,
   bodyTopPad: 2.5,
@@ -217,7 +221,15 @@ const STAT_VALUE_SLOTS = {
   // comment for the same change. Modifier slot y 57.2 → 56 to stay
   // aligned with the new score slot.
   score: { x: 10.5, y: 18, width: 34, height: 30 },
-  labelMask: { x: 14, y: 48.4, width: 28, height: 6.8 },
+  // BUGFIX: the _Stat Block.svg has TWO labels baked in — a small grey
+  // "STR DEX" at the top (around y 14-22) and a bold "STR DEX" at
+  // the bottom (around y 46-52). The previous mask only covered the
+  // bottom area, so the top label remained visible, producing
+  // duplicate "STD / STR" labels in the rendered PDF. Extend the
+  // mask to cover BOTH label areas so only the code-drawn label
+  // (rendered last at the bottom slot) is visible.
+  labelMask: { x: 8, y: 14, width: 40, height: 10 },
+  labelMaskBottom: { x: 8, y: 46, width: 40, height: 10 },
   label: { x: 10, y: 49, width: 35, height: 8 },
   modifier: { x: 12, y: 56, width: 31, height: 13 },
 } as const;
@@ -257,13 +269,13 @@ const PASSIVE_BOXES = [
 ] as const;
 
 const HEADER_FIELD_SLOTS = [
-  { key: "race", label: "RACE", labelRect: { x: 242, y: 27.2, width: 83, height: 5.0 }, valueRect: { x: 242, y: 33.3, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 5.0, minSize: 3.0 },
-  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 4.6, minSize: 3.0 },
-  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 27.2, width: 44, height: 5.0 }, valueRect: { x: 480.5, y: 33.3, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 4.3, minSize: 2.8 },
-  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 242, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.4, minSize: 2.9 },
-  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 321.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.1, minSize: 2.8 },
-  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 401, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 401, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.1, minSize: 2.8 },
-  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 480.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 4.3, minSize: 2.8 },
+  { key: "race", label: "RACE", labelRect: { x: 242, y: 27.2, width: 83, height: 5.0 }, valueRect: { x: 242, y: 33.3, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
+  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
+  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 27.2, width: 44, height: 5.0 }, valueRect: { x: 480.5, y: 33.3, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
+  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 242, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
+  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 321.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
+  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 401, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 401, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
+  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 480.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
 ] as const;
 
 const SPELLCASTING_REGION: PdfRect = FRONT_PAGE_REGIONS.spellcasting;
@@ -390,7 +402,10 @@ function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: strin
   // top ~62% of the box (y=8/42..30/42 in the 45×42 viewBox), so the
   // label can occupy the lower third without colliding. With this
   // larger slot the digits can scale up to a maxSize that the old
-  // 15.5pt slot could never accommodate.
+  // 15.5pt slot could never accommodate. Bumped 22→28pt for normal
+  // boxes, 18→24pt for shield (AC), 16→22pt for small (temp HP) —
+  // user requested stat strip numbers be visibly bigger so the page
+  // reads at a glance without a magnifier.
   const valueRect = rectFromFractions(rect, {
     x: mode === "shield" ? 0.10 : mode === "wide" ? 0.04 : 0.10,
     y: mode === "shield" ? 0.16 : mode === "wide" ? 0.12 : 0.14,
@@ -399,7 +414,7 @@ function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: strin
   });
   drawCenteredTextInRect(ctx, value, valueRect, {
     font: "Helvetica-Bold",
-    maxSize: mode === "small" ? 16 : mode === "shield" ? 18 : 22,
+    maxSize: mode === "small" ? 22 : mode === "shield" ? 24 : 28,
     minSize: 8,
     color: "#000000",
   });
@@ -643,14 +658,13 @@ function renderStatStrip(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
     if (spec.key === "hit dice") {
       // The hit dice cell is wider than the other stat boxes (54.71pt × 42pt)
       // but the value string can be long ("3d8 • 3d8 • 1d6 • 1d6" for a 4-class
-      // multiclass). Match the other stat boxes' top-half slot and let the
-      // shrink-on-overflow center fit drop to a small size when the string
-      // runs long.
+      // multiclass). Bumped maxSize 18→24pt so single-class "3d10" reads
+      // as large as the other stat-box numbers.
       const value = statValue(character, spec.key, spec.fallback);
       const valueRect = rectFromFractions(rect, { x: 0.04, y: 0.12, width: 0.92, height: 0.50 });
       drawCenteredTextInRect(ctx, value, valueRect, {
         font: "Helvetica-Bold",
-        maxSize: 18,
+        maxSize: 24,
         minSize: 4,
         color: "#000000",
       });
@@ -900,19 +914,23 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     const labels = ["BONUS", "SAVE DC", "ABILITY"];
     const singleStats = [src?.bonus, src?.dc, src?.ability];
 
+    // Bumped single-class spellcasting numbers 16→22 (bonus/ability)
+    // and 12.5→20 (save DC), labels 5.0→7pt (bonus/ability) and
+    // 4.6→6pt (save DC) — user requested the spellcasting card
+    // numbers be visibly bigger so they match the stat strip scale.
     singleStats.forEach((value, index) => {
       if (!value) return;
       drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.08, width: 0.94, height: 0.48 }), {
-        font: "Helvetica-Bold", maxSize: index === 1 ? 12.5 : 16, minSize: 6, color: "#000000",
+        font: "Helvetica-Bold", maxSize: index === 1 ? 20 : 22, minSize: 6, color: "#000000",
       });
       drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.66, width: 0.96, height: 0.20 }), {
-        font: "Helvetica-Bold", maxSize: index === 1 ? 4.6 : 5.0, minSize: 2.8, color: "#000000",
+        font: "Helvetica-Bold", maxSize: index === 1 ? 6.0 : 7.0, minSize: 3.5, color: "#000000",
       });
     });
 
     maskRect(ctx, rectFromFractions(spellBox, { x: 0.18, y: 0.84, width: 0.64, height: 0.12 }));
     drawCenteredTextInRect(ctx, "SPELLCASTING", rectFromFractions(spellBox, { x: 0.14, y: 0.80, width: 0.72, height: 0.13 }), {
-      font: "Helvetica-Bold", maxSize: 4.8, minSize: 3.2, color: "#000000",
+      font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
     });
 
     if (hasClassResource) {
@@ -958,12 +976,12 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   // "SPELLCASTING" top label
   drawCenteredTextInRect(ctx, "SPELLCASTING", {
     x: spellBox.x + 3, y: labelY, width: contentW, height: labelH,
-  }, { font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000" });
+  }, { font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000" });
 
   const headerLabels = ["CLASS", "BONUS", "DC", "ABL"];
   headerLabels.forEach((lbl, i) => {
     drawCenteredTextInRect(ctx, lbl, { x: colX[i], y: headerY, width: colW[i], height: headerH }, {
-      font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.5, color: "#000000",
+      font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
     });
   });
 
@@ -1042,7 +1060,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     // "CLASS RESOURCES" top label
     drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
       x: rBox.x + 3, y: rLabelY, width: rContentW, height: rLabelH,
-    }, { font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000" });
+    }, { font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000" });
 
     // Column headers: VALUE | RESOURCE NAME | RECHARGE
     const resourceRuleX = rBox.x + 8;
@@ -1060,7 +1078,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     const rColW = [rw1, rw2, rw3];
     rHeaderLabels.forEach((lbl, i) => {
       drawCenteredTextInRect(ctx, lbl, { x: rColX[i], y: rHeaderY, width: rColW[i], height: headerH }, {
-        font: "Helvetica-Bold", maxSize: 4.0, minSize: 2.5, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
       });
     });
 
@@ -1077,11 +1095,11 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       });
       // Resource name (e.g. "Arcane Recovery", "Sorcery Points")
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 5.5, minSize: 3.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
       });
       // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day").
       drawCenteredTextInRect(ctx, resource.cadence, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 5.0, minSize: 3.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
       });
 
       if (idx < rNumRows - 1) {
@@ -1146,7 +1164,12 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       });
       if (!hasPrintedTemplate) {
         drawSvg(ctx, assets.statBlock, block);
+        // Mask both the top and bottom baked-in labels in the SVG so
+        // only the code-drawn label (rendered last at the bottom) is
+        // visible. Previously the mask only covered the bottom,
+        // leaving the top "STD/STR" label as a duplicate.
         maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMask));
+        maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMaskBottom));
       }
       if (row.saveProficient) {
         const saveMarker = componentPoint(block, STAT_BLOCK_VIEWBOX, { x: 27.7, y: 3 });
@@ -1174,16 +1197,22 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       });
       if (!hasPrintedTemplate) {
         drawCenteredTextInRect(ctx, slot.label, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.label), {
-          font: "Helvetica",
-          maxSize: 7.4,
-          minSize: 5,
+          font: "Helvetica-Bold",
+          // Bumped 7.4→8.5 to match the user's "smallest font ≥ feature
+          // description size (6.4)" floor and to make STR/DEX labels
+          // visibly prominent (Teko-Medium display face via the
+          // Helvetica-Bold alias).
+          maxSize: 8.5,
+          minSize: 5.5,
           color: "#000000",
         });
       }
       drawCenteredTextInRect(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
-        maxSize: 11,
-        minSize: 5,
+        // Bumped 11→14 so modifier +1/+3 etc. read at the same
+        // weight as the score digit.
+        maxSize: 14,
+        minSize: 6,
         color: "#000000",
       });
     });
@@ -1192,9 +1221,12 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
   if (assets.skillBlock || assets.generalContainer) {
     if (drawShell || canRecompose) {
       drawCenteredTextInRect(ctx, "ABILITY CHECKS", { x: 204, y: abilityRegion.y - 0.5, width: 170, height: 8 }, {
-        maxSize: 4.4,
-        minSize: 3.5,
-        color: "#9a9a9a",
+        // Bumped 4.4→6.4 to match the smallest-font-is-feature-body floor
+        // user requested, and bumped color #9a9a9a→#555 for visibility.
+        font: "Helvetica-Bold",
+        maxSize: 6.4,
+        minSize: 4.0,
+        color: "#555555",
       });
     }
 
@@ -1335,8 +1367,9 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
     drawSvg(ctx, assets.proficiencyBox0, cells[index]);
     drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cells[index], { x: 0.22, y: 0.87, width: 0.56, height: 0.08 }), {
       font: "Helvetica-Bold",
-      maxSize: 3.0,
-      minSize: 2.0,
+      // Bumped 3.0→6.4 floor; cell height grown 0.08→0.10 to fit.
+      maxSize: 6.4,
+      minSize: 4.0,
       color: "#333333",
     });
     if (!items.length) {
@@ -1461,15 +1494,15 @@ function renderWeaponAttackRows(
   });
 
   // Headers render once; all data rows below still draw blank cells when empty.
-  // Bumped header maxSize 3.5 → 5pt + color #555 → #444 so they read
-  // as proper section anchors instead of tiny grey footnotes (user
-  // said weapon attack labels were too small).
+  // Bumped header maxSize 5 → 6.4pt + color #555 → #444 so they read
+  // as proper section anchors (user said weapon attack labels were
+  // too small — match the smallest-font-is-feature-body floor).
   columns.forEach((column) => {
     drawCenteredTextInRect(
       ctx,
       column.label,
       { x: column.rect.x, y: rect.y, width: column.rect.width, height: headerHeight },
-      { font: "Helvetica-Bold", maxSize: 5, minSize: 3.5, color: "#444444" },
+      { font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#444444" },
     );
   });
 
@@ -1498,15 +1531,15 @@ function renderWeaponAttackRows(
       // 4.9 → 6.5pt, type 3.7 → 5pt, properties 2.8 → 4pt. User said
       // weapon attack values were too small to read at arm's length.
       if (column.key === "name") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 6, minSize: 3.5, align: "left" });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 7, minSize: 4, align: "left" });
       } else if (column.key === "hit") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 7, minSize: 4 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 8, minSize: 4.5 });
       } else if (column.key === "damage") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 6.5, minSize: 4 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 7.5, minSize: 4.5 });
       } else if (column.key === "type") {
-        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 5, minSize: 3, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 6.4, minSize: 4, bold: false, align: "left" });
       } else {
-        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 4, minSize: 3, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 6.4, minSize: 4, bold: false, align: "left" });
       }
     });
   });
@@ -1535,8 +1568,8 @@ function renderSpellTracker(
 
   drawCenteredTextInRect(ctx, "Spell List", { x: contentRect.x, y: contentRect.y, width: contentRect.width, height: 6 }, {
     font: "Helvetica-Bold",
-    maxSize: 4.2,
-    minSize: 3,
+    maxSize: 6.4,
+    minSize: 4.0,
     color: "#555555",
   });
 
@@ -1544,19 +1577,20 @@ function renderSpellTracker(
   const cantripNames = formatSpellEntriesForFrontPage(cantrips, "cantrip");
   const cantripY = contentRect.y + 9;
   const leftCellW = SPELL_LEFT_CELL_W;
-  // Left cell: "Cantrips" label at top, no circles. Bumped 4.0 → 5.5pt
+  // Left cell: "Cantrips" label at top, no circles. Bumped 5.5→7pt
   // so the section label reads as a proper anchor, not a footnote
   // (user: "cantrips and lvl too small").
   drawFittedText(ctx, "Cantrips", { x: contentRect.x, y: cantripY, width: leftCellW, height: 8 }, {
     font: "Helvetica-Bold",
-    maxSize: 5.5,
-    minSize: 4.0,
+    maxSize: 7,
+    minSize: 5,
     align: "right",
     color: "#222222",
     lineBreak: false,
   });
-  // Right cell: cantrip spell names. Bumped 3.7 → 5pt so the actual
-  // spell list is readable from across the table.
+  // Right cell: cantrip spell names. Bumped 5 → 6.4pt so the actual
+  // spell list matches the feature description body size and reads
+  // as a proper anchor.
   drawFittedText(
     ctx,
     cantripNames,
@@ -1566,7 +1600,7 @@ function renderSpellTracker(
       width: contentRect.width - leftCellW - SPELL_TEXT_GAP,
       height: 8,
     },
-    { font: "Helvetica", maxSize: 5, minSize: 4, align: "left", color: "#222222", lineBreak: false },
+    { font: "Helvetica", maxSize: 6.4, minSize: 4.5, align: "left", color: "#222222", lineBreak: false },
   );
 
   const pactSummary = formatPactSlotSummary(pactSlots);
@@ -1579,8 +1613,8 @@ function renderSpellTracker(
       height: pactLineHeight,
     }, {
       font: "Helvetica-Bold",
-      maxSize: 3.1,
-      minSize: 2.5,
+      maxSize: 6.4,
+      minSize: 4.0,
       align: "right",
       color: "#555555",
       lineBreak: false,
@@ -1702,8 +1736,8 @@ function renderSpellLevelGroup(
     const spellNames = row.spellNames;
 
     // LEFT CELL — "Level N" label right-aligned at top, circles directly below.
-    // Bumped 4.0 → 5pt and color #555 → #222 so the level anchors
-    // match the new "Cantrips" label weight.
+    // Bumped 5 → 7pt and color #222 so the level anchors read at the
+    // same weight as the new "Cantrips" label (user: "lvl too small").
     const labelRect: PdfRect = {
       x: rowRect.x,
       y: rowTop,
@@ -1712,8 +1746,8 @@ function renderSpellLevelGroup(
     };
     drawFittedText(ctx, `Level ${level}`, labelRect, {
       font: "Helvetica-Bold",
-      maxSize: 5,
-      minSize: 4,
+      maxSize: 7,
+      minSize: 5,
       align: "right",
       color: "#222222",
       lineBreak: false,
@@ -1742,8 +1776,8 @@ function renderSpellLevelGroup(
     };
     drawCenteredTextInRect(ctx, spellNames === "—" && slotCount === 0 ? "" : spellNames, namesRect, {
       font: "Helvetica",
-      maxSize: 5,
-      minSize: 4,
+      maxSize: 6.4,
+      minSize: 4.5,
       align: "left",
       color: "#222222",
       lineGap: SPELL_TEXT_LINE_GAP,
@@ -3069,10 +3103,10 @@ function renderGroupedFeatureDeck(ctx: PdfRenderContext, assets: PdfSvgAssetBund
 
     const titleY = groupRect.y + 12;
     const displayTitle = getFeatureGroupDisplayTitle(group);
-    drawFittedText(ctx, displayTitle.toUpperCase(), { x: groupRect.x + 5, y: titleY, width: groupRect.width - 10, height: 5 }, {
+    drawFittedText(ctx, displayTitle.toUpperCase(), { x: groupRect.x + 5, y: titleY, width: groupRect.width - 10, height: 6 }, {
       font: "Helvetica-Bold",
-      maxSize: 3.8,
-      minSize: 3.0,
+      maxSize: 6.4,
+      minSize: 4.0,
       color: "#1a1a1a",
     });
 
@@ -3172,8 +3206,8 @@ function renderRightColumnCardShell(ctx: PdfRenderContext, assets: PdfSvgAssetBu
   const content = insetRect(rect, 6, 7);
   drawFittedText(ctx, title, { x: content.x, y: content.y + 1.5, width: content.width, height: 6 }, {
     font: "Helvetica-Bold",
-    maxSize: 4.7,
-    minSize: 3.4,
+    maxSize: 6.4,
+    minSize: 4.0,
     color: "#000000",
   });
   return content;
@@ -3193,8 +3227,8 @@ function renderRightColumnNotesCard(
     }
     drawFittedText(ctx, `${line.title}: ${line.value}`, { x: content.x, y, width: content.width, height: 6 }, {
       font: "Helvetica",
-      maxSize: 4.15,
-      minSize: 3,
+      maxSize: 6.4,
+      minSize: 4.0,
       color: "#111111",
     });
   });
