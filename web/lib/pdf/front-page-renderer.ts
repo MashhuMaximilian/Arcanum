@@ -1401,12 +1401,16 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
 
   values.forEach((items, index) => {
     drawSvg(ctx, assets.proficiencyBox0, cells[index]);
-    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cells[index], { x: 0.22, y: 0.87, width: 0.56, height: 0.08 }), {
-      font: "Helvetica-Bold",
-      // Bumped 3.0→6.4 floor; cell height grown 0.08→0.10 to fit.
+    // Use Magra body face (not Teko-Medium display) so the WEAPONS /
+    // ARMOR / TOOLS & INSTR. / VEHICLES / LANGUENCES bubble labels
+    // match the small subtle feel of the header labels (user:
+    // "they are too big bold another font and overflowing and ugly").
+    // Height grown 0.08 → 0.12 to fit 6.4pt without clipping.
+    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cells[index], { x: 0.22, y: 0.85, width: 0.56, height: 0.12 }), {
+      font: "Helvetica",
       maxSize: 6.4,
       minSize: 6.4,
-      color: "#333333",
+      color: "#777777",
     });
     if (!items.length) {
       return;
