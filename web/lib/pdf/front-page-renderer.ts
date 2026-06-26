@@ -215,7 +215,11 @@ const STAT_ROW_BACKGROUNDS = [
 ] as const;
 
 const STAT_VALUE_SLOTS = {
-  save: { x: 11, y: 7.2, width: 33, height: 9.2 },
+  // Save pip slot grown 9.2→14pt tall so 14pt save digits can actually
+  // fit (was clamped to ~6.7pt by the 9.2pt slot — see round-10 maxSize
+  // bump that was a silent no-op). y 7.2→6 to give the new height
+  // enough room without colliding with the score slot below.
+  save: { x: 11, y: 6, width: 33, height: 14 },
   // Score slot grown 15.5 → 30pt tall (y 26.8 → 18, height 30) so
   // 28pt scores have room to render — see companion page2-renderer
   // comment for the same change. Modifier slot y 57.2 → 56 to stay
@@ -231,7 +235,10 @@ const STAT_VALUE_SLOTS = {
   labelMask: { x: 8, y: 14, width: 40, height: 10 },
   labelMaskBottom: { x: 8, y: 46, width: 40, height: 10 },
   label: { x: 10, y: 49, width: 35, height: 8 },
-  modifier: { x: 12, y: 56, width: 31, height: 13 },
+  // Modifier slot grown 13→18pt tall so 14pt modifier digits can
+  // actually fit (was clamped to ~11pt by the 13pt slot). x 12 stays
+  // — the slot is wide enough for "+10" and a 14pt Magra-Bold.
+  modifier: { x: 12, y: 56, width: 31, height: 18 },
 } as const;
 
 const SKILL_ROW_SLOTS = {
@@ -280,8 +287,12 @@ const HEADER_FIELD_SLOTS = [
 
 const SPELLCASTING_REGION: PdfRect = FRONT_PAGE_REGIONS.spellcasting;
 const RESOURCE_ONLY_SLOTS = [
-  { x: 10, y: 4, width: 82, height: 42 },
-  { x: 104, y: 4, width: 82, height: 42 },
+  // Grown height 42→60pt to match the new 65pt SPELLCASTING_REGION.
+  // Combined with drawShellMetricCard's bumped value-rect ratio, the
+  // BONUS / SAVE DC / Ki Save DC values now render at the full 22pt
+  // instead of being clamped to ~14pt.
+  { x: 10, y: 1, width: 82, height: 60 },
+  { x: 104, y: 1, width: 82, height: 60 },
 ] as const;
 
 const FRONT_PAGE_PRINT_SAFE_SCALE = 0.94;
@@ -399,18 +410,20 @@ function drawValueOnlyStatBox(ctx: PdfRenderContext, rect: PdfRect, value: strin
   }
 
   // Match the companion bonus-box slot proportions: value sits in the
-  // top ~62% of the box (y=8/42..30/42 in the 45×42 viewBox), so the
+  // top ~65% of the box (y=8/42..30/42 in the 45×42 viewBox), so the
   // label can occupy the lower third without colliding. With this
   // larger slot the digits can scale up to a maxSize that the old
   // 15.5pt slot could never accommodate. Bumped 22→28pt for normal
   // boxes, 18→24pt for shield (AC), 16→22pt for small (temp HP) —
   // user requested stat strip numbers be visibly bigger so the page
-  // reads at a glance without a magnifier.
+  // reads at a glance without a magnifier. Height ratio 0.50→0.65
+  // gives the value enough vertical room to actually fit 28pt text
+  // (was clamped to ~14pt by the 0.50-ratio slot).
   const valueRect = rectFromFractions(rect, {
-    x: mode === "shield" ? 0.10 : mode === "wide" ? 0.04 : 0.10,
-    y: mode === "shield" ? 0.16 : mode === "wide" ? 0.12 : 0.14,
-    width: mode === "shield" ? 0.80 : mode === "wide" ? 0.92 : 0.80,
-    height: mode === "shield" ? 0.50 : 0.50,
+    x: mode === "shield" ? 0.10 : mode === "wide" ? 0.04 : 0.08,
+    y: mode === "shield" ? 0.16 : mode === "wide" ? 0.10 : 0.12,
+    width: mode === "shield" ? 0.80 : mode === "wide" ? 0.92 : 0.84,
+    height: mode === "shield" ? 0.52 : 0.65,
   });
   drawCenteredTextInRect(ctx, value, valueRect, {
     font: "Helvetica-Bold",
@@ -740,33 +753,40 @@ function drawShellMetricCard(
   drawSvg(ctx, assets.proficiencyBox1, box);
   const cadence = formatResourceCadence(content.value, content.cadence);
   const hasCadence = Boolean(cadence);
+  // Value rect height 0.40→0.55 (and width 0.84→0.88) so the 22pt
+  // BONUS / SAVE DC / ABILITY digits can actually fit. Was clamped to
+  // ~14pt by the 0.40-ratio slot — round-10 maxSize bump was a silent
+  // no-op until now.
   drawCenteredTextInRect(ctx, content.value, rectFromFractions(box, {
-    x: 0.08,
-    y: hasCadence ? 0.08 : 0.16,
-    width: 0.84,
-    height: hasCadence ? 0.36 : 0.40,
+    x: 0.06,
+    y: hasCadence ? 0.08 : 0.12,
+    width: 0.88,
+    height: hasCadence ? 0.50 : 0.55,
   }), {
     font: "Helvetica-Bold",
-    maxSize: box.width > 100 ? 15.5 : 13.5,
-    minSize: 5,
+    maxSize: box.width > 100 ? 22 : 18,
+    minSize: 6,
     color: "#000000",
   });
   if (cadence) {
-    drawCenteredTextInRect(ctx, cadence, rectFromFractions(box, { x: 0.10, y: 0.48, width: 0.80, height: 0.14 }), {
+    drawCenteredTextInRect(ctx, cadence, rectFromFractions(box, { x: 0.10, y: 0.62, width: 0.80, height: 0.14 }), {
       font: "Helvetica-Bold",
       maxSize: box.width > 100 ? 6.4 : 5.4,
       minSize: 3.0,
       color: "#000000",
     });
   }
+  // Label rect bumped yOffset (0.68→0.78) and height (0.16→0.20) so
+  // the BONUS / SAVE DC / ABILITY label sits in the bottom 20% of the
+  // box without overlapping the value rect above.
   drawCenteredTextInRect(ctx, content.label, rectFromFractions(box, {
-    x: 0.08,
-    y: hasCadence ? 0.70 : 0.68,
-    width: 0.84,
-    height: 0.16,
+    x: 0.06,
+    y: hasCadence ? 0.78 : 0.80,
+    width: 0.88,
+    height: 0.18,
   }), {
     font: content.labelFont || "Helvetica-Bold",
-    maxSize: box.width > 100 ? 5.6 : 4.4,
+    maxSize: box.width > 100 ? 6.4 : 5.4,
     minSize: 2.3,
     color: "#000000",
   });
@@ -905,10 +925,14 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     return;
   }
 
-  // ── SINGLE-CLASS SPELLCASTING (absolutely unchanged) ──────────────────────
+  // ── SINGLE-CLASS SPELLCASTING ─────────────────────────────────────
   if (!isMulticlass) {
     const src = spellSources[0];
-    const spellBox = spellcastingRect(hasClassResource ? { x: 9, y: 1, width: 120, height: 48 } : { x: 9, y: 1, width: 178, height: 48 });
+    // Box grown 48→60pt tall to match the new 65pt SPELLCASTING_REGION.
+    // With h=60 the value rect at 0.05→0.65 (33pt tall) comfortably
+    // holds 22pt text (lineGap-adjusted height 24.6pt) — was clamped
+    // to ~14pt by the 0.48-ratio slot in the 48pt-tall box.
+    const spellBox = spellcastingRect(hasClassResource ? { x: 9, y: 1, width: 120, height: 60 } : { x: 9, y: 1, width: 178, height: 60 });
     drawSvg(ctx, assets.proficiencyBox1, spellBox);
     const thirds = splitColumns(insetRect(spellBox, 9, 6), 3, 8);
     const labels = ["BONUS", "SAVE DC", "ABILITY"];
@@ -920,22 +944,22 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     // numbers be visibly bigger so they match the stat strip scale.
     singleStats.forEach((value, index) => {
       if (!value) return;
-      drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.08, width: 0.94, height: 0.48 }), {
+      drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.05, width: 0.94, height: 0.65 }), {
         font: "Helvetica-Bold", maxSize: index === 1 ? 20 : 22, minSize: 6, color: "#000000",
       });
-      drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.66, width: 0.96, height: 0.20 }), {
-        font: "Helvetica-Bold", maxSize: index === 1 ? 6.0 : 7.0, minSize: 3.5, color: "#000000",
+      drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.75, width: 0.96, height: 0.20 }), {
+        font: "Helvetica-Bold", maxSize: index === 1 ? 6.4 : 7.0, minSize: 3.5, color: "#000000",
       });
     });
 
-    maskRect(ctx, rectFromFractions(spellBox, { x: 0.18, y: 0.84, width: 0.64, height: 0.12 }));
-    drawCenteredTextInRect(ctx, "SPELLCASTING", rectFromFractions(spellBox, { x: 0.14, y: 0.80, width: 0.72, height: 0.13 }), {
+    maskRect(ctx, rectFromFractions(spellBox, { x: 0.18, y: 0.86, width: 0.64, height: 0.10 }));
+    drawCenteredTextInRect(ctx, "SPELLCASTING", rectFromFractions(spellBox, { x: 0.14, y: 0.84, width: 0.72, height: 0.13 }), {
       font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
     });
 
     if (hasClassResource) {
       const primaryResource = classResources[0];
-      drawShellMetricCard(ctx, assets, spellcastingRect({ x: 133, y: 1, width: 60, height: 48 }), {
+      drawShellMetricCard(ctx, assets, spellcastingRect({ x: 133, y: 1, width: 60, height: 60 }), {
         value: primaryResource.value, label: primaryResource.name, cadence: primaryResource.cadence,
       });
     }

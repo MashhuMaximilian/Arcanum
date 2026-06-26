@@ -29,6 +29,13 @@ const character = {
       { id: "temp-hp", label: "Temp. HP", value: "" },
       { id: "hit-dice", label: "Hit Dice", value: "5d10" },
       { id: "defenses", label: "Defenses", value: "18" },
+      // Spellcasting source — Ranger 5 gets +3/+4 WIS at level 5.
+      // Single-class (only one entry) so the single-class path renders.
+      // ID format: spellcasting-source-<sourceId>-<field> (dash separator,
+      // not dot — the parser regex uses `[^.]+` for the sourceId).
+      { id: "spellcasting-source-ranger-bonus", label: "Ranger Bonus", value: "+3" },
+      { id: "spellcasting-source-ranger-dc", label: "Ranger DC", value: "11" },
+      { id: "spellcasting-source-ranger-ability", label: "Ranger Ability", value: "WIS" },
     ],
     abilityRows: [
       { id: "str", label: "STR", score: 13, modifier: 1, saveBonus: -1, saveProficient: false },
