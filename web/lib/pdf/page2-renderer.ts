@@ -2411,6 +2411,13 @@ function renderCompanionAbilities(
     // text inside the SVG circle (bottom circle is at SVG center
     // y≈61.77 with radius ~13.5; slot center y=62 lines up).
     modifier: { x: 12, y: 53, width: 31, height: 18 },
+    // STR/DEX/CON/INT/WIS/CHA label slot. The SVG is a single
+    // template reused for all 6 cells with the static "STR" text
+    // path baked in at viewBox y=46-52. The mask at the call site
+    // clears that baked label so this code-drawn overlay (using
+    // Magra-Bold to match the front page) can render the correct
+    // ability name for this cell.
+    label: { x: 10, y: 49, width: 35, height: 8 },
   } satisfies Record<string, PdfRect>;
 
   for (const cell of rects.abilityCells) {
@@ -2432,19 +2439,41 @@ function renderCompanionAbilities(
       maxSize: 28,
       minSize: 12,
     });
+    // Mask the top baked-in grey "STR" save-bonus text (y 14-22)
+    // so the code-drawn save pip and number render cleanly.
     maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
-      x: 13.5,
-      y: 43.8,
-      width: 28,
-      height: 8,
+      x: 8,
+      y: 14,
+      width: 40,
+      height: 10,
     }));
-    // STR/DEX/etc. label is already baked into _Stat Block.svg. Drop
-    // the overlay draw that was duplicating it (user: "we do not need
-    // this overlapping one at all since we have it already from the
-    // svg itself").
+    // Mask the bottom baked-in bold "STR" label (y 46-52) so the
+    // code-drawn ability name (STR/DEX/CON/INT/WIS/CHA) renders
+    // cleanly. Both masks needed because the SVG is a single
+    // template with both labels baked in.
+    maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
+      x: 8,
+      y: 46,
+      width: 40,
+      height: 10,
+    }));
+    // STR/DEX/CON/INT/WIS/CHA label drawn over the masked area. The
+    // _Stat Block.svg bakes static "STR" text into the bottom of
+    // the block — wrong for the other 5 cells. Mask the baked
+    // label and draw the correct one here. Using Magra-Bold to
+    // match the front page so both pages use the same stat-block
+    // geometry (user: "These should be same fonts same sizes,
+    // because they are the same thing, only they are twice in
+    // the pdf, one for character and once for companion").
+    drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
+      font: "Helvetica-Bold",
+      maxSize: 7.5,
+      minSize: 6.4,
+      color: "#000000",
+    });
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
       ...valueOptions,
-      maxSize: 11,
+      maxSize: 14,
     });
   }
 }
