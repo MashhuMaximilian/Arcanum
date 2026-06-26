@@ -1662,7 +1662,13 @@ function renderSpellTracker(
   }
 
   // --- Spell slots and spell names by level ---
-  const slotsY = cantripY + 6.5 + pactLineHeight;
+  // slotsY grown 6.5 → 9 below cantripY so the level rows don't
+  // collide with the cantrip row above (user: "in spell list those
+  // overlap — Contrips — / Level 1 overlapping"). The cantrip row
+  // text height is 8pt (height in the rect passed to drawFittedText
+  // above), so 9pt gap keeps the level-row circles / label clear
+  // of the cantrip names.
+  const slotsY = cantripY + 9 + pactLineHeight;
   const slotsAreaHeight = Math.max(1, Math.min(contentRect.height - (slotsY - contentRect.y), targetBottomY - slotsY));
   const highestSpellLevel = spellsByLevel.reduce(
     (max, entry) => entry.spells.length ? Math.max(max, entry.level) : max,
