@@ -713,7 +713,12 @@ function renderItemDescriptions(
   }
 
   const contentStartY = rect.y + 36;
-  const contentBottomY = rect.y + rect.height - 4;
+  // Item descriptions region overlaps the utility row at y=321..363
+  // (attuned/currency/encumbrance/valuables) in the EQUIPPED column.
+  // Stop content drawing at y=318 so item descriptions don't bleed into
+  // the utility row strip — previously contentBottomY=359 and the
+  // Prayer Beads overflow text overlapped the ATTUNED/COPPER boxes.
+  const contentBottomY = 318;
   const columnGap = 6;
   const columnPadding = 4;
   // Bumped column count 2 → 3 per user request: "we have 2 columns
@@ -727,9 +732,22 @@ function renderItemDescriptions(
   const fullWidth = rect.width - columnPadding * 2;
   const columnWidth = (rect.width - columnGap * (columnCount - 1) - columnPadding * 2) / columnCount;
   const textFont = "Helvetica";
-  const lineGap = 0.3;
-  const compactBodySize = 6;
-  const denseBodySize = 5.5;
+  // Line gap 0.3 → 0.2 so dense body text is tighter. With denseBodySize
+  // also bumped to 6.4 (matching the user's "smallest font = feature
+  // description body" floor), Prayer Beads would otherwise overflow the
+  // 3-column region. Tightening the line gap gives the content more
+  // vertical room without sacrificing readability.
+  const lineGap = 0.2;
+  // Both compactBodySize and denseBodySize bumped to 6.4 — the user's
+  // "smallest font must be at least the feature description body size"
+  // rule. drawFittedRichParagraph previously had a minSize of 4 or 5
+  // on these calls (the bulk-raise in commit ff28097 fixed that to 6.4)
+  // but the layout-side size was still below 6.4, causing the text to
+  // overflow the slot's reserved height (the layout reserves space for
+  // `size` even though the render paints at `minSize`). Setting the
+  // size to 6.4 keeps the layout calculation honest.
+  const compactBodySize = 6.4;
+  const denseBodySize = 6.4;
   const titleSize = 8.5;
   // Tightened cardGap 1.5 → 0.5 so consecutive item cards stack with
   // minimal dead space between them. The user said "we have too much
@@ -992,7 +1010,10 @@ function renderItemDescriptions(
         const idx = r * 2 + s;
         if (idx >= p.sections.length) break;
         const sec = p.sections[idx];
-        const titleH = sec.title ? 6 : 0;
+        // Title row bumped 6→9 to match the new dashboard render: 7pt
+        // title text + 2pt body gap. Keeps the layout math in sync with
+        // what's actually drawn so the cursor advances correctly.
+        const titleH = sec.title ? 9 : 0;
         const cellRemaining = contentBottomY - cursorY - titleH;
         let bodyH = 0;
         if (sec.body) {
@@ -1073,13 +1094,15 @@ function renderDashboardItem(
         if (sec.title) {
           // Visual anchor: section title in bold uppercase, body face
           // (Magra-Bold) so it reads as inline emphasis of the same
-          // paragraph family, not a different display face.
+          // paragraph family, not a different display face. Bumped
+          // size 6→7 + 2pt body gap below so the title sits visibly
+          // above the body (user: "titles too close to descriptions").
           drawText(ctx, sec.title.toUpperCase(), {
-            x: cellX, y: cellCursorY, width: subW, height: 5,
+            x: cellX, y: cellCursorY, width: subW, height: 7,
           }, {
-            font: "Magra-Bold", size: 6, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
+            font: "Magra-Bold", size: 7, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
           });
-          cellCursorY += 6;
+          cellCursorY += 9;
         }
         if (sec.body) {
           const cellRemaining = options.maxBottomY - cellCursorY;
@@ -1088,7 +1111,7 @@ function renderDashboardItem(
               ctx,
               sec.body,
               { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
-              { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.3 },
+              { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.2 },
             );
             cellCursorY += h;
           }
@@ -1115,12 +1138,12 @@ function renderItemCard(
 ) {
   // Title row: "Name — metadata" or just "Name". Bumped 7.2pt → 8.5pt
   // for better visual weight against the body face (the user said
-  // card titles are too small). Title height 10 → 14pt and a 3pt
+  // card titles are too small). Title height 10 → 14pt and a 4pt
   // breathing gap before the body so the body doesn't visually crash
   // into the title (user: "titles too close to description").
   const titleFSize = 8.5;
   const titleH = 14;
-  const titleBodyGap = 3;
+  const titleBodyGap = 4;
   const metaLine = buildItemMetadataLine(p.item);
   const separator = metaLine ? "  —  " : "";
   ctx.doc.save();
@@ -1185,12 +1208,13 @@ function renderDenseItemCard(
   options: { bodySize: number; maxBottomY: number; subColumnGap: number },
 ) {
   // Title row spans the full width. Bumped titleH 10→14 and
-  // titleBodyGap 2→3 so item titles sit visibly above the body
+  // titleBodyGap 3→4 so item titles sit visibly above the body
   // description (user: "names of the features are too close to the
-  // descriptions").
+  // descriptions"). The extra padding reads as a clear visual break
+  // between the bold item name and the body prose below.
   const titleFSize = 8.5;
   const titleH = 14;
-  const titleBodyGap = 3;
+  const titleBodyGap = 4;
   const metaLine = buildItemMetadataLine(p.item);
   const separator = metaLine ? "  —  " : "";
   ctx.doc.save();
