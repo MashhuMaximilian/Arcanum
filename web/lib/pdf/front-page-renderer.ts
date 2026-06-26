@@ -1203,13 +1203,17 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       });
       if (!hasPrintedTemplate) {
         drawSvg(ctx, assets.statBlock, block);
-        // Mask only the top baked-in "STD" save-bonus label so the
-        // code-drawn save pip can render cleanly over it. Keep the
-        // bottom baked-in "STR/DEX/CON" label visible — the user
-        // wants the SVG-baked ability label, not an overlay drawn
-        // by code (user: "we do not need this overlapping one at all
-        // since we have it already from the svg itself").
+        // The _Stat Block.svg has TWO labels baked in — a small grey
+        // "STR DEX" at the top (around y 14-22) and a bold "STR DEX"
+        // at the bottom (around y 46-52). The SVG is one template
+        // reused 6 times, so both baked labels are static "STR" —
+        // wrong for DEX/CON/INT/WIS/CHA cards. Mask BOTH label
+        // areas with white so the code-drawn label below is the
+        // only one visible. (Round-13 commit b5333b8 only masked
+        // the top and relied on the bottom, which produced "STR"
+        // on every card.)
         maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMask));
+        maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMaskBottom));
       }
       if (row.saveProficient) {
         const saveMarker = componentPoint(block, STAT_BLOCK_VIEWBOX, { x: 27.7, y: 3 });
@@ -1236,12 +1240,24 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         color: "#000000",
       });
       if (!hasPrintedTemplate) {
-        // STR/DEX/etc. label is already baked into _Stat Block.svg at
-        // the bottom of the block. The previous code drew an overlay
-        // label here (Helvetica-Bold 8.5pt Teko-Medium) on top of the
-        // baked one, producing a duplicate label that overlapped the
-        // modifier circle. The SVG-baked label is what the user
-        // wants — drop the overlay entirely.
+        // STR/DEX/CON/INT/WIS/CHA label drawn over the masked area
+        // (see labelMaskBottom above). Using Magra-Bold to match the
+        // companion page so both pages use the same stat-block
+        // geometry. The previous Teko-Medium 8.5pt overlay produced
+        // a duplicate label that overlapped the modifier circle —
+        // now the SVG baked label is masked first, then a single
+        // Magra-Bold label is drawn in the cleared slot.
+        drawCenteredTextInRect(
+          ctx,
+          row.label,
+          componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.label),
+          {
+            font: "Helvetica-Bold",
+            maxSize: 7.5,
+            minSize: 6.4,
+            color: "#000000",
+          },
+        );
       }
       drawCenteredTextInRect(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
@@ -1401,15 +1417,20 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
 
   values.forEach((items, index) => {
     drawSvg(ctx, assets.proficiencyBox0, cells[index]);
-    // Use Magra body face (not Teko-Medium display) so the WEAPONS /
-    // ARMOR / TOOLS & INSTR. / VEHICLES / LANGUENCES bubble labels
-    // match the small subtle feel of the header labels (user:
-    // "they are too big bold another font and overflowing and ugly").
-    // Height grown 0.08 → 0.12 to fit 6.4pt without clipping.
-    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cells[index], { x: 0.22, y: 0.85, width: 0.56, height: 0.12 }), {
+    // The _Proficiency Box 0.svg bakes a small white "label bubble"
+    // (roughly 30pt × 9pt at cell size) at the bottom of the cell.
+    // That bubble is too narrow for 6.4pt labels like "TOOLS & INSTR."
+    // (13 chars ≈ 41pt at Magra 6.4pt). Mask the baked bubble with a
+    // wider white rect so the label has room to render in full. Then
+    // draw the label with Magra body face at 5.5pt (subtle, not
+    // chunky Teko-Medium) — user: "we need the labels them to look
+    // just like they did before. Now they are too big bold another
+    // font and overflowing and ugly".
+    maskRect(ctx, rectFromFractions(cells[index], { x: 0.0, y: 0.74, width: 1.0, height: 0.22 }));
+    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cells[index], { x: 0.04, y: 0.85, width: 0.92, height: 0.12 }), {
       font: "Helvetica",
-      maxSize: 6.4,
-      minSize: 6.4,
+      maxSize: 5.5,
+      minSize: 5.5,
       color: "#777777",
     });
     if (!items.length) {
