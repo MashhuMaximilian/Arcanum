@@ -2639,12 +2639,40 @@ function drawTextWithBoldActionWords(
     .replace(/`([^`]+)`/g, "$1");
   const tokens: TextRun[] = [];
   const actionWords: [string][] = [
+    // Order: longest phrases first so e.g. "bonus action" wins over
+    // the standalone "action" suffix. Round-13 expansion: added common
+    // combat verbs and DnD action types (attack, move, etc.) so player
+    // searches for "how do I use this thing" surface as bold inline
+    // emphasis — "things that players should see first in descriptions".
     ["bonus action"],
     ["legendary action"],
-    ["reaction"],
+    ["lair action"],
     ["free object interaction"],
     ["object interaction"],
+    ["opportunity attack"],
+    ["unarmed strike"],
+    ["ranged attack"],
+    ["ranged strike"],
+    ["melee attack"],
+    ["melee weapon attack"],
+    ["ranged weapon attack"],
+    ["weapon attack"],
+    ["grapple"],
+    ["shove"],
+    ["cast a spell"],
+    ["dash"],
+    ["disengage"],
+    ["dodge"],
+    ["help"],
+    ["hide"],
+    ["ready"],
+    ["search"],
+    ["use an object"],
+    ["reaction"],
+    ["attack"],
     ["action"],
+    ["move"],
+    ["movement"],
   ];
   let remaining = stripped;
   while (remaining.length > 0) {
@@ -2711,10 +2739,19 @@ function drawTextWithBoldActionWords(
         lineRemaining = maxW;
       }
 
-      // Render this run with lineBreak: false to prevent PDFKit auto page breaks
+      // Render this run with lineBreak: false to prevent PDFKit auto page breaks.
+      // Round-13 baseline fix: PDFKit's text() positions the baseline at `y`
+      // using the current font's ascender. Magra-Bold and Magra have
+      // identical sTypoAscender (968) per the TTF OS/2 table, so they
+      // SHOULD baseline-align — but the cap-height-to-ascender ratio is
+      // fractionally different (Bold weight fills more of the cap-height
+      // box), which makes the Bold word's visual mass sit ~0.4pt LOWER
+      // than the surrounding Magra body. Lift the Bold baseline by 0.5pt
+      // so the bold word's centerline matches the body face's centerline.
       if (cursorY > opts.y + opts.height) break;
+      const renderY = run.bold ? cursorY - 0.5 : cursorY;
       doc.save();
-      doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
+      doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, renderY, { lineBreak: false });
       doc.restore();
       lineX += w2;
       lineRemaining -= w2;
