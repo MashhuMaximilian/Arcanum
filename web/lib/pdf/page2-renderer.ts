@@ -154,12 +154,27 @@ function stripMarkdown(text: string): string {
 type InlineRun = { text: string; bold: boolean; italic: boolean };
 
 /**
- * Tokenize a text line into inline runs of bold/italic/regular text
- * based on markdown markers (**bold**, *italic*).
+ * Tokenize a text line into inline runs of italic/regular text
+ * based on markdown markers (`*italic*`). Round-13: dropped `**bold**`
+ * rendering — we don't have a Magra-Italic cut, and bold-as-emphasis
+ * in this body face visibly mis-aligned with surrounding Magra body
+ * (Magra-Bold has a different ascender, so the bold word sat lower
+ * than the rest of the line). Inline emphasis now renders as italic
+ * only via the single-asterisk marker; `**word**` is just stripped to
+ * `word` and rendered in the body face so it doesn't visually jump or
+ * leave visible asterisks in the rendered output.
+ *
+ * Section headers (which the section parser extracts via
+ * `**Title:**` at the start of a line) still get their bold-uppercase
+ * treatment via `drawSectionTitle` — that path is independent of
+ * this tokenizer.
  */
 function tokenizeInlineRuns(text: string): InlineRun[] {
   const runs: InlineRun[] = [];
-  // Combined regex: **bold** | *italic*
+  // Combined regex: **stripped** | *italic*. The `**` match captures the
+  // inner word with `bold: false` so the ** markers are removed but the
+  // word renders in the same body face as surrounding text — no visible
+  // jump, no visible asterisks.
   const regex = /(\*\*([^*\n][^*]*?)\*\*)|((?<!\*)\*([^*\n]+)\*(?!\*))/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -168,8 +183,9 @@ function tokenizeInlineRuns(text: string): InlineRun[] {
       runs.push({ text: text.slice(lastIndex, match.index), bold: false, italic: false });
     }
     if (match[2] !== undefined) {
-      // **bold**
-      runs.push({ text: match[2], bold: true, italic: false });
+      // **stripped** — render inner word in body face (no bold,
+      // no italic). See doc comment above for round-13 reasoning.
+      runs.push({ text: match[2], bold: false, italic: false });
     } else if (match[4] !== undefined) {
       // *italic*
       runs.push({ text: match[4], bold: false, italic: true });
