@@ -2389,8 +2389,12 @@ function renderCompanionAbilities(
     // centers text in the rect. Modifier slot shifted down to make
     // room.
     score: { x: 10.5, y: 18, width: 34, height: 30 },
-    label: { x: 10, y: 49, width: 35, height: 8 },
-    modifier: { x: 12, y: 56, width: 31, height: 13 },
+    // Label slot height grown 8 → 9pt so the overlay label has room
+    // to render at 7.2pt Magra without being clamped by the height
+    // check. Modifier slot y shifted up 56→53 to center the modifier
+    // text inside the SVG circle (bottom circle is at SVG center
+    // y≈61.77 with radius ~13.5; slot center y=62 lines up).
+    modifier: { x: 12, y: 53, width: 31, height: 18 },
   } satisfies Record<string, PdfRect>;
 
   for (const cell of rects.abilityCells) {
@@ -2418,12 +2422,10 @@ function renderCompanionAbilities(
       width: 28,
       height: 8,
     }));
-    drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
-      font: "Helvetica",
-      maxSize: 7.2,
-      minSize: 6.4,
-      color: "#000000",
-    });
+    // STR/DEX/etc. label is already baked into _Stat Block.svg. Drop
+    // the overlay draw that was duplicating it (user: "we do not need
+    // this overlapping one at all since we have it already from the
+    // svg itself").
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
       ...valueOptions,
       maxSize: 11,

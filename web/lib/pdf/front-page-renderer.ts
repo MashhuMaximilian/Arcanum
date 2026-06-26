@@ -237,8 +237,11 @@ const STAT_VALUE_SLOTS = {
   label: { x: 10, y: 49, width: 35, height: 8 },
   // Modifier slot grown 13→18pt tall so 14pt modifier digits can
   // actually fit (was clamped to ~11pt by the 13pt slot). x 12 stays
-  // — the slot is wide enough for "+10" and a 14pt Magra-Bold.
-  modifier: { x: 12, y: 56, width: 31, height: 18 },
+  // — the slot is wide enough for "+10" and a 14pt Magra-Bold. y
+  // shifted up 56→53 so the modifier text centers inside the SVG
+  // circle (the bottom circle is at SVG center y≈61.77 with radius
+  // ~13.5; slot center y=62 lines up with that circle center).
+  modifier: { x: 12, y: 53, width: 31, height: 18 },
 } as const;
 
 const SKILL_ROW_SLOTS = {
@@ -1200,12 +1203,13 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       });
       if (!hasPrintedTemplate) {
         drawSvg(ctx, assets.statBlock, block);
-        // Mask both the top and bottom baked-in labels in the SVG so
-        // only the code-drawn label (rendered last at the bottom) is
-        // visible. Previously the mask only covered the bottom,
-        // leaving the top "STD/STR" label as a duplicate.
+        // Mask only the top baked-in "STD" save-bonus label so the
+        // code-drawn save pip can render cleanly over it. Keep the
+        // bottom baked-in "STR/DEX/CON" label visible — the user
+        // wants the SVG-baked ability label, not an overlay drawn
+        // by code (user: "we do not need this overlapping one at all
+        // since we have it already from the svg itself").
         maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMask));
-        maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMaskBottom));
       }
       if (row.saveProficient) {
         const saveMarker = componentPoint(block, STAT_BLOCK_VIEWBOX, { x: 27.7, y: 3 });
@@ -1232,16 +1236,12 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         color: "#000000",
       });
       if (!hasPrintedTemplate) {
-        drawCenteredTextInRect(ctx, slot.label, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.label), {
-          font: "Helvetica-Bold",
-          // Bumped 7.4→8.5 to match the user's "smallest font ≥ feature
-          // description size (6.4)" floor and to make STR/DEX labels
-          // visibly prominent (Teko-Medium display face via the
-          // Helvetica-Bold alias).
-          maxSize: 8.5,
-          minSize: 6.4,
-          color: "#000000",
-        });
+        // STR/DEX/etc. label is already baked into _Stat Block.svg at
+        // the bottom of the block. The previous code drew an overlay
+        // label here (Helvetica-Bold 8.5pt Teko-Medium) on top of the
+        // baked one, producing a duplicate label that overlapped the
+        // modifier circle. The SVG-baked label is what the user
+        // wants — drop the overlay entirely.
       }
       drawCenteredTextInRect(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
