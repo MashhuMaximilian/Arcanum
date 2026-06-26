@@ -120,24 +120,23 @@ function drawHeaderField(
   rect: PdfRect,
   options: { valueSize?: number; labelSize?: number } = {},
 ) {
-  // Bumped label height 6 → 7 and label size 5.4 → 7 so the GENDER /
-  // AGE / HEIGHT etc. anchors read as proper section headers (user
-  // reference shows them at the same size as the first-page labels,
-  // ~7pt). Value offset 7.5 → 8.5 keeps the gap between label and
-  // value consistent with the new label height.
+  // Use Magra body face for the label (instead of Teko-Medium
+  // Helvetica-Bold alias) so the backstory header matches the
+  // companion page header exactly — companion uses Magra for its
+  // CREATURE / OWNER / SIZE / TYPE / ALIGNMENT labels. User: "we need
+  // the same fonts and sizes". Label size dropped 7 → 6.4 to honor
+  // the smallest-font-is-feature-description floor and to read as a
+  // subtle footnote rather than a chunky section anchor.
   //
-  // Value font changed Magra-Bold → Magra (regular weight) to match
-  // the first-page header values exactly: first page uses
-  // `font: "Helvetica"` (which aliases to Magra regular). The
-  // previous Magra-Bold made the backstory values look heavier and
-  // visually distinct from the first-page values (user: "now it has
-  // different font and weight").
-  const labelRect = { x: rect.x + 2, y: rect.y + 1, width: rect.width - 4, height: 7 };
-  const valueRect = { x: rect.x + 2, y: rect.y + 8.5, width: rect.width - 4, height: rect.height - 10 };
+  // Value font is Magra (regular) to match first-page header values
+  // exactly: first page uses `font: "Helvetica"` (which aliases to
+  // Magra regular).
+  const labelRect = { x: rect.x + 2, y: rect.y + 1, width: rect.width - 4, height: 6.4 };
+  const valueRect = { x: rect.x + 2, y: rect.y + 7.5, width: rect.width - 4, height: rect.height - 9 };
   drawText(ctx, label.toUpperCase(), labelRect, {
-    font: PDF_BACKSTORY_FONTS.label,
-    size: options.labelSize ?? 7,
-    color: COLORS.label,
+    font: PDF_BACKSTORY_FONTS.body,
+    size: options.labelSize ?? 6.4,
+    color: "#777777",
     lineBreak: false,
   });
   if (value.trim()) {

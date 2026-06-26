@@ -279,13 +279,17 @@ const PASSIVE_BOXES = [
 ] as const;
 
 const HEADER_FIELD_SLOTS = [
-  { key: "race", label: "RACE", labelRect: { x: 242, y: 27.2, width: 83, height: 5.0 }, valueRect: { x: 242, y: 33.3, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 27.2, width: 44, height: 5.0 }, valueRect: { x: 480.5, y: 33.3, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 242, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 321.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 401, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 401, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 480.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  // labelRect heights grown 5.0 → 6.4pt to fit the new 6.4pt Magra
+  // body label (was Teko-Medium 7pt — switched to match companion
+  // header style). Value rect y shifted down 1pt so the label and
+  // value don't collide.
+  { key: "race", label: "RACE", labelRect: { x: 242, y: 26.5, width: 83, height: 6.4 }, valueRect: { x: 242, y: 33.5, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 26.5, width: 139, height: 6.4 }, valueRect: { x: 333, y: 33.5, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 26.5, width: 44, height: 6.4 }, valueRect: { x: 480.5, y: 33.5, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 43.5, width: 71.5, height: 6.4 }, valueRect: { x: 242, y: 50.5, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 43.5, width: 71.5, height: 6.4 }, valueRect: { x: 321.5, y: 50.5, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 43.5, width: 71.5, height: 6.4 }, valueRect: { x: 401, y: 50.5, width: 71.5, height: 7.0 }, lineRect: { x: 401, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 43.5, width: 71.5, height: 6.4 }, valueRect: { x: 480.5, y: 50.5, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
 ] as const;
 
 const SPELLCASTING_REGION: PdfRect = FRONT_PAGE_REGIONS.spellcasting;
@@ -613,19 +617,18 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
   };
 
   HEADER_FIELD_SLOTS.forEach((field) => {
-    // Use Teko-Medium (display face) for the section header labels so
-    // they read as proper section anchors instead of body text. The
-    // companion page uses Teko-Medium for the same labels (CREATURE,
-    // OWNER, SIZE, TYPE, ALIGNMENT) — matching that style here keeps
-    // all three page headers (first, companion, backstory) in lockstep.
-    // Bumped maxSize 5.2 → 7 to match the user's reference rendering
-    // where these labels read as proper section anchors, not footnotes.
+    // Use Magra body face for the section header labels so the front
+    // page header matches the companion page header exactly (companion
+    // uses Magra for its CREATURE / OWNER / SIZE / TYPE / ALIGNMENT
+    // labels). Previous Teko-Medium (Helvetica-Bold alias) made the
+    // front-page labels feel chunkier and a different typeface than
+    // companion — user: "we need the same fonts and sizes".
     drawFittedText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
-      font: "Helvetica-Bold",
-      maxSize: 7,
+      font: "Helvetica",
+      maxSize: 6.4,
       minSize: 6.4,
       align: "left",
-      color: "#444444",
+      color: "#777777",
     });
     const line = headerRect(field.lineRect);
     drawHeaderUnderline(ctx, line);
