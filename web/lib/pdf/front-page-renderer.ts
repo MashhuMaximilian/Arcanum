@@ -244,20 +244,23 @@ const STAT_VALUE_SLOTS = {
 const SKILL_ROW_SLOTS = {
   circleX: 11.5,
   firstCenterY: 9.5,
-  rowGap: 9,
-  bonusMask: { x: 16, yOffset: -2.5, width: 6.15, height: 5 },
-  // Bonus digit slot — taller height 7.2pt + matching slot yOffset so
-  // the digit and the skill label below share a baseline. The previous
-  // 6.4pt slot forced fitSingleLineSize to shrink the digit to ~5pt,
-  // making bonuses look like footnotes next to the proficiency pip.
-  bonusValue: { x: 14.5, yOffset: -3.6, width: 11.4, height: 7.2 },
+  // Bumped rowGap 9→10 so each skill row gets more vertical breathing
+  // room — needed to host the larger bonus/label slot heights below.
+  // 6 rows × 10pt gap + 9.5 firstCenterY = 59.5, fits in 63pt viewBox.
+  rowGap: 10,
+  bonusMask: { x: 16, yOffset: -4, width: 6.15, height: 5 },
+  // Bonus digit slot — height 7.2→11pt so 10.5pt maxSize actually fits
+  // (was silently clamped to ~6.4pt by the 7.2pt slot, making bonuses
+  // look like footnotes). yOffset -3.6→-5.5 keeps the digit vertically
+  // centered in the new 11pt slot. Width 11.4→10 leaves room for a
+  // leading "+" sign without crowding the label.
+  bonusValue: { x: 14.5, yOffset: -5.5, width: 10, height: 11 },
   line: { x: 9, width: 57, height: 5 },
   lineLabelMask: { x: 14, width: 43, height: 5 },
   // Label slot — same yOffset as bonusValue so both anchor at the
-  // same vertical position. drawCenteredTextInRect centers the
-  // remaining glyph height, so with matching yOffset + height the
-  // baseline aligns visually.
-  label: { x: 26.4, yOffset: -3.6, width: 46.6, height: 7.2 },
+  // same vertical position. Height 7.2→11pt matches bonusValue so the
+  // label and the digit share a row band and a baseline.
+  label: { x: 26.4, yOffset: -5.5, width: 46.6, height: 11 },
 } as const;
 
 const PASSIVE_BOXES = [
@@ -276,13 +279,13 @@ const PASSIVE_BOXES = [
 ] as const;
 
 const HEADER_FIELD_SLOTS = [
-  { key: "race", label: "RACE", labelRect: { x: 242, y: 27.2, width: 83, height: 5.0 }, valueRect: { x: 242, y: 33.3, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
-  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
-  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 27.2, width: 44, height: 5.0 }, valueRect: { x: 480.5, y: 33.3, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
-  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 242, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
-  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 321.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
-  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 401, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 401, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
-  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 480.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 4.0 },
+  { key: "race", label: "RACE", labelRect: { x: 242, y: 27.2, width: 83, height: 5.0 }, valueRect: { x: 242, y: 33.3, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 27.2, width: 139, height: 5.0 }, valueRect: { x: 333, y: 33.3, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 27.2, width: 44, height: 5.0 }, valueRect: { x: 480.5, y: 33.3, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 242, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 321.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 401, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 401, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 44.2, width: 71.5, height: 5.0 }, valueRect: { x: 480.5, y: 50.3, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
 ] as const;
 
 const SPELLCASTING_REGION: PdfRect = FRONT_PAGE_REGIONS.spellcasting;
@@ -589,7 +592,13 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     // Single-class path — fits comfortably on a single line.
     const single = classes[0] || character.classLabel || "Character";
     const sub = subclasses[0] || "";
-    const seg = [sub, single].filter(Boolean).join(" ");
+    // Strip trailing level number from classLabel — the (Lvl N) header
+    // already shows the level, so showing "Ranger 5" after subclass
+    // "Beast Master Ranger" produces "(Lvl 5) | Beast Master Ranger
+    // Ranger 5" with the class name duplicated. Use subclass if
+    // available, else the cleaned class name.
+    const cleanSingle = single.replace(/\s+\d+\s*$/, "").trim();
+    const seg = sub || cleanSingle;
     return [`(Lvl ${totalLevel}) | ${seg}`.trim()];
   })();
   const raceLine = [character.raceLabel, character.subraceLabel].filter(Boolean).join(" / ");
@@ -614,7 +623,7 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     drawFittedText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
       font: "Helvetica-Bold",
       maxSize: 7,
-      minSize: 4,
+      minSize: 6.4,
       align: "left",
       color: "#444444",
     });
@@ -678,7 +687,7 @@ function renderStatStrip(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       drawCenteredTextInRect(ctx, value, valueRect, {
         font: "Helvetica-Bold",
         maxSize: 24,
-        minSize: 4,
+        minSize: 6.4,
         color: "#000000",
       });
       return;
@@ -765,14 +774,14 @@ function drawShellMetricCard(
   }), {
     font: "Helvetica-Bold",
     maxSize: box.width > 100 ? 22 : 18,
-    minSize: 6,
+    minSize: 6.4,
     color: "#000000",
   });
   if (cadence) {
     drawCenteredTextInRect(ctx, cadence, rectFromFractions(box, { x: 0.10, y: 0.62, width: 0.80, height: 0.14 }), {
       font: "Helvetica-Bold",
       maxSize: box.width > 100 ? 6.4 : 5.4,
-      minSize: 3.0,
+      minSize: 6.4,
       color: "#000000",
     });
   }
@@ -787,7 +796,7 @@ function drawShellMetricCard(
   }), {
     font: content.labelFont || "Helvetica-Bold",
     maxSize: box.width > 100 ? 6.4 : 5.4,
-    minSize: 2.3,
+    minSize: 6.4,
     color: "#000000",
   });
 }
@@ -945,16 +954,16 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     singleStats.forEach((value, index) => {
       if (!value) return;
       drawCenteredTextInRect(ctx, value, rectFromFractions(thirds[index], { x: 0.03, y: 0.05, width: 0.94, height: 0.65 }), {
-        font: "Helvetica-Bold", maxSize: index === 1 ? 20 : 22, minSize: 6, color: "#000000",
+        font: "Helvetica-Bold", maxSize: index === 1 ? 20 : 22, minSize: 6.4, color: "#000000",
       });
       drawCenteredTextInRect(ctx, labels[index], rectFromFractions(thirds[index], { x: 0.02, y: 0.75, width: 0.96, height: 0.20 }), {
-        font: "Helvetica-Bold", maxSize: index === 1 ? 6.4 : 7.0, minSize: 3.5, color: "#000000",
+        font: "Helvetica-Bold", maxSize: index === 1 ? 6.4 : 7.0, minSize: 6.4, color: "#000000",
       });
     });
 
     maskRect(ctx, rectFromFractions(spellBox, { x: 0.18, y: 0.86, width: 0.64, height: 0.10 }));
     drawCenteredTextInRect(ctx, "SPELLCASTING", rectFromFractions(spellBox, { x: 0.14, y: 0.84, width: 0.72, height: 0.13 }), {
-      font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
+      font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000",
     });
 
     if (hasClassResource) {
@@ -1000,12 +1009,12 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   // "SPELLCASTING" top label
   drawCenteredTextInRect(ctx, "SPELLCASTING", {
     x: spellBox.x + 3, y: labelY, width: contentW, height: labelH,
-  }, { font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000" });
+  }, { font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000" });
 
   const headerLabels = ["CLASS", "BONUS", "DC", "ABL"];
   headerLabels.forEach((lbl, i) => {
     drawCenteredTextInRect(ctx, lbl, { x: colX[i], y: headerY, width: colW[i], height: headerH }, {
-      font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
+      font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000",
     });
   });
 
@@ -1084,7 +1093,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     // "CLASS RESOURCES" top label
     drawCenteredTextInRect(ctx, "CLASS RESOURCES", {
       x: rBox.x + 3, y: rLabelY, width: rContentW, height: rLabelH,
-    }, { font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000" });
+    }, { font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000" });
 
     // Column headers: VALUE | RESOURCE NAME | RECHARGE
     const resourceRuleX = rBox.x + 8;
@@ -1102,7 +1111,7 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     const rColW = [rw1, rw2, rw3];
     rHeaderLabels.forEach((lbl, i) => {
       drawCenteredTextInRect(ctx, lbl, { x: rColX[i], y: rHeaderY, width: rColW[i], height: headerH }, {
-        font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000",
       });
     });
 
@@ -1115,15 +1124,15 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
 
       // Value (e.g. "2d6" or "3") — matches the spellcasting card body font.
       drawCenteredTextInRect(ctx, resource.value, { x: rv1, y: rowY, width: rw1, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 6.0, minSize: 3.5, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 6.0, minSize: 6.4, color: "#000000",
       });
       // Resource name (e.g. "Arcane Recovery", "Sorcery Points")
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000",
       });
       // Recharge (e.g. "Long Rest", "Short Rest", "At Will", "Per Day").
       drawCenteredTextInRect(ctx, resource.cadence, { x: rv3, y: rowY, width: rw3, height: rRowH - 1 }, {
-        font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#000000",
+        font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000",
       });
 
       if (idx < rNumRows - 1) {
@@ -1210,7 +1219,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       drawCenteredTextInRect(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
         font: "Helvetica-Bold",
         maxSize: 14,
-        minSize: 6,
+        minSize: 6.4,
         color: "#000000",
       });
       drawCenteredTextInRect(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
@@ -1227,7 +1236,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
           // visibly prominent (Teko-Medium display face via the
           // Helvetica-Bold alias).
           maxSize: 8.5,
-          minSize: 5.5,
+          minSize: 6.4,
           color: "#000000",
         });
       }
@@ -1236,7 +1245,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         // Bumped 11→14 so modifier +1/+3 etc. read at the same
         // weight as the score digit.
         maxSize: 14,
-        minSize: 6,
+        minSize: 6.4,
         color: "#000000",
       });
     });
@@ -1249,7 +1258,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         // user requested, and bumped color #9a9a9a→#555 for visibility.
         font: "Helvetica-Bold",
         maxSize: 6.4,
-        minSize: 4.0,
+        minSize: 6.4,
         color: "#555555",
       });
     }
@@ -1308,7 +1317,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         }), {
           font: "Helvetica-Bold",
           maxSize: 10.5,
-          minSize: 4,
+          minSize: 6.4,
           color: "#000000",
         });
         if (!hasPrintedTemplate || canRecompose) {
@@ -1323,7 +1332,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
           }), {
             font: "Helvetica",
             maxSize: 6.2,
-            minSize: 3.1,
+            minSize: 6.4,
             color: "#000000",
           });
         }
@@ -1333,7 +1342,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         drawCenteredTextInRect(ctx, slot.ability, componentRect(block, SKILL_BLOCK_VIEWBOX, { x: 0, y: 53, width: 78, height: 7 }), {
           font: "Helvetica-Bold",
           maxSize: 6.5,
-          minSize: 4,
+          minSize: 6.4,
           color: "#9a9a9a",
         });
       }
@@ -1375,7 +1384,7 @@ function renderPassives(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, charac
     drawCenteredTextInRect(ctx, value, rectFromFractions(cell, { x: 0.06, y: 0.05, width: 0.88, height: 0.44 }), {
       font: "Helvetica-Bold",
       maxSize: 11,
-      minSize: 4.2,
+      minSize: 6.4,
       color: "#000000",
     });
   });
@@ -1393,7 +1402,7 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
       font: "Helvetica-Bold",
       // Bumped 3.0→6.4 floor; cell height grown 0.08→0.10 to fit.
       maxSize: 6.4,
-      minSize: 4.0,
+      minSize: 6.4,
       color: "#333333",
     });
     if (!items.length) {
@@ -1409,7 +1418,7 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
           : 4.2;
     drawCenteredTextInRect(ctx, itemText, rectFromFractions(cells[index], { x: 0.08, y: 0.18, width: 0.82, height: 0.56 }), {
       maxSize: itemMaxSize,
-      minSize: 2.1,
+      minSize: 6.4,
       align: "left",
       color: "#000000",
       lineGap: 0,
@@ -1526,7 +1535,7 @@ function renderWeaponAttackRows(
       ctx,
       column.label,
       { x: column.rect.x, y: rect.y, width: column.rect.width, height: headerHeight },
-      { font: "Helvetica-Bold", maxSize: 6.4, minSize: 4.0, color: "#444444" },
+      { font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#444444" },
     );
   });
 
@@ -1555,15 +1564,15 @@ function renderWeaponAttackRows(
       // 4.9 → 6.5pt, type 3.7 → 5pt, properties 2.8 → 4pt. User said
       // weapon attack values were too small to read at arm's length.
       if (column.key === "name") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 7, minSize: 4, align: "left" });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 7, minSize: 6.4, align: "left" });
       } else if (column.key === "hit") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 8, minSize: 4.5 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 8, minSize: 6.4 });
       } else if (column.key === "damage") {
-        drawWeaponCell(ctx, assets, cell, value, { maxSize: 7.5, minSize: 4.5 });
+        drawWeaponCell(ctx, assets, cell, value, { maxSize: 7.5, minSize: 6.4 });
       } else if (column.key === "type") {
-        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 6.4, minSize: 4, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateDamageType(value), { maxSize: 6.4, minSize: 6.4, bold: false, align: "left" });
       } else {
-        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 6.4, minSize: 4, bold: false, align: "left" });
+        drawWeaponCell(ctx, assets, cell, abbreviateWeaponProperties(value), { maxSize: 6.4, minSize: 6.4, bold: false, align: "left" });
       }
     });
   });
@@ -1593,7 +1602,7 @@ function renderSpellTracker(
   drawCenteredTextInRect(ctx, "Spell List", { x: contentRect.x, y: contentRect.y, width: contentRect.width, height: 6 }, {
     font: "Helvetica-Bold",
     maxSize: 6.4,
-    minSize: 4.0,
+    minSize: 6.4,
     color: "#555555",
   });
 
@@ -1607,7 +1616,7 @@ function renderSpellTracker(
   drawFittedText(ctx, "Cantrips", { x: contentRect.x, y: cantripY, width: leftCellW, height: 8 }, {
     font: "Helvetica-Bold",
     maxSize: 7,
-    minSize: 5,
+    minSize: 6.4,
     align: "right",
     color: "#222222",
     lineBreak: false,
@@ -1624,7 +1633,7 @@ function renderSpellTracker(
       width: contentRect.width - leftCellW - SPELL_TEXT_GAP,
       height: 8,
     },
-    { font: "Helvetica", maxSize: 6.4, minSize: 4.5, align: "left", color: "#222222", lineBreak: false },
+    { font: "Helvetica", maxSize: 6.4, minSize: 6.4, align: "left", color: "#222222", lineBreak: false },
   );
 
   const pactSummary = formatPactSlotSummary(pactSlots);
@@ -1638,7 +1647,7 @@ function renderSpellTracker(
     }, {
       font: "Helvetica-Bold",
       maxSize: 6.4,
-      minSize: 4.0,
+      minSize: 6.4,
       align: "right",
       color: "#555555",
       lineBreak: false,
@@ -1771,7 +1780,7 @@ function renderSpellLevelGroup(
     drawFittedText(ctx, `Level ${level}`, labelRect, {
       font: "Helvetica-Bold",
       maxSize: 7,
-      minSize: 5,
+      minSize: 6.4,
       align: "right",
       color: "#222222",
       lineBreak: false,
@@ -1801,7 +1810,7 @@ function renderSpellLevelGroup(
     drawCenteredTextInRect(ctx, spellNames === "—" && slotCount === 0 ? "" : spellNames, namesRect, {
       font: "Helvetica",
       maxSize: 6.4,
-      minSize: 4.5,
+      minSize: 6.4,
       align: "left",
       color: "#222222",
       lineGap: SPELL_TEXT_LINE_GAP,
@@ -3130,7 +3139,7 @@ function renderGroupedFeatureDeck(ctx: PdfRenderContext, assets: PdfSvgAssetBund
     drawFittedText(ctx, displayTitle.toUpperCase(), { x: groupRect.x + 5, y: titleY, width: groupRect.width - 10, height: 6 }, {
       font: "Helvetica-Bold",
       maxSize: 6.4,
-      minSize: 4.0,
+      minSize: 6.4,
       color: "#1a1a1a",
     });
 
@@ -3231,7 +3240,7 @@ function renderRightColumnCardShell(ctx: PdfRenderContext, assets: PdfSvgAssetBu
   drawFittedText(ctx, title, { x: content.x, y: content.y + 1.5, width: content.width, height: 6 }, {
     font: "Helvetica-Bold",
     maxSize: 6.4,
-    minSize: 4.0,
+    minSize: 6.4,
     color: "#000000",
   });
   return content;
@@ -3252,7 +3261,7 @@ function renderRightColumnNotesCard(
     drawFittedText(ctx, `${line.title}: ${line.value}`, { x: content.x, y, width: content.width, height: 6 }, {
       font: "Helvetica",
       maxSize: 6.4,
-      minSize: 4.0,
+      minSize: 6.4,
       color: "#111111",
     });
   });
@@ -3274,7 +3283,7 @@ function renderCompactTraitLines(
     drawFittedText(ctx, `${title} Traits`, { x: content.x, y: nextY, width: content.width, height: 8 }, {
       font: "Helvetica-Bold",
       maxSize: 10,
-      minSize: 6,
+      minSize: 6.4,
       color: "#222222",
     });
     strokeRule(ctx, content.x, nextY + 7.5, content.width, "#bdbdbd");
@@ -3536,7 +3545,7 @@ function renderFeatureDeck(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, cha
   }, {
     font: "Helvetica-Bold",
     maxSize: 6.5,
-    minSize: 4.3,
+    minSize: 6.4,
     color: "#222222",
   });
   // Push boxes down ~one title-text height below title so they don't crowd the heading

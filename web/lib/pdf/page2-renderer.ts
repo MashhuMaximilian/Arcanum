@@ -44,10 +44,10 @@ const COLORS = {
 } as const;
 
 const TYPOGRAPHY = {
-  sectionTitle: { maxSize: 9, minSize: 6 },
-  body: { maxSize: 7.5, minSize: 5 },
-  small: { maxSize: 6, minSize: 4 },
-  currency: { maxSize: 8, minSize: 5 },
+  sectionTitle: { maxSize: 9, minSize: 6.4 },
+  body: { maxSize: 7.5, minSize: 6.4 },
+  small: { maxSize: 6, minSize: 6.4 },
+  currency: { maxSize: 8, minSize: 6.4 },
 } as const;
 
 // --- Currency constants ---
@@ -1088,7 +1088,7 @@ function renderDashboardItem(
               ctx,
               sec.body,
               { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
-              { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+              { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.3 },
             );
             cellCursorY += h;
           }
@@ -1155,7 +1155,7 @@ function renderItemCard(
         ctx,
         p.description,
         { x: rect.x, y: bodyY, width: rect.width, maxHeight: remaining },
-        { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+        { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.3 },
       );
     }
   }
@@ -1267,7 +1267,7 @@ function renderDenseItemCard(
                 ctx,
                 sec.body,
                 { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
-                { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+                { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.3 },
               );
               cellCursorY += h;
             }
@@ -1289,7 +1289,7 @@ function renderDenseItemCard(
       ctx,
       p.description,
       { x: rect.x, y: bodyY, width: rect.width, maxHeight: remaining },
-      { font: "Helvetica", size: options.bodySize, minSize: 4, color: COLORS.textPrimary, lineGap: 0.3 },
+      { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.3 },
     );
   }
 }
@@ -1310,7 +1310,7 @@ function renderAttuned(
   drawCenteredTextInRect(ctx, "ATTUNED", { x: rect.x, y: labelY, width: rect.width, height: 7 }, {
     font: "Magra-Bold",
     maxSize: 6.5,
-    minSize: 5,
+    minSize: 6.4,
     color: COLORS.textPrimary,
     lineBreak: false,
   });
@@ -1325,7 +1325,7 @@ function renderAttuned(
   drawCenteredTextInRect(ctx, `${attunedCount}/${maxAttuned}`, boxRect, {
     font: "Helvetica-Bold",
     maxSize: 8,
-    minSize: 6,
+    minSize: 6.4,
     color: COLORS.textPrimary,
     lineBreak: false,
   });
@@ -1352,7 +1352,7 @@ function renderValuables(
   drawCenteredTextInRect(ctx, "VALUABLES", { x: rect.x, y: labelY, width: rect.width, height: 7 }, {
     font: "Magra-Bold",
     maxSize: 6.5,
-    minSize: 5,
+    minSize: 6.4,
     color: COLORS.textPrimary,
     lineBreak: false,
   });
@@ -1378,7 +1378,7 @@ function renderValuables(
     drawCenteredTextInRect(ctx, name, boxRect, {
       font: "Helvetica-Bold",
       maxSize: 6,
-      minSize: 4,
+      minSize: 6.4,
       color: COLORS.textPrimary,
       lineBreak: false,
       ellipsis: true,
@@ -1414,7 +1414,7 @@ function renderCurrency(
     }, {
       font: "Magra-Bold",
       maxSize: 5,
-      minSize: 3.5,
+      minSize: 6.4,
       color: COLORS.textSecondary,
     });
 
@@ -1424,7 +1424,7 @@ function renderCurrency(
     drawCenteredTextInRect(ctx, String(currency[type]), boxRect, {
       font: "Helvetica-Bold",
       maxSize: TYPOGRAPHY.currency.maxSize,
-      minSize: 5,
+      minSize: 6.4,
       color: COLORS.textPrimary,
     });
   });
@@ -1446,7 +1446,7 @@ function renderEncumbrance(
   drawCenteredTextInRect(ctx, "ENCUMBRANCE", { x: rect.x, y: labelY, width: rect.width, height: 7 }, {
     font: "Magra-Bold",
     maxSize: 6.5,
-    minSize: 5,
+    minSize: 6.4,
     color: COLORS.textPrimary,
     lineBreak: false,
   });
@@ -1479,7 +1479,7 @@ function renderEncumbrance(
     }, {
       font: "Magra-Bold",
       maxSize: 4.5,
-      minSize: 3.5,
+      minSize: 6.4,
       color: COLORS.textSecondary,
       lineBreak: false,
     });
@@ -1489,7 +1489,7 @@ function renderEncumbrance(
     drawCenteredTextInRect(ctx, entry.value, boxRect, {
       font: "Helvetica-Bold",
       maxSize: 6.5,
-      minSize: 4.5,
+      minSize: 6.4,
       color: COLORS.textPrimary,
       lineBreak: false,
     });
@@ -1534,7 +1534,7 @@ function renderInventoryFooter(
   drawCenteredTextInRect(ctx, "ATTUNED", { x: attunedZone.x - 2, y: attunedZone.y, width: boxW + 4, height: 4 }, {
     font: textFont,
     maxSize: 4.9,
-    minSize: 4.1,
+    minSize: 6.4,
     color: COLORS.textPrimary,
     lineBreak: false,
   });
@@ -1543,7 +1543,7 @@ function renderInventoryFooter(
   drawCenteredTextInRect(ctx, `${data.attunedCount}/${data.maxAttuned}`, attunedBox, {
     font: textFont,
     maxSize: 6.2,
-    minSize: 5.4,
+    minSize: 6.4,
     color: COLORS.textPrimary,
     lineBreak: false,
   });
@@ -1563,7 +1563,7 @@ function renderInventoryFooter(
     }, {
       font: textFont,
       maxSize: labelSize,
-      minSize: 3.2,
+      minSize: 6.4,
       color: COLORS.textSecondary,
       lineBreak: false,
     });
@@ -1572,7 +1572,7 @@ function renderInventoryFooter(
     drawCenteredTextInRect(ctx, String(data.currency[type]), boxRect, {
       font: textFont,
       maxSize: valueSize,
-      minSize: 4.6,
+      minSize: 6.4,
       color: COLORS.textPrimary,
       lineBreak: false,
     });
@@ -1598,7 +1598,7 @@ function renderInventoryFooter(
     }, {
       font: textFont,
       maxSize: 4.1,
-      minSize: 3.1,
+      minSize: 6.4,
       color: COLORS.textSecondary,
       lineBreak: false,
     });
@@ -1607,7 +1607,7 @@ function renderInventoryFooter(
     drawCenteredTextInRect(ctx, entry.value, boxRect, {
       font: textFont,
       maxSize: 6.0,
-      minSize: 4.6,
+      minSize: 6.4,
       color: COLORS.textPrimary,
       lineBreak: false,
     });
@@ -1697,7 +1697,7 @@ function renderAdditionalTreasure(
         ctx,
         seg.text,
         { x: rect.x + 8, y, width: rect.width - 16, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
+        { font: "Helvetica", size: 5.5, minSize: 6.4, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
       );
       y += quoteHeight;
       linesDrawn += Math.max(1, Math.round(quoteHeight / lineHeight));
@@ -1707,7 +1707,7 @@ function renderAdditionalTreasure(
         ctx,
         seg.text,
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.4 },
       );
       y += listHeight;
       linesDrawn += Math.max(1, Math.round(listHeight / lineHeight));
@@ -1716,7 +1716,7 @@ function renderAdditionalTreasure(
         ctx,
         stripMarkdown(seg.text),
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.4 },
       );
       y += paraHeight;
       linesDrawn += Math.max(1, Math.round(paraHeight / lineHeight));
@@ -1840,7 +1840,7 @@ function renderQuestItems(
         ctx,
         seg.text,
         { x: rect.x + 8, y, width: rect.width - 16, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
+        { font: "Helvetica", size: 5.5, minSize: 6.4, color: COLORS.textSecondary, lineGap: 0.4, italic: true },
       );
       y += quoteHeight;
       linesDrawn += Math.max(1, Math.round(quoteHeight / lineHeight));
@@ -1850,7 +1850,7 @@ function renderQuestItems(
         ctx,
         seg.text,
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.4 },
       );
       y += listHeight;
       linesDrawn += Math.max(1, Math.round(listHeight / lineHeight));
@@ -1859,7 +1859,7 @@ function renderQuestItems(
         ctx,
         stripMarkdown(seg.text),
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, minSize: 4, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.4 },
       );
       y += paraHeight;
       linesDrawn += Math.max(1, Math.round(paraHeight / lineHeight));
@@ -2230,7 +2230,7 @@ function drawCompanionHeaderField(
     }, {
       font: "Helvetica",
       maxSize: 6.4,
-      minSize: 4.2,
+      minSize: 6.4,
       color: "#000000",
       lineBreak: false,
       ellipsis: true,
@@ -2375,7 +2375,7 @@ function renderCompanionAbilities(
     const modifier = Math.floor((score - 10) / 2);
     const valueOptions = {
       font: "Helvetica-Bold",
-      minSize: 5,
+      minSize: 6.4,
       color: "#000000",
     } as const;
 
@@ -2397,7 +2397,7 @@ function renderCompanionAbilities(
     drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
       font: "Helvetica",
       maxSize: 7.2,
-      minSize: 5,
+      minSize: 6.4,
       color: "#000000",
     });
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
@@ -2425,7 +2425,7 @@ function renderCompanionBonusBox(
   drawCenteredTextInRect(ctx, label, componentRect(rect, BONUS_BOX_VIEWBOX, BONUS_BOX_SLOTS.label), {
     font: "Helvetica",
     maxSize: 5.1,
-    minSize: 3.5,
+    minSize: 6.4,
     color: "#000000",
     lineGap: 0,
   });
@@ -2481,7 +2481,7 @@ function renderCompanionSpeeds(
   drawCenteredTextInRect(ctx, "SPEED", rects.speedLabel, {
     font: "Helvetica",
     maxSize: 4.5,
-    minSize: 3.5,
+    minSize: 6.4,
     color: "#777777",
   });
   const entries = parseMovementSpeeds(speed);
@@ -2491,13 +2491,13 @@ function renderCompanionSpeeds(
     drawCenteredTextInRect(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
       font: "Helvetica-Bold",
       maxSize: 14,
-      minSize: 6,
+      minSize: 6.4,
       color: "#000000",
     });
     drawCenteredTextInRect(ctx, entries[index].label, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.label), {
       font: "Helvetica",
       maxSize: 3.8,
-      minSize: 2.8,
+      minSize: 6.4,
       color: "#333333",
       lineGap: 0,
     });
@@ -2519,7 +2519,7 @@ function renderCompanionSkills(
   }, {
     font: "Helvetica-Bold",
     maxSize: 6.5,
-    minSize: 5,
+    minSize: 6.4,
     color: "#222222",
   });
   let y = rect.y + 38;
@@ -2584,7 +2584,7 @@ function renderCompanionSection(
   }, {
     font: "Helvetica-Bold",
     maxSize: 6.5,
-    minSize: 5,
+    minSize: 6.4,
     color: "#222222",
   });
 
@@ -2597,7 +2597,7 @@ function renderCompanionSection(
     }, {
       font: "Helvetica",
       maxSize: 9,
-      minSize: 6,
+      minSize: 6.4,
       color: "#999999",
     });
     return;

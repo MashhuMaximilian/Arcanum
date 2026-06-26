@@ -107,7 +107,7 @@ function drawFrameTitle(
   drawCenteredTextInRect(ctx, title, { x: rect.x + 8, y: rect.y + topOffset, width: rect.width - 16, height: 12 }, {
     font: PDF_BACKSTORY_FONTS.heading,
     maxSize: options.size ?? 8,
-    minSize: 5.2,
+    minSize: 6.4,
     color: COLORS.title,
     lineBreak: false,
   });
@@ -144,7 +144,7 @@ function drawHeaderField(
     drawFittedText(ctx, value, valueRect, {
       font: PDF_BACKSTORY_FONTS.body,
       maxSize: options.valueSize ?? 9,
-      minSize: 6,
+      minSize: 6.4,
       color: "#000000",
       lineBreak: true,
     });
@@ -391,7 +391,7 @@ function renderMiddleBox(
     drawFittedText(ctx, cleanRichText(value), content, {
       font: PDF_BACKSTORY_FONTS.body,
       maxSize: 7.1,
-      minSize: 4.5,
+      minSize: 6.4,
       color: COLORS.text,
       lineGap: 1.2,
     });
@@ -417,7 +417,7 @@ function renderBackstoryNarrative(
     drawFittedText(ctx, clean, content, {
       font: PDF_BACKSTORY_FONTS.body,
       maxSize: 7.5,
-      minSize: 4.5,
+      minSize: 6.4,
       color: COLORS.text,
       lineGap: 1.25,
     });

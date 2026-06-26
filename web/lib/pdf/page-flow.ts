@@ -70,20 +70,20 @@ function renderCard(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, card: PdfP
   drawFittedText(ctx, cleanText(card.title, "Card"), { x: inner.x, y: inner.y, width: inner.width - 70, height: 12 }, {
     font: "Helvetica-Bold",
     maxSize: 8.6,
-    minSize: 6,
+    minSize: 6.4,
     color: "#2a1c15",
   });
   if (source) {
     drawFittedText(ctx, source, { x: inner.x + inner.width - 76, y: inner.y + 1, width: 76, height: 8 }, {
       maxSize: 5.2,
-      minSize: 4,
+      minSize: 6.4,
       align: "right",
       color: "#6f625a",
     });
   }
   drawFittedText(ctx, cleanText(card.summary || card.detail), { x: inner.x, y: inner.y + 16, width: inner.width, height: inner.height - 18 }, {
     maxSize: 6.8,
-    minSize: 4.8,
+    minSize: 6.4,
     color: "#111111",
   });
 }
