@@ -282,17 +282,22 @@ const PASSIVE_BOXES = [
 ] as const;
 
 const HEADER_FIELD_SLOTS = [
-  // labelRect heights grown 5.0 → 6.4pt to fit the new 6.4pt Magra
-  // body label (was Teko-Medium 7pt — switched to match companion
-  // header style). Value rect y shifted down 1pt so the label and
-  // value don't collide.
-  { key: "race", label: "RACE", labelRect: { x: 242, y: 26.5, width: 83, height: 6.4 }, valueRect: { x: 242, y: 33.5, width: 83, height: 7.4 }, lineRect: { x: 242, y: 36.8, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 26.5, width: 139, height: 6.4 }, valueRect: { x: 333, y: 33.5, width: 139, height: 7.4 }, lineRect: { x: 333, y: 36.8, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 26.5, width: 44, height: 6.4 }, valueRect: { x: 480.5, y: 33.5, width: 44, height: 7.4 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 43.5, width: 71.5, height: 6.4 }, valueRect: { x: 242, y: 50.5, width: 71.5, height: 7.0 }, lineRect: { x: 242, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 43.5, width: 71.5, height: 6.4 }, valueRect: { x: 321.5, y: 50.5, width: 71.5, height: 7.0 }, lineRect: { x: 321.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 43.5, width: 71.5, height: 6.4 }, valueRect: { x: 401, y: 50.5, width: 71.5, height: 7.0 }, lineRect: { x: 401, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 43.5, width: 71.5, height: 6.4 }, valueRect: { x: 480.5, y: 50.5, width: 71.5, height: 7.0 }, lineRect: { x: 480.5, y: 53.9, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  // Round-21 size-parity fix: previous labelRect height 6.4pt was
+  // smaller than PDFKit's heightOfString at 6.4pt Magra (≈7.78pt
+  // including lineGap), so drawFittedText auto-shrunk the label to
+  // ≈4.5pt. Now labelRect height = 9pt → fits 6.8pt Magra (needs
+  // 8.27pt) without shrinking. Font size bumped 6.4 → 6.8pt to
+  // compensate for the 0.94× print-safe scale applied to the front
+  // page (6.8 × 0.94 = 6.39pt visual — matches the unscaled 6.4pt
+  // companion header). Value rects shifted down 1pt to make room
+  // for the taller label band and avoid colliding with the underline.
+  { key: "race", label: "RACE", labelRect: { x: 242, y: 24.5, width: 83, height: 9 }, valueRect: { x: 242, y: 34.5, width: 83, height: 9 }, lineRect: { x: 242, y: 39.5, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 24.5, width: 139, height: 9 }, valueRect: { x: 333, y: 34.5, width: 139, height: 9 }, lineRect: { x: 333, y: 39.5, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 24.5, width: 44, height: 9 }, valueRect: { x: 480.5, y: 34.5, width: 44, height: 9 }, lineRect: { x: 480.5, y: 39.5, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 41.5, width: 71.5, height: 9 }, valueRect: { x: 242, y: 51.5, width: 71.5, height: 9 }, lineRect: { x: 242, y: 56.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 41.5, width: 71.5, height: 9 }, valueRect: { x: 321.5, y: 51.5, width: 71.5, height: 9 }, lineRect: { x: 321.5, y: 56.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 41.5, width: 71.5, height: 9 }, valueRect: { x: 401, y: 51.5, width: 71.5, height: 9 }, lineRect: { x: 401, y: 56.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 41.5, width: 71.5, height: 9 }, valueRect: { x: 480.5, y: 51.5, width: 71.5, height: 9 }, lineRect: { x: 480.5, y: 56.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
 ] as const;
 
 const SPELLCASTING_REGION: PdfRect = FRONT_PAGE_REGIONS.spellcasting;
@@ -626,12 +631,22 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     // labels). Previous Teko-Medium (Helvetica-Bold alias) made the
     // front-page labels feel chunkier and a different typeface than
     // companion — user: "we need the same fonts and sizes".
-    drawFittedText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
+    // Round-21: switch from drawFittedText to drawText with explicit
+    // 6.8pt to compensate for the 0.94× print-safe scale. The
+    // companion/backstory header labels are 6.4pt WITHOUT scale; the
+    // front page wraps everything in 0.94× (line 3684) which made
+    // the same 6.4pt label render ~6% smaller. Bumping to 6.8pt
+    // (6.8 × 0.94 = 6.39pt visual) matches the companion header
+    // exactly. drawFittedText was also shrinking the label to ~4.5pt
+    // because the old 6.4pt labelRect height was smaller than
+    // PDFKit's heightOfString at 6.4pt Magra (≈7.78pt including
+    // lineGap). The companion uses drawText directly — same fix.
+    drawText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
       font: "Helvetica",
-      maxSize: 6.4,
-      minSize: 6.4,
+      size: 6.8,
       align: "left",
       color: "#777777",
+      lineBreak: false,
     });
     const line = headerRect(field.lineRect);
     drawHeaderUnderline(ctx, line);
@@ -642,12 +657,22 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     }
 
     if (lines.length === 1) {
-      drawFittedText(ctx, lines[0], headerRect(field.valueRect), {
+      // Round-21: use drawText with explicit 6.8pt to (a) compensate
+      // for the 0.94× print-safe scale and (b) avoid the auto-shrink
+      // bug that drawFittedText triggers when the valueRect height
+      // is smaller than PDFKit's heightOfString at the font size.
+      // The value rects were sized for ~7.4pt but 6.4pt Magra needs
+      // 7.78pt, so drawFittedText kept halving until ~5.5pt. The
+      // bigger valueRect below (height 9) lets the value render at
+      // 6.8pt without auto-shrinking. If the value is too long for
+      // 6.8pt, fall back to a smaller size via minSize on a fitText
+      // helper.
+      drawText(ctx, lines[0], headerRect(field.valueRect), {
         font: "Helvetica",
-        maxSize: field.maxSize,
-        minSize: field.minSize,
+        size: 6.8,
         align: "left",
         color: "#000000",
+        lineBreak: false,
       });
       return;
     }
@@ -655,17 +680,18 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     // Multi-line values (currently only the CLASS & LEVEL field) share the
     // existing valueRect height across N equal-sized strips so the bottom
     // edge of the value stays anchored to the underline regardless of line
-    // count.
+    // count. Round-21: use drawText with explicit 6.8pt to match the
+    // single-line path (compensate for 0.94× scale + avoid auto-shrink).
     const fullRect = headerRect(field.valueRect);
     const perLineH = fullRect.height / lines.length;
     lines.forEach((lineText, idx) => {
       const lineRect = { x: fullRect.x, y: fullRect.y + idx * perLineH, width: fullRect.width, height: perLineH };
-      drawFittedText(ctx, lineText, lineRect, {
+      drawText(ctx, lineText, lineRect, {
         font: "Helvetica",
-        maxSize: field.maxSize,
-        minSize: field.minSize,
+        size: 6.8,
         align: "left",
         color: "#000000",
+        lineBreak: false,
       });
     });
   });
