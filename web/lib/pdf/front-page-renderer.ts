@@ -1437,16 +1437,18 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
       return;
     }
     const itemText = items.join(", ");
-    const itemMaxSize = itemText.length <= 18
-      ? 6.4
-      : itemText.length <= 40
-        ? 5.6
-        : itemText.length <= 70
-          ? 4.8
-          : 4.2;
-    drawCenteredTextInRect(ctx, itemText, rectFromFractions(cells[index], { x: 0.08, y: 0.18, width: 0.82, height: 0.56 }), {
+    // Set a generous maxSize and let fitTextSize shrink to whatever
+    // actually fits in the cell. Previous code had minSize=6.4 hard-
+    // floor which forced long values like "Longsword, Shortsword,
+    // Shortbow, Longbow" to render at 6.4pt and clip to
+    // "Longsword, Shortsword, Shortbow, …" (user: "you messed it
+    // up, now it does not show full contents does not resize text
+    // ot fit all"). Now minSize=4.0 so fitTextSize can shrink below
+    // 6.4 to fit multi-line wrapped values into the 47pt-tall cell.
+    const itemMaxSize = 7.5;
+    drawCenteredTextInRect(ctx, itemText, rectFromFractions(cells[index], { x: 0.08, y: 0.10, width: 0.84, height: 0.62 }), {
       maxSize: itemMaxSize,
-      minSize: 6.4,
+      minSize: 4.0,
       align: "left",
       color: "#000000",
       lineGap: 0,
