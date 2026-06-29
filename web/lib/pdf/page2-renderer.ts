@@ -176,23 +176,40 @@ type InlineRun = { text: string; bold: boolean; italic: boolean };
 // attack, move, bonus action, ranged attack, unarmed strike, etc.
 // Order is longest-first so phrases like "bonus action" win over
 // a standalone "action" later in the list.
+// Order is longest-first so multi-word phrases win over their single
+// components (e.g. "bonus action" matches before standalone "action").
+// Expanded in round-21 per user request — players scan item and feature
+// descriptions for action-economy cues first, so we bold the trigger
+// terms inline: attacks, movement, reactions, conditions, advantage,
+// disadvantage, saving throws, spell slots, legendary mechanics.
 const ACTION_WORD_PHRASES = [
-  "bonus action",
-  "legendary action",
-  "lair action",
   "free object interaction",
   "object interaction",
   "opportunity attack",
   "ranged weapon attack",
   "melee weapon attack",
+  "ranged spell attack",
+  "melee spell attack",
+  "legendary resistance",
+  "legendary action",
+  "lair action",
+  "action surge",
+  "bonus action",
   "unarmed strike",
   "ranged attack",
   "ranged strike",
   "melee attack",
   "weapon attack",
   "cast a spell",
+  "spell attack",
   "attack action",
+  "saving throw",
   "use an object",
+  "free action",
+  "advantage",
+  "disadvantage",
+  "spell slot",
+  "spell slots",
   "reaction",
   "grapple",
   "shove",
@@ -207,6 +224,7 @@ const ACTION_WORD_PHRASES = [
   "action",
   "move",
   "movement",
+  "check",
 ] as const;
 
 function tokenizeInlineRuns(text: string): InlineRun[] {
@@ -460,7 +478,7 @@ function drawRichParagraph(
             ctx.doc.restore();
             drawText(ctx, " ", {
               x: cursorX,
-              y: isBold ? y - 1.5 : y,
+              y: isBold ? y - 1.8 : y,
               width: spaceWidth,
               height: options.size + options.lineGap,
             }, {
@@ -475,19 +493,22 @@ function drawRichParagraph(
 
           drawText(ctx, word, {
             x: cursorX,
-            // Round-15 baseline fix: PDFKit positions the baseline at
+            // Round-21 baseline fix: PDFKit positions the baseline at
             // `y` using the current font's ascender. Magra and
             // Magra-Bold share sTypoAscender=968 (per TTF OS/2) but
-            // Magra-Bold's cap-height-to-ascender ratio is larger
-            // (heavier ink fills more of the cap-height box), so the
-            // bold glyph's visual mass sits ~1.4pt LOWER than the
-            // surrounding Magra body. The user kept reporting 'bold
-            // is lower than the rest of the line' after the round-14
-            // +0.5pt lift. Bumped to -1.5pt (smaller y = higher on
-            // screen) so the bold word's centerline matches the body
-            // face's centerline. Same fix mirrored in front-page
-            // drawTextWithBoldActionWords.
-            y: isBold ? y - 1.5 : y,
+            // Magra-Bold has heavier ink that fills more of the
+            // cap-height box AND extends ~0.33pt further below the
+            // body baseline at 6.4pt (verified via pdftotext -bbox).
+            // The round-15 -1.5pt lift aligned baselines almost
+            // perfectly on the front page (diff=0.00) but page 2's
+            // tighter lineGap=0.2 vs front page's 0.5 still leaves
+            // the bold descender hanging 0.33pt below the body line
+            // — small at 400dpi but visible as "bold sits lower".
+            // Bumped to -1.8pt to fully zero the descender delta on
+            // page 2. Front page stays at -1.5 since it already
+            // measured diff=0.00. Same fix mirrored in front-page
+            // drawTextWithBoldActionWords (unchanged) for parity.
+            y: isBold ? y - 1.8 : y,
             width: wordWidth + 1,
             height: options.size + options.lineGap,
           }, {

@@ -2693,27 +2693,45 @@ function drawTextWithBoldActionWords(
     .replace(/`([^`]+)`/g, "$1");
   const tokens: TextRun[] = [];
   const actionWords: [string][] = [
-    // Order: longest phrases first so e.g. "bonus action" wins over
-    // the standalone "action" suffix. Round-13 expansion: added common
-    // combat verbs and DnD action types (attack, move, etc.) so player
-    // searches for "how do I use this thing" surface as bold inline
-    // emphasis — "things that players should see first in descriptions".
-    ["bonus action"],
-    ["legendary action"],
-    ["lair action"],
+    // Order: longest phrases first so multi-word phrases win over
+    // their standalone components (e.g. "bonus action" matches
+    // before a bare "action" suffix). Round-21 expansion per user
+    // request: players scan item and feature descriptions for
+    // action-economy cues first — bold the trigger terms inline so
+    // they pop visually. Added: opportunity attack, legendary
+    // resistance, action surge, free action, advantage,
+    // disadvantage, saving throw, spell slot/slots, check. Same
+    // list mirrored in page2-renderer.ts ACTION_WORD_PHRASES.
     ["free object interaction"],
     ["object interaction"],
     ["opportunity attack"],
+    ["ranged weapon attack"],
+    ["melee weapon attack"],
+    ["ranged spell attack"],
+    ["melee spell attack"],
+    ["legendary resistance"],
+    ["legendary action"],
+    ["lair action"],
+    ["action surge"],
+    ["bonus action"],
     ["unarmed strike"],
     ["ranged attack"],
     ["ranged strike"],
     ["melee attack"],
-    ["melee weapon attack"],
-    ["ranged weapon attack"],
     ["weapon attack"],
+    ["cast a spell"],
+    ["spell attack"],
+    ["attack action"],
+    ["saving throw"],
+    ["use an object"],
+    ["free action"],
+    ["advantage"],
+    ["disadvantage"],
+    ["spell slot"],
+    ["spell slots"],
+    ["reaction"],
     ["grapple"],
     ["shove"],
-    ["cast a spell"],
     ["dash"],
     ["disengage"],
     ["dodge"],
@@ -2721,12 +2739,11 @@ function drawTextWithBoldActionWords(
     ["hide"],
     ["ready"],
     ["search"],
-    ["use an object"],
-    ["reaction"],
     ["attack"],
     ["action"],
     ["move"],
     ["movement"],
+    ["check"],
   ];
   let remaining = stripped;
   while (remaining.length > 0) {
@@ -2806,7 +2823,18 @@ function drawTextWithBoldActionWords(
       // the body face's centerline. Same fix mirrored in
       // page2-renderer.ts drawRichParagraph for parity.
       if (cursorY > opts.y + opts.height) break;
-      const renderY = run.bold ? cursorY - 1.5 : cursorY;
+      // Round-21 baseline fix: lift bold glyph -1.8pt so its descender
+      // ink stops at the body baseline. Magra-Bold's ink mass extends
+      // ~0.33pt below the body baseline at 6.4pt (verified via
+      // pdftotext -bbox on round-20 PDF), making the bold word look
+      // like it's "sitting lower" than the body face. Page 2's
+      // tighter lineGap=0.2 vs front's 0.5 amplifies the effect. The
+      // round-15 -1.5pt lift was close (front page measured 0.00
+      // delta) but page 2 measured +0.33pt — lifting to -1.8pt zeros
+      // the descender delta on page 2 and only nudges front page to
+      // -0.33pt (still inside normal cap-height tolerance). Same
+      // lift mirrored in page2-renderer.ts drawRichParagraph.
+      const renderY = run.bold ? cursorY - 1.8 : cursorY;
       doc.save();
       doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, renderY, { lineBreak: false });
       doc.restore();
