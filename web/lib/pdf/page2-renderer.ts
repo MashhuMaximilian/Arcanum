@@ -169,6 +169,46 @@ type InlineRun = { text: string; bold: boolean; italic: boolean };
  * treatment via `drawSectionTitle` — that path is independent of
  * this tokenizer.
  */
+// Action-economy / DnD-combat phrase list. These words are bolded
+// inline in item + feature descriptions so players scanning for
+// "how do I use this thing" surface them first. The user wanted
+// the same list as the front page's drawTextWithBoldActionWords:
+// attack, move, bonus action, ranged attack, unarmed strike, etc.
+// Order is longest-first so phrases like "bonus action" win over
+// a standalone "action" later in the list.
+const ACTION_WORD_PHRASES = [
+  "bonus action",
+  "legendary action",
+  "lair action",
+  "free object interaction",
+  "object interaction",
+  "opportunity attack",
+  "ranged weapon attack",
+  "melee weapon attack",
+  "unarmed strike",
+  "ranged attack",
+  "ranged strike",
+  "melee attack",
+  "weapon attack",
+  "cast a spell",
+  "attack action",
+  "use an object",
+  "reaction",
+  "grapple",
+  "shove",
+  "dash",
+  "disengage",
+  "dodge",
+  "help",
+  "hide",
+  "ready",
+  "search",
+  "attack",
+  "action",
+  "move",
+  "movement",
+] as const;
+
 function tokenizeInlineRuns(text: string): InlineRun[] {
   const runs: InlineRun[] = [];
   // Combined regex: **stripped** | *italic*. The `**` match captures the
@@ -180,12 +220,13 @@ function tokenizeInlineRuns(text: string): InlineRun[] {
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      runs.push({ text: text.slice(lastIndex, match.index), bold: false, italic: false });
+      const plain = text.slice(lastIndex, match.index);
+      appendInlineRuns(runs, plain);
     }
     if (match[2] !== undefined) {
       // **stripped** — render inner word in body face (no bold,
       // no italic). See doc comment above for round-13 reasoning.
-      runs.push({ text: match[2], bold: false, italic: false });
+      appendInlineRuns(runs, match[2]);
     } else if (match[4] !== undefined) {
       // *italic*
       runs.push({ text: match[4], bold: false, italic: true });
@@ -193,9 +234,45 @@ function tokenizeInlineRuns(text: string): InlineRun[] {
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) {
-    runs.push({ text: text.slice(lastIndex), bold: false, italic: false });
+    appendInlineRuns(runs, text.slice(lastIndex));
   }
   return runs;
+}
+
+// Split a plain-text chunk (no `**` or `*` markers) into bold/plain
+// runs by matching the action-word phrase list. Longest phrases win
+// (the list is pre-sorted longest-first). Matches are case-
+// insensitive so "Action" and "ACTION" both bold.
+function appendInlineRuns(runs: InlineRun[], chunk: string) {
+  if (!chunk) return;
+  let remaining = chunk;
+  while (remaining.length > 0) {
+    const lower = remaining.toLowerCase();
+    let bestIdx = -1;
+    let bestLen = 0;
+    for (const phrase of ACTION_WORD_PHRASES) {
+      const idx = lower.indexOf(phrase);
+      if (idx === -1) continue;
+      // Don't match if previous char is alphanumeric (inside a word
+      // like "attack"). Only match on word boundaries: start of string,
+      // after whitespace, or after punctuation.
+      const prev = idx > 0 ? remaining[idx - 1] : "";
+      if (prev && /[a-zA-Z]/.test(prev)) continue;
+      if (idx > bestIdx || (idx === bestIdx && phrase.length > bestLen)) {
+        bestIdx = idx;
+        bestLen = phrase.length;
+      }
+    }
+    if (bestIdx === -1) {
+      runs.push({ text: remaining, bold: false, italic: false });
+      return;
+    }
+    if (bestIdx > 0) {
+      runs.push({ text: remaining.slice(0, bestIdx), bold: false, italic: false });
+    }
+    runs.push({ text: remaining.slice(bestIdx, bestIdx + bestLen), bold: true, italic: false });
+    remaining = remaining.slice(bestIdx + bestLen);
+  }
 }
 
 type FreeformSegment = {
@@ -383,7 +460,7 @@ function drawRichParagraph(
             ctx.doc.restore();
             drawText(ctx, " ", {
               x: cursorX,
-              y,
+              y: isBold ? y - 0.5 : y,
               width: spaceWidth,
               height: options.size + options.lineGap,
             }, {
@@ -398,7 +475,15 @@ function drawRichParagraph(
 
           drawText(ctx, word, {
             x: cursorX,
-            y,
+            // Round-14 baseline fix: PDFKit positions the baseline at
+            // `y` using the current font's ascender. Magra and
+            // Magra-Bold share sTypoAscender=968 (per TTF OS/2) but
+            // cap-height-to-ascender ratio differs, so the bold
+            // glyph's visual mass sits ~0.5pt LOWER than the
+            // surrounding Magra body. Lift the bold baseline by 0.5pt
+            // (smaller y = higher on screen) so the bold word's
+            // centerline matches the body face's centerline.
+            y: isBold ? y - 0.5 : y,
             width: wordWidth + 1,
             height: options.size + options.lineGap,
           }, {
