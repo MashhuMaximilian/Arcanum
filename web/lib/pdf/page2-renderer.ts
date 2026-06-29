@@ -460,7 +460,7 @@ function drawRichParagraph(
             ctx.doc.restore();
             drawText(ctx, " ", {
               x: cursorX,
-              y: isBold ? y - 0.5 : y,
+              y: isBold ? y - 1.5 : y,
               width: spaceWidth,
               height: options.size + options.lineGap,
             }, {
@@ -475,15 +475,19 @@ function drawRichParagraph(
 
           drawText(ctx, word, {
             x: cursorX,
-            // Round-14 baseline fix: PDFKit positions the baseline at
+            // Round-15 baseline fix: PDFKit positions the baseline at
             // `y` using the current font's ascender. Magra and
             // Magra-Bold share sTypoAscender=968 (per TTF OS/2) but
-            // cap-height-to-ascender ratio differs, so the bold
-            // glyph's visual mass sits ~0.5pt LOWER than the
-            // surrounding Magra body. Lift the bold baseline by 0.5pt
-            // (smaller y = higher on screen) so the bold word's
-            // centerline matches the body face's centerline.
-            y: isBold ? y - 0.5 : y,
+            // Magra-Bold's cap-height-to-ascender ratio is larger
+            // (heavier ink fills more of the cap-height box), so the
+            // bold glyph's visual mass sits ~1.4pt LOWER than the
+            // surrounding Magra body. The user kept reporting 'bold
+            // is lower than the rest of the line' after the round-14
+            // +0.5pt lift. Bumped to -1.5pt (smaller y = higher on
+            // screen) so the bold word's centerline matches the body
+            // face's centerline. Same fix mirrored in front-page
+            // drawTextWithBoldActionWords.
+            y: isBold ? y - 1.5 : y,
             width: wordWidth + 1,
             height: options.size + options.lineGap,
           }, {

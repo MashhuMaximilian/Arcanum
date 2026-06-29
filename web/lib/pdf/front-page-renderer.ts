@@ -2762,17 +2762,20 @@ function drawTextWithBoldActionWords(
         lineRemaining = maxW;
       }
 
-      // Render this run with lineBreak: false to prevent PDFKit auto page breaks.
-      // Round-13 baseline fix: PDFKit's text() positions the baseline at `y`
-      // using the current font's ascender. Magra-Bold and Magra have
-      // identical sTypoAscender (968) per the TTF OS/2 table, so they
-      // SHOULD baseline-align — but the cap-height-to-ascender ratio is
-      // fractionally different (Bold weight fills more of the cap-height
-      // box), which makes the Bold word's visual mass sit ~0.4pt LOWER
-      // than the surrounding Magra body. Lift the Bold baseline by 0.5pt
-      // so the bold word's centerline matches the body face's centerline.
+// Render this run with lineBreak: false to prevent PDFKit auto page breaks.
+      // Round-15 baseline fix: PDFKit's text() positions the baseline at `y`
+      // using the current font's ascender. Magra-Bold and Magra share
+      // sTypoAscender=968 per TTF OS/2, so they SHOULD baseline-align —
+      // but Magra-Bold's cap-height-to-ascender ratio is significantly
+      // larger (Bold ink fills more of the cap-height box), so the bold
+      // glyph's visual mass sits ~1.4pt LOWER than the surrounding Magra
+      // body. The user kept reporting 'bold is lower than the rest of
+      // the line' after the round-13 +0.5pt lift — that was insufficient.
+      // Bumped to -1.5pt so the bold word's visual centerline matches
+      // the body face's centerline. Same fix mirrored in
+      // page2-renderer.ts drawRichParagraph for parity.
       if (cursorY > opts.y + opts.height) break;
-      const renderY = run.bold ? cursorY - 0.5 : cursorY;
+      const renderY = run.bold ? cursorY - 1.5 : cursorY;
       doc.save();
       doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, renderY, { lineBreak: false });
       doc.restore();
