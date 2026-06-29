@@ -1470,14 +1470,34 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
       return;
     }
     const itemText = items.join(", ");
-    // Render the value as left-aligned multi-line body text so long
-    // lists like the weapons group wrap cleanly across multiple lines
-    // instead of being truncated with an ellipsis. drawCenteredTextInRect
-    // always sets lineBreak+ellipsis which clips to "…"; drawText
-    // with explicit lineBreak:true lets pdfkit wrap the full text.
-    drawText(ctx, itemText, rectFromFractions(cell, { x: 0.06, y: 0.14, width: 0.88, height: 0.70 }), {
+    // Round-21: shrink-to-fit so long values like the Ranger's
+    // weapons list (9 items — "Longsword, Shortsword, Shortbow,
+    // Longbow, Simple Weapons, Martial Weapons") never clip below
+    // the cell border. The 47pt-tall cell fits ~4 lines at 6.0pt
+    // (current size); with 9 weapons the value needs ~5-6 lines
+    // and the last word ("Martial Weapons") overflows. We start
+    // at maxSize=6.4 and let fitTextSize shrink in 0.25pt steps
+    // down to minSize=4.5 so even the longest lists fit.
+    // minSize=4.5 is below the sheet's body floor of 6.4pt but
+    // this is a multi-line wrap value (not a slot label or short
+    // value), and the user explicitly asked: "now it does not
+    // show full contents does not resize text ot fit all". A 4.5pt
+    // render with lineGap=0 is still legible at print size and
+    // ensures the full proficiency list is visible.
+    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.14, width: 0.88, height: 0.70 });
+    const valueSize = fitTextSize(ctx, itemText, valueRect, {
       font: "Helvetica",
-      size: 6.0,
+      maxSize: 6.4,
+      minSize: 4.5,
+      align: "left",
+      color: "#000000",
+      lineBreak: true,
+      ellipsis: false,
+      lineGap: 0,
+    });
+    drawText(ctx, itemText, valueRect, {
+      font: "Helvetica",
+      size: valueSize,
       align: "left",
       color: "#000000",
       lineBreak: true,
