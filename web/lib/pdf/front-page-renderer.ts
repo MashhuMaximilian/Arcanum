@@ -1442,41 +1442,46 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
   const labels = ["WEAPONS", "ARMOR", "TOOLS & INSTR.", "VEHICLES", "LANGUAGES"];
 
   values.forEach((items, index) => {
-    drawSvg(ctx, assets.proficiencyBox0, cells[index]);
+    const cell = cells[index];
+    drawSvg(ctx, assets.proficiencyBox0, cell);
     // The _Proficiency Box 0.svg bakes a small white "label bubble"
-    // (roughly 30pt × 9pt at cell size) at the bottom of the cell.
-    // That bubble is too narrow for 6.4pt labels like "TOOLS & INSTR."
-    // (13 chars ≈ 41pt at Magra 6.4pt). Mask the baked bubble with a
-    // wider white rect so the label has room to render in full. Then
-    // draw the label with Magra body face at 5.5pt (subtle, not
-    // chunky Teko-Medium) — user: "we need the labels them to look
-    // just like they did before. Now they are too big bold another
-    // font and overflowing and ugly".
-    maskRect(ctx, rectFromFractions(cells[index], { x: 0.0, y: 0.74, width: 1.0, height: 0.22 }));
-    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cells[index], { x: 0.04, y: 0.85, width: 0.92, height: 0.12 }), {
+    // ornament at the bottom of the cell. Mask the bottom 30% with a
+    // wider white rect so the baked bubble is fully cleared (it's too
+    // narrow for our labels and would clip "TOOLS & INSTR.").
+    //
+    // Round-21 layout: label sits at the TOP of the cell (header
+    // style), value fills the rest. Previously the label was at the
+    // bottom of the cell which made it visually collide with the
+    // baked ornament and read as a broken caption (user: "labels are
+    // fucked up"). The value maxSize is bumped 4.0 → 6.4 to match
+    // the rest of the sheet's body floor — long values like the
+    // weapons list will wrap to 4 lines at 6.4pt but never auto-shrink
+    // to unreadable sizes. lineBreak enabled so text wraps cleanly
+    // inside the column rather than being clipped with ellipsis.
+    maskRect(ctx, rectFromFractions(cell, { x: 0.0, y: 0.86, width: 1.0, height: 0.14 }));
+    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.04, y: 0.02, width: 0.92, height: 0.10 }), {
       font: "Helvetica",
-      maxSize: 5.5,
-      minSize: 5.5,
+      maxSize: 6.0,
+      minSize: 6.0,
       color: "#777777",
+      lineBreak: false,
     });
     if (!items.length) {
       return;
     }
     const itemText = items.join(", ");
-    // Set a generous maxSize and let fitTextSize shrink to whatever
-    // actually fits in the cell. Previous code had minSize=6.4 hard-
-    // floor which forced long values like "Longsword, Shortsword,
-    // Shortbow, Longbow" to render at 6.4pt and clip to
-    // "Longsword, Shortsword, Shortbow, …" (user: "you messed it
-    // up, now it does not show full contents does not resize text
-    // ot fit all"). Now minSize=4.0 so fitTextSize can shrink below
-    // 6.4 to fit multi-line wrapped values into the 47pt-tall cell.
-    const itemMaxSize = 7.5;
-    drawCenteredTextInRect(ctx, itemText, rectFromFractions(cells[index], { x: 0.08, y: 0.10, width: 0.84, height: 0.62 }), {
-      maxSize: itemMaxSize,
-      minSize: 4.0,
+    // Render the value as left-aligned multi-line body text so long
+    // lists like the weapons group wrap cleanly across multiple lines
+    // instead of being truncated with an ellipsis. drawCenteredTextInRect
+    // always sets lineBreak+ellipsis which clips to "…"; drawText
+    // with explicit lineBreak:true lets pdfkit wrap the full text.
+    drawText(ctx, itemText, rectFromFractions(cell, { x: 0.06, y: 0.14, width: 0.88, height: 0.70 }), {
+      font: "Helvetica",
+      size: 6.0,
       align: "left",
       color: "#000000",
+      lineBreak: true,
+      ellipsis: false,
       lineGap: 0,
     });
   });
