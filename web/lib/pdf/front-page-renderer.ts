@@ -1793,8 +1793,18 @@ function renderSpellLevelGroup(
   const leftCellW = SPELL_LEFT_CELL_W; // minimum viable label/slots cell; maximizes spell-name width
   const circleSize = 3.4;
   const circleGap = SPELL_CIRCLE_GAP;
-  const labelH = 4;
-  const minLeftBlockHeight = labelH + SPELL_LEVEL_CIRCLE_GAP + circleSize;
+  // Round-21: labelH 4 → 9pt so "Level N" actually renders. The 7pt
+  // Magra-Bold label needs ~8.5pt of vertical room including
+  // PDFKit's lineGap; the old 4pt labelRect couldn't hold it and
+  // drawFittedText kept shrinking the text until it disappeared
+  // (the round-17 render shows "Level 1" missing entirely — circles
+  // render but no label). 9pt is comfortable for 7pt text with
+  // lineGap. Circle gap bumped 1.1 → 2.5pt so the circles sit
+  // visibly below the label band instead of touching it
+  // (user: 'the level and the resources are overlapping').
+  const labelH = 9;
+  const circleGapBelowLabel = 2.5;
+  const minLeftBlockHeight = labelH + circleGapBelowLabel + circleSize;
   const nameWidth = rect.width - leftCellW - SPELL_TEXT_GAP;
   const availableRowsHeight = Math.max(1, rect.height - rowGap * (levels.length - 1));
 
@@ -1874,7 +1884,7 @@ function renderSpellLevelGroup(
     });
 
     // Circles sit directly below the right-aligned label, making the left cell a compact unit.
-    const circleAreaTop = labelRect.y + labelRect.height + SPELL_LEVEL_CIRCLE_GAP;
+    const circleAreaTop = labelRect.y + labelRect.height + circleGapBelowLabel;
     const circleAreaBottom = rowRect.y + rowHeight;
     const circleY = Math.min(circleAreaBottom - circleSize, circleAreaTop);
 
