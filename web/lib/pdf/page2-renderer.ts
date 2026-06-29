@@ -2244,14 +2244,20 @@ function drawCompanionHeaderField(
   value: string,
   rect: PdfRect,
 ) {
+  // Bumped 3.5 → 6.4pt to match the front page header label size
+  // (user: "Header in front page has a different font-size vs the
+  // companion and character backstory headers. But font family
+  // seems good. Just see about size there."). All three header
+  // styles — front, companion, backstory — now use the same
+  // 6.4pt Magra body face at #777 for their labels.
   drawText(ctx, label.toUpperCase(), {
     x: rect.x,
     y: rect.y,
     width: rect.width,
-    height: 6,
+    height: 6.4,
   }, {
     font: "Helvetica",
-    size: 3.5,
+    size: 6.4,
     color: "#777777",
     lineBreak: false,
   });
