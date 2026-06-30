@@ -215,11 +215,12 @@ const STAT_ROW_BACKGROUNDS = [
 ] as const;
 
 const STAT_VALUE_SLOTS = {
-  // Save pip slot grown 9.2→14pt tall so 14pt save digits can actually
-  // fit (was clamped to ~6.7pt by the 9.2pt slot — see round-10 maxSize
-  // bump that was a silent no-op). y 7.2→6 to give the new height
-  // enough room without colliding with the score slot below.
-  save: { x: 11, y: 6, width: 33, height: 14 },
+  // Save pip slot grown 9.2 → 18pt tall so 14pt save digits can
+  // actually fit at full size (was clamped by 14pt slot — heightOfString
+  // at 14pt Magra-Bold lineGap=0 = 17.01pt > 14pt). y 7.2 → 5 to keep
+  // the digit vertically centered against the new height without
+  // colliding with the score slot below.
+  save: { x: 11, y: 5, width: 33, height: 18 },
   // Score slot grown 15.5 → 30pt tall (y 26.8 → 18, height 30) so
   // 28pt scores have room to render — see companion page2-renderer
   // comment for the same change. Modifier slot y 57.2 → 56 to stay
@@ -1258,6 +1259,7 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         maxSize: 14,
         minSize: 6.4,
         color: "#000000",
+        lineGap: 0,
       });
       drawCenteredTextInRect(ctx, `${row.score}`, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.score), {
         font: "Helvetica-Bold",
@@ -1288,10 +1290,13 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       drawCenteredTextInRect(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
         // Bumped 11→14 so modifier +1/+3 etc. read at the same
-        // weight as the score digit.
+        // weight as the score digit. lineGap=0 so 14pt Magra-Bold
+        // fits the modifier slot (h=18) without fitTextSize
+        // shrinking to ~13pt (same rationale as the save bonus).
         maxSize: 14,
         minSize: 6.4,
         color: "#000000",
+        lineGap: 0,
       });
     });
   }

@@ -2544,6 +2544,12 @@ function renderCompanionAbilities(
       font: "Helvetica-Bold",
       minSize: 6.4,
       color: "#000000",
+      // Round-25: explicit lineGap=0 so the 14pt / 28pt save,
+      // modifier, and score digits render at full size. Without
+      // this, fitTextSize auto-shrinks the score below 28pt because
+      // heightOfString(28pt + default 3.36pt lineGap) = 37.38pt
+      // exceeds the 30pt score slot.
+      lineGap: 0,
     } as const;
 
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
