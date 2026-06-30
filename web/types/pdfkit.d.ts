@@ -14,6 +14,7 @@ declare module "pdfkit" {
     lineBreak?: boolean;
     ellipsis?: boolean;
     lineGap?: number;
+    oblique?: number | boolean;
   };
 
   export default class PDFDocument extends Readable {

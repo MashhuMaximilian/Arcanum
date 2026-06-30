@@ -16,6 +16,7 @@ export type PdfTextOptions = {
   lineGap?: number;
   lineBreak?: boolean;
   ellipsis?: boolean;
+  oblique?: number | boolean;
 };
 
 type PdfShapeDocument = PDFDocument & {
@@ -129,6 +130,11 @@ export function drawText(
   ctx.doc.font(resolveFont(ctx, options.font));
   ctx.doc.fontSize(size);
   ctx.doc.fillColor(options.color || "#111111");
+  // Round-25 #F: render *italic* spans by shearing the text with PDFKit's
+  // built-in `oblique` option (degrees). Magra-Regular.ttf has no italic
+  // glyphs, so without this the asterisks would render identical to body
+  // text. 12° matches the typical typographic italic angle.
+  const oblique = options.oblique === true ? 12 : typeof options.oblique === "number" ? options.oblique : undefined;
   ctx.doc.text(text, rect.x, rect.y, {
     width: rect.width,
     height: rect.height,
@@ -136,6 +142,7 @@ export function drawText(
     lineBreak: options.lineBreak ?? true,
     ellipsis: options.ellipsis ?? true,
     lineGap: options.lineGap ?? size * 0.12,
+    oblique,
   });
 }
 

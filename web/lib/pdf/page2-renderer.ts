@@ -517,6 +517,11 @@ function drawRichParagraph(
             color: options.color,
             lineBreak: false,
             lineGap: 0,
+            // Round-25 #F: render *italic* spans with the oblique
+            // shear so they read as italic. Without this the `*word*`
+            // asterisks vanish but the word itself looks identical to
+            // body text (Magra has no italic glyph cut).
+            oblique: isItalic ? 12 : undefined,
           });
           cursorX += wordWidth;
           lineHasContent = true;
@@ -870,7 +875,7 @@ function renderItemDescriptions(
   // the title). The wrap is greedy word-fit using PDFKit's widthOfString.
   // Each line carries its runs (bold vs body) so the renderer can
   // switch fonts mid-line.
-  type Run = { text: string; bold: boolean };
+  type Run = { text: string; bold: boolean; italic?: boolean };
   type WrappedLine = { runs: Run[] };
   type PreparedItem = {
     item: CharacterInventoryItem;
@@ -913,14 +918,14 @@ function renderItemDescriptions(
         } else if (/^\s+$/.test(seg)) {
           // Just a whitespace token — keep as part of current run for
           // word spacing but don't add a new leading space on wrap.
-          currentRuns.push({ text: seg, bold: run.bold });
+          currentRuns.push({ text: seg, bold: run.bold, italic: run.italic });
           currentWidth += segW;
         } else {
           // Word token. If it overflows, flush and start new line.
           if (currentWidth + segW > columnWidth && currentRuns.length > 0) {
             flush();
           }
-          currentRuns.push({ text: seg, bold: run.bold });
+          currentRuns.push({ text: seg, bold: run.bold, italic: run.italic });
           currentWidth += segW;
         }
       }
@@ -995,8 +1000,12 @@ function renderItemDescriptions(
     // the column width.
     let cursorX = lineX;
     for (const run of line.runs) {
+      // Round-25 #F: italic runs use a serif skew so *word* markers
+      // render visibly italic. Magra has no italic glyph cut, so we
+      // rely on PDFKit's `oblique` shear to fake it.
+      const runFont = run.bold ? "Helvetica-Bold" : textFont;
       ctx.doc.save();
-      ctx.doc.font(run.bold ? "Helvetica-Bold" : textFont).fontSize(bodySize);
+      ctx.doc.font(runFont).fontSize(bodySize);
       const runW = ctx.doc.widthOfString(run.text);
       ctx.doc.restore();
       // Clip if overflow — should not happen since wrapBody respects
@@ -1006,12 +1015,13 @@ function renderItemDescriptions(
       drawText(ctx, run.text, {
         x: cursorX, y: lineY, width: Math.min(runW, remainingW), height: lineH,
       }, {
-        font: run.bold ? "Helvetica-Bold" : textFont,
+        font: runFont,
         size: bodySize,
         color: COLORS.textPrimary,
         lineBreak: false,
         ellipsis: false,
         lineGap,
+        oblique: run.italic ? 12 : undefined,
       });
       cursorX += runW;
     }
