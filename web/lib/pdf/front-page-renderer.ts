@@ -1428,7 +1428,14 @@ function renderPassives(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, charac
     const cell = componentRect(FRONT_PAGE_REGIONS.passives, PASSIVES_VIEWBOX, PASSIVE_BOXES[index]);
     drawCenteredTextInRect(ctx, value, rectFromFractions(cell, { x: 0.06, y: 0.05, width: 0.88, height: 0.44 }), {
       font: "Helvetica-Bold",
-      maxSize: 11,
+      // Bumped 11 → 14 to match the companion page's SPEED card
+      // (renderCompanionSpeeds uses maxSize 14 in the same passive
+      // box template). User: "In speed in companion we have to use
+      // same font and size as in front page where we have labels
+      // for speeds and passives and we have to properly center
+      // value in card." Both pages now render the passive/speed
+      // number at 14pt Magra-Bold.
+      maxSize: 14,
       minSize: 6.4,
       color: "#000000",
     });
