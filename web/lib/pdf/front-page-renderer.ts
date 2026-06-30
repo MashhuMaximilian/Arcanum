@@ -1465,7 +1465,12 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
     // weapons list will wrap to 4 lines at 6.4pt but never auto-shrink
     // to unreadable sizes. lineBreak enabled so text wraps cleanly
     // inside the column rather than being clipped with ellipsis.
-    maskRect(ctx, rectFromFractions(cell, { x: 0.0, y: 0.86, width: 1.0, height: 0.14 }));
+    // Round-24: mask the bottom 22% (was 14%) to fully clear the
+    // baked white bubble ornament that extends from y=0.78..1.0
+    // (≈10pt of the 47pt cell). The previous 14% mask left the
+    // bubble top visible, which clipped "Martial Weapons" on long
+    // proficiency lists.
+    maskRect(ctx, rectFromFractions(cell, { x: 0.0, y: 0.78, width: 1.0, height: 0.22 }));
     drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.04, y: 0.02, width: 0.92, height: 0.10 }), {
       font: "Helvetica",
       maxSize: 6.0,
@@ -1477,25 +1482,32 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
       return;
     }
     const itemText = items.join(", ");
-    // Round-21: shrink-to-fit so long values like the Ranger's
-    // weapons list (9 items — "Longsword, Shortsword, Shortbow,
+    // Round-24: shrink-to-fit so long values like the Ranger's
+    // weapons list (6 items — "Longsword, Shortsword, Shortbow,
     // Longbow, Simple Weapons, Martial Weapons") never clip below
-    // the cell border. The 47pt-tall cell fits ~4 lines at 6.0pt
-    // (current size); with 9 weapons the value needs ~5-6 lines
-    // and the last word ("Martial Weapons") overflows. We start
-    // at maxSize=6.4 and let fitTextSize shrink in 0.25pt steps
-    // down to minSize=4.5 so even the longest lists fit.
-    // minSize=4.5 is below the sheet's body floor of 6.4pt but
-    // this is a multi-line wrap value (not a slot label or short
-    // value), and the user explicitly asked: "now it does not
-    // show full contents does not resize text ot fit all". A 4.5pt
+    // the cell border. The cell is 47pt tall total. The label
+    // band at the top occupies y=0..0.10 (≈4.7pt), and the baked
+    // bottom label-bubble ornament occupies the bottom 0.20 of
+    // the cell (≈9.4pt). That leaves the value band y=0.10..0.78
+    // (≈32pt) for text. At 6.4pt Magra with lineGap=0, line height
+    // ≈ 7.78pt → fits ~4 lines. The full weapons list needs ~6
+    // lines, so we start at maxSize=6.4 and let fitTextSize shrink
+    // in 0.25pt steps down to minSize=4.0 (below the sheet's body
+    // floor of 6.4pt but this is a multi-line wrap value, not a
+    // slot label, and the user explicitly asked: "now it does not
+    // show full contents does not resize text ot fit all"). A 4.0pt
     // render with lineGap=0 is still legible at print size and
-    // ensures the full proficiency list is visible.
-    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.14, width: 0.88, height: 0.70 });
+    // ensures the full proficiency list is visible. We also shrink
+    // valueRect height 0.70→0.68 (≈32pt) so the text has a little
+    // more clearance below the bottom bubble ornament, and mask
+    // the bottom 22% of the cell (instead of 14%) to fully clear
+    // the baked white bubble that would otherwise collide with the
+    // last line.
+    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.14, width: 0.88, height: 0.62 });
     const valueSize = fitTextSize(ctx, itemText, valueRect, {
       font: "Helvetica",
       maxSize: 6.4,
-      minSize: 4.5,
+      minSize: 4.0,
       align: "left",
       color: "#000000",
       lineBreak: true,
