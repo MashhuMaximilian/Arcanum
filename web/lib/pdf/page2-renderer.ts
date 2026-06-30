@@ -2683,7 +2683,12 @@ function renderCompanionSpeeds(
     });
     drawCenteredTextInRect(ctx, entries[index].label, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.label), {
       font: "Helvetica",
-      maxSize: 3.8,
+      // Fixed inverted maxSize/minSize — was 3.8 / 6.4 which made
+      // the label clamp to 3.8pt (just above minSize floor is
+      // unreachable since minSize > maxSize). Set maxSize 6.4 to
+      // match the front page passive labels (also Magra 6.4pt) so
+      // both pages render Walking/Flying/Climbing at the same size.
+      maxSize: 6.4,
       minSize: 6.4,
       color: "#333333",
       lineGap: 0,
