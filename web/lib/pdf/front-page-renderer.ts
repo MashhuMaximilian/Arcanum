@@ -1230,17 +1230,17 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       });
       if (!hasPrintedTemplate) {
         drawSvg(ctx, assets.statBlock, block);
-        // The _Stat Block.svg has TWO labels baked in — a small grey
-        // "STR DEX" at the top (around y 14-22) and a bold "STR DEX"
-        // at the bottom (around y 46-52). The SVG is one template
-        // reused 6 times, so both baked labels are static "STR" —
-        // wrong for DEX/CON/INT/WIS/CHA cards. Mask BOTH label
-        // areas with white so the code-drawn label below is the
-        // only one visible. (Round-13 commit b5333b8 only masked
-        // the top and relied on the bottom, which produced "STR"
-        // on every card.)
+        // Round-25: only mask the TOP baked "BONUS" label area
+        // (around y 14-22) so the code-drawn save pip and number
+        // render cleanly. The BOTTOM baked label (around y 46-52)
+        // is kept visible as the cell's STR/DEX/CON/INT/WIS/CHA
+        // label — user prefers the original SVG-baked label over a
+        // code-drawn overlay, even though the SVG is a single
+        // template that says "STR" for every cell. The old code
+        // also masked the bottom and drew a Magra-Bold overlay
+        // which created a duplicate-label effect the user found
+        // ugly.
         maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMask));
-        maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMaskBottom));
       }
       if (row.saveProficient) {
         const saveMarker = componentPoint(block, STAT_BLOCK_VIEWBOX, { x: 27.7, y: 3 });
@@ -1267,26 +1267,11 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         minSize: 12,
         color: "#000000",
       });
-      if (!hasPrintedTemplate) {
-        // STR/DEX/CON/INT/WIS/CHA label drawn over the masked area
-        // (see labelMaskBottom above). Using Magra-Bold to match the
-        // companion page so both pages use the same stat-block
-        // geometry. The previous Teko-Medium 8.5pt overlay produced
-        // a duplicate label that overlapped the modifier circle —
-        // now the SVG baked label is masked first, then a single
-        // Magra-Bold label is drawn in the cleared slot.
-        drawCenteredTextInRect(
-          ctx,
-          row.label,
-          componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.label),
-          {
-            font: "Helvetica-Bold",
-            maxSize: 7.5,
-            minSize: 6.4,
-            color: "#000000",
-          },
-        );
-      }
+      // NOTE: STR/DEX/CON/INT/WIS/CHA label is NO LONGER drawn here.
+      // The SVG-baked bottom label (which says "STR" for every cell)
+      // is intentionally left visible per round-25 user feedback:
+      // the user prefers the original SVG label over a code-drawn
+      // Magra-Bold overlay (which produced a visible duplicate).
       drawCenteredTextInRect(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
         font: "Helvetica-Bold",
         // Bumped 11→14 so modifier +1/+3 etc. read at the same

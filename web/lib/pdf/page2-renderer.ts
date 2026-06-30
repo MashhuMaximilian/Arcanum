@@ -839,121 +839,105 @@ function renderItemDescriptions(
   }
 
   const contentStartY = rect.y + 36;
-  // Item descriptions region overlaps the utility row at y=321..363
-  // (attuned/currency/encumbrance/valuables) in the EQUIPPED column.
   // Stop content drawing at y=318 so item descriptions don't bleed into
-  // the utility row strip — previously contentBottomY=359 and the
-  // Prayer Beads overflow text overlapped the ATTUNED/COPPER boxes.
+  // the utility row strip (attuned/currency/encumbrance) in the EQUIPPED
+  // column.
   const contentBottomY = 318;
   const columnGap = 6;
   const columnPadding = 4;
-  // Bumped column count 2 → 3 per user request: "we have 2 columns
-  // there which is ok, but we need to make it like a page. In column 1
-  // we write, then what does not fit goes to second column and so on.
-  // Now that I think of it, let's make 3 columns in item description
-  // cards." 3 columns give a true newspaper-style flow with shorter
-  // column heights per item card, more even rhythm, and less wasted
-  // white space at the bottom of the page.
+  // 3-column newspaper flow (user: "we have 2 columns there which is
+  // ok, but we need to make it like a page. In column 1 we write,
+  // then what does not fit goes to second column and so on. Now that
+  // I think of it, let's make 3 columns in item description cards.").
+  // Each item is one container with its title at the top of the column
+  // it lands in; if the body is taller than the remaining column
+  // space, the overflow continues in the NEXT column (no title
+  // reprint — the container just keeps writing body text in the new
+  // column space). This is true newspaper text flow.
   const columnCount = 3;
-  const fullWidth = rect.width - columnPadding * 2;
   const columnWidth = (rect.width - columnGap * (columnCount - 1) - columnPadding * 2) / columnCount;
   const textFont = "Helvetica";
-  // Line gap 0.3 → 0.2 so dense body text is tighter. With denseBodySize
-  // also bumped to 6.4 (matching the user's "smallest font = feature
-  // description body" floor), Prayer Beads would otherwise overflow the
-  // 3-column region. Tightening the line gap gives the content more
-  // vertical room without sacrificing readability.
+  const bodySize = 6.4;
   const lineGap = 0.2;
-  // Both compactBodySize and denseBodySize bumped to 6.4 — the user's
-  // "smallest font must be at least the feature description body size"
-  // rule. drawFittedRichParagraph previously had a minSize of 4 or 5
-  // on these calls (the bulk-raise in commit ff28097 fixed that to 6.4)
-  // but the layout-side size was still below 6.4, causing the text to
-  // overflow the slot's reserved height (the layout reserves space for
-  // `size` even though the render paints at `minSize`). Setting the
-  // size to 6.4 keeps the layout calculation honest.
-  const compactBodySize = 6.4;
-  const denseBodySize = 6.4;
   const titleSize = 8.5;
-  // Tightened cardGap 1.5 → 0.5 so consecutive item cards stack with
-  // minimal dead space between them. The user said "we have too much
-  // space for each end line" — a 0.5pt gap is essentially a hairline
-  // that visually unifies the column without leaving awkward gaps.
+  const titleH = 14;
+  const titleBodyGap = 4;
   const cardGap = 0.5;
-  const subColumnGap = 6;
-  const availableHeight = contentBottomY - contentStartY;
-  // Items whose natural height is more than 35% of the available area
-  // (e.g. Prayer Beads) get promoted to the dense strip below; in a
-  // narrow column they would either overflow or be shrunk to
-  // unreadable body sizes. 35% is a soft threshold — a slightly
-  // larger card can still be "compact" if both columns are empty.
-  const denseThreshold = availableHeight * 0.35;
 
   // --- Phase 1: Prepare items ---------------------------------------
-  // Each item becomes a self-contained "card" with a measured natural
-  // height and (for dense items) a pre-parsed list of paragraph
-  // sections so the dashboard grid can render each one as its own
-  // mini-card.
-  type Section = { title: string; body: string };
+  // For each item: extract the body text and pre-wrap it into lines
+  // (so we can slice body content across columns without reprinting
+  // the title). The wrap is greedy word-fit using PDFKit's widthOfString.
+  // Each line carries its runs (bold vs body) so the renderer can
+  // switch fonts mid-line.
+  type Run = { text: string; bold: boolean };
+  type WrappedLine = { runs: Run[] };
   type PreparedItem = {
     item: CharacterInventoryItem;
-    description: string;
-    titleMetaHeight: number;
-    bodyHeight: number;
-    totalHeight: number;
-    isDense: boolean;
-    sections: Section[];
+    titleMeta: string;
+    lines: WrappedLine[];
   };
 
-  const stripTrailingPunct = (s: string) =>
-    s.replace(/[\s]*[:\-—–=]+[\s]*$/, "").trim();
-  const extractTitleAndBody = (block: string): Section => {
-    const boldMatch = block.match(/^\*\*([^*]+)\*\*\s*[:\-—–=]?\s*/);
-    if (boldMatch) {
-      const title = stripTrailingPunct(boldMatch[1]);
-      const body = block.slice(boldMatch[0].length).trim();
-      // BUGFIX: the previous `body || block` fallback returned the
-      // ENTIRE block (including the original `**Title**` markers)
-      // when the section body was empty. That made the section title
-      // appear twice in the rendered PDF: once as the uppercased
-      // section title and once again as a body line that still
-      // contained `**...**`. Now return an empty string when there
-      // is no body content after the title — the renderer already
-      // skips empty bodies.
-      return { title, body };
-    }
-    return { title: "", body: block };
-  };
-  const parseSections = (description: string): Section[] => {
+  const wrapBody = (description: string): WrappedLine[] => {
     if (!description) return [];
-    // Two-pass parser: handle both newline-bounded descriptions
-    // (cleanHtmlText emits `\n` between <p>...</p> blocks) and
-    // single-paragraph descriptions where the user has bolded inline
-    // section markers (e.g. Prayer Beads description: a single wall
-    // of prose with `**Bead Count:**`, `**Iron Feet** = ...`,
-    // `**Mantra of Evasion**` markers, all separated only by `. `).
-    // The first pass uses newlines (legacy behavior). When the
-    // description has no newlines but contains 2+ bold-prefixed
-    // sentences, we split on `(?<=\.)\s+(?=\*\*[^*]+\*\*)` — period
-    // boundary followed by a new bold-starting sentence — to
-    // reconstruct the implicit section list.
-    const text = description.trim();
-    if (text.includes("\n")) {
-      return text
-        .split(/\n+/)
-        .map((b) => b.trim())
-        .filter(Boolean)
-        .map(extractTitleAndBody);
+    const runs = tokenizeInlineRuns(description);
+    const lines: WrappedLine[] = [];
+    let currentRuns: Run[] = [];
+    let currentWidth = 0;
+
+    const flush = () => {
+      if (currentRuns.length === 0) return;
+      lines.push({ runs: currentRuns });
+      currentRuns = [];
+      currentWidth = 0;
+    };
+
+    for (const run of runs) {
+      // Split the run on whitespace so we can preserve word boundaries
+      // for line-breaking. Whitespace tokens glue runs together but
+      // don't add a trailing space if the line ends with one.
+      // CRITICAL: also split on `\n\n` (paragraph break) so each
+      // paragraph starts on its own line in the wrap. The previous
+      // version treated `\n\n` as just whitespace which collapsed
+      // paragraph breaks into a single visual line.
+      const segs = run.text.split(/(\s+|\n\n+)/).filter(Boolean);
+      for (const seg of segs) {
+        if (!seg) continue;
+        ctx.doc.save();
+        ctx.doc.font(run.bold ? "Helvetica-Bold" : textFont).fontSize(bodySize);
+        const segW = ctx.doc.widthOfString(seg);
+        ctx.doc.restore();
+        if (/^\n/.test(seg)) {
+          // Paragraph break — flush current line and start fresh.
+          flush();
+        } else if (/^\s+$/.test(seg)) {
+          // Just a whitespace token — keep as part of current run for
+          // word spacing but don't add a new leading space on wrap.
+          currentRuns.push({ text: seg, bold: run.bold });
+          currentWidth += segW;
+        } else {
+          // Word token. If it overflows, flush and start new line.
+          if (currentWidth + segW > columnWidth && currentRuns.length > 0) {
+            flush();
+          }
+          currentRuns.push({ text: seg, bold: run.bold });
+          currentWidth += segW;
+        }
+      }
     }
-    // Single block: split on period + space + new bold sentence.
-    const sentenceSplit = text.split(/(?<=\.)\s+(?=\*\*[^*]+\*\*)/);
-    if (sentenceSplit.length >= 2) {
-      return sentenceSplit
-        .map((b) => b.trim())
-        .filter(Boolean)
-        .map(extractTitleAndBody);
+    flush();
+    // Strip trailing whitespace runs from ONLY the very last line of
+    // the item (mid-line trailing whitespace is the separator between
+    // the last word on a wrapped line and the first word on the next
+    // line — stripping it would collapse "(yet)" and "Each" into
+    // "(yet)Each" with no visible space).
+    if (lines.length > 0) {
+      const lastLine = lines[lines.length - 1];
+      while (lastLine.runs.length > 0 && /^\s+$/.test(lastLine.runs[lastLine.runs.length - 1].text)) {
+        lastLine.runs.pop();
+      }
     }
-    return [{ title: "", body: text }];
+    return lines;
   };
 
   const prepared: PreparedItem[] = describedItems.map((item) => {
@@ -961,487 +945,121 @@ function renderItemDescriptions(
       item.sheetDescription || item.detailHtml,
       item.notes ?? item.name,
     );
-    // Measure body height using the compact column width; dense items
-    // get re-measured in the wider full-width strip during render.
-    const bodyHeight = description
-      ? measureRichParagraphHeight(ctx, description, columnWidth, compactBodySize, lineGap, textFont)
-      : 0;
-    // Bumped from titleSize + 1 (8.2) → 12 to match the new titleH in
-    // renderItemCard so compact-card height estimates don't under-count
-    // and collide with the row below.
-    const titleMetaHeight = 14;
-    const totalHeight = titleMetaHeight + bodyHeight + cardGap;
-    const sections = parseSections(description);
     return {
       item,
-      description,
-      titleMetaHeight,
-      bodyHeight,
-      totalHeight,
-      isDense: totalHeight > denseThreshold,
-      sections,
+      titleMeta: buildItemMetadataLine(item),
+      lines: wrapBody(description),
     };
   });
 
-  // --- Phase 2: Layout compact items in 2 columns -------------------
-  // Greedy bin-packing with overflow protection: each card goes in
-  // the smaller column; if neither column has room, the card is
-  // promoted to the dense strip. After this pass the compact lists
-  // are final and their placement is decided purely by measured
-  // heights — no estimate-vs-actual mismatch.
-  //
-  // Items with 2+ parsed sections (e.g. Prayer Beads with its
-  // Bead Count / Activation / Mantis Style / Saving Face blocks) are
-  // routed to a dedicated "dashboard" strip below the 2-column flow.
-  // The dashboard strip renders each section as its own mini-card
-  // in a 2-column sub-grid — the "dashboard grid" the user asked
-  // for. Simple items stay in the 2-column flow.
-  const columns: PreparedItem[][] = Array.from({ length: columnCount }, () => []);
-  const denseQueue: PreparedItem[] = [];
-  const dashboardQueue: PreparedItem[] = [];
+  // --- Phase 2: Render in 3 columns with newspaper flow -------------
+  // For each item: place the title at the top of the shortest column,
+  // then render the body lines one by one. When a column fills up,
+  // continue rendering remaining lines in the NEXT column (round-robin
+  // starting from the column after the title's column). When all 3
+  // columns are full, stop (silently truncate — no more room).
+  const lineH = bodySize + lineGap;
+  const columnCursors = Array.from({ length: columnCount }, () => contentStartY);
+
+  const drawTitle = (col: number, item: CharacterInventoryItem, titleMeta: string) => {
+    const titleX = rect.x + columnPadding + col * (columnWidth + columnGap);
+    const titleY = columnCursors[col];
+    drawText(ctx, item.name, {
+      x: titleX, y: titleY, width: columnWidth, height: titleH,
+    }, {
+      font: "Helvetica-Bold", size: titleSize, color: COLORS.textPrimary,
+      lineGap: 0, ellipsis: true,
+    });
+    if (titleMeta) {
+      ctx.doc.save();
+      ctx.doc.font("Helvetica-Bold").fontSize(titleSize);
+      const nameWidth = ctx.doc.widthOfString(item.name);
+      ctx.doc.restore();
+      drawText(ctx, `  —  ${titleMeta}`, {
+        x: titleX + nameWidth, y: titleY,
+        width: columnWidth - nameWidth, height: titleH,
+      }, {
+        font: "Helvetica-Bold", size: titleSize, color: COLORS.textSecondary,
+        lineGap: 0, ellipsis: true,
+      });
+    }
+    columnCursors[col] = titleY + titleH + titleBodyGap;
+  };
+
+  const drawBodyLine = (col: number, line: WrappedLine, yOverride?: number) => {
+    if (columnCursors[col] + lineH > contentBottomY) return false;
+    const lineX = rect.x + columnPadding + col * (columnWidth + columnGap);
+    const lineY = yOverride ?? columnCursors[col];
+    // Render each run with its own font (bold runs use Helvetica-Bold
+    // = Magra-Bold after registerFont aliasing). Width is bounded by
+    // the column width.
+    let cursorX = lineX;
+    for (const run of line.runs) {
+      ctx.doc.save();
+      ctx.doc.font(run.bold ? "Helvetica-Bold" : textFont).fontSize(bodySize);
+      const runW = ctx.doc.widthOfString(run.text);
+      ctx.doc.restore();
+      // Clip if overflow — should not happen since wrapBody respects
+      // columnWidth, but safety net.
+      const remainingW = lineX + columnWidth - cursorX;
+      if (remainingW <= 0) break;
+      drawText(ctx, run.text, {
+        x: cursorX, y: lineY, width: Math.min(runW, remainingW), height: lineH,
+      }, {
+        font: run.bold ? "Helvetica-Bold" : textFont,
+        size: bodySize,
+        color: COLORS.textPrimary,
+        lineBreak: false,
+        ellipsis: false,
+        lineGap,
+      });
+      cursorX += runW;
+    }
+    columnCursors[col] = lineY + lineH;
+    return true;
+  };
 
   for (const p of prepared) {
-    // BUGFIX: previously isDense took priority and routed multi-
-    // section items (like Prayer Beads with 25 sections) to the
-    // dense strip, where renderDenseItemCard uses the same 2-column
-    // sub-grid but with much less vertical space available (denseY
-    // starts late, after the compact columns end). Result: Prayer
-    // Beads overflowed the column. Now route multi-section items
-    // to the dashboard FIRST so they get the wider denseY = contentStartY
-    // strip at the top of the layout.
-    if (p.sections.length >= 2) {
-      dashboardQueue.push(p);
+    if (p.lines.length === 0) {
+      // Item with no description — just render the title.
+      const bestCol = pickShortestColumn(columnCursors);
+      drawTitle(bestCol, p.item, p.titleMeta);
+      columnCursors[bestCol] += cardGap;
       continue;
     }
-    if (p.isDense) {
-      denseQueue.push(p);
-      continue;
-    }
-    // Pick the shortest column that has space. Now 3 columns so we
-    // iterate all of them and pick the minimum.
-    let bestCol = 0;
-    let bestY = columnHeightsSum(columns, 0) + contentStartY;
-    for (let c = 1; c < columnCount; c++) {
-      const candidateY = columnHeightsSum(columns, c) + contentStartY;
-      if (candidateY < bestY) {
-        bestY = candidateY;
-        bestCol = c;
+
+    // Place title in shortest column.
+    const titleCol = pickShortestColumn(columnCursors);
+    if (columnCursors[titleCol] + titleH > contentBottomY) continue; // out of space
+    drawTitle(titleCol, p.item, p.titleMeta);
+
+    // Render body lines, switching to next column when current fills up.
+    let col = titleCol;
+    for (const line of p.lines) {
+      if (!drawBodyLine(col, line)) {
+        // Current column full — try next column.
+        col = (col + 1) % columnCount;
+        if (col === titleCol) break; // cycled back, all columns full
+        // Reset cursor to start of column (skipping title row).
+        columnCursors[col] = Math.max(columnCursors[col], contentStartY);
+        if (!drawBodyLine(col, line)) break; // also full
       }
     }
-    if (bestY + p.totalHeight <= contentBottomY) {
-      columns[bestCol].push(p);
-    } else {
-      // No column has space — promote to dense strip.
-      p.isDense = true;
-      denseQueue.push(p);
-    }
-  }
-
-  // --- Phase 3: Render compact items --------------------------------
-  // Walk each column top-to-bottom, using the actual rendered height
-  // for each card to update the cursorY. This is the fix for the
-  // overlap: previous versions used the estimated height to position
-  // the next card, which could place it inside the previous card's
-  // body if the estimate was low.
-  const columnCursors = Array.from({ length: columnCount }, () => contentStartY);
-  for (let col = 0; col < columnCount; col++) {
-    for (const p of columns[col]) {
-      renderItemCard(ctx, p, {
-        x: rect.x + columnPadding + col * (columnWidth + columnGap),
-        y: columnCursors[col],
-        width: columnWidth,
-      }, { bodySize: compactBodySize, maxBottomY: contentBottomY });
-      const rendered = measureItemCardHeight(ctx, p, columnWidth, compactBodySize);
-      columnCursors[col] = columnCursors[col] + Math.min(p.totalHeight, rendered) + cardGap;
-    }
-  }
-
-  // --- Phase 4: Render dense items in a wider strip -----------------
-  // The dense strip starts after the columns end. If a column ended
-  // higher, the dense strip is lifted so it doesn't leave dead space.
-  const compactEndY = Math.max(...columnCursors);
-  let denseY = compactEndY + 6;
-  for (const p of denseQueue) {
-    if (denseY + p.titleMetaHeight + 8 >= contentBottomY) break;
-    renderDenseItemCard(ctx, p, {
-      x: rect.x + columnPadding,
-      y: denseY,
-      width: fullWidth,
-    }, { bodySize: denseBodySize, maxBottomY: contentBottomY, subColumnGap });
-    // Approximate dense card height: title + grid height. Re-measure
-    // would require running the renderer, which we just did; use a
-    // conservative measure based on the parsed sections so the next
-    // dense card lands below this one cleanly.
-    const sectionsPerRow = 2;
-    const rows = Math.ceil(p.sections.length / sectionsPerRow);
-    const subW = (fullWidth - subColumnGap) / sectionsPerRow;
-    let maxRowH = 0;
-    for (let r = 0; r < rows; r++) {
-      let rowH = 0;
-      for (let s = 0; s < sectionsPerRow; s++) {
-        const idx = r * sectionsPerRow + s;
-        if (idx >= p.sections.length) break;
-        const sec = p.sections[idx];
-        const titleH = sec.title ? 5 : 0;
-        const bodyH = sec.body
-          ? measureRichParagraphHeight(ctx, sec.body, subW, denseBodySize, lineGap, textFont)
-          : 0;
-        rowH = Math.max(rowH, titleH + bodyH + cardGap);
-      }
-      maxRowH += rowH;
-    }
-    const denseCardH = p.titleMetaHeight + Math.max(maxRowH, measureRichParagraphHeight(ctx, p.description, fullWidth, denseBodySize, lineGap, textFont));
-    denseY = denseY + denseCardH + cardGap;
-  }
-
-  // --- Phase 5: Render dashboard items -------------------------------
-  // Each dashboard item is a full-width strip below the dense strip.
-  // Sections are laid out in a 2-column sub-grid: row 1 has section 0
-  // + section 1, row 2 has section 2 + section 3, and so on. The last
-  // row may have a single section (odd count). Each cell has a bold
-  // section title and its body in the body face, giving the player
-  // scannable visual anchors instead of a wall of prose.
-  console.log(`[DEBUG-DASH] contentStartY=${contentStartY} contentBottomY=${contentBottomY} denseY=${denseY} dashboardQueue=${dashboardQueue.length} fullWidth=${fullWidth} subColumnGap=${subColumnGap} cardGap=${cardGap}`);
-  let dashY = denseY;
-  for (const p of dashboardQueue) {
-    console.log(`[DEBUG-DASH] item="${p.item.name}" dashY=${dashY} sections=${p.sections.length} titleMeta=${p.titleMetaHeight}`);
-    if (dashY + p.titleMetaHeight >= contentBottomY) {
-      console.log(`[DEBUG-DASH] SKIP ${p.item.name}: dashY+titleMeta=${dashY + p.titleMetaHeight} >= contentBottomY=${contentBottomY}`);
-      break;
-    }
-    renderDashboardItem(ctx, p, {
-      x: rect.x + columnPadding,
-      y: dashY,
-      width: fullWidth,
-    }, { bodySize: denseBodySize, maxBottomY: contentBottomY, subColumnGap });
-    // BUGFIX: previous version estimated the rendered height by
-    // summing per-section body heights measured at denseBodySize.
-    // drawFittedRichParagraph shrinks body text when cellRemaining
-    // gets small, so the actual rendered height per section can be
-    // larger than the measurement. To avoid overlap with the next
-    // dashboard item, use a safer fallback: count the number of
-    // rows actually drawn (each row = max(left, right) cell height +
-    // 1.5pt gap) by replaying the loop with the same shrinking rules.
-    // For simplicity here, use the maximum of estimate and a per-row
-    // floor (titleH + minBodyH + cardGap per row).
-    const subW = (fullWidth - subColumnGap) / 2;
-    const rows = Math.ceil(p.sections.length / 2);
-    let actualTotalH = 0;
-    let cursorY = dashY + p.titleMetaHeight + 2;
-    let drawnRows = 0;
-    for (let r = 0; r < rows; r++) {
-      if (cursorY >= contentBottomY) break;
-      let rowH = 0;
-      for (let s = 0; s < 2; s++) {
-        const idx = r * 2 + s;
-        if (idx >= p.sections.length) break;
-        const sec = p.sections[idx];
-        // Title row bumped 6→9 to match the new dashboard render: 7pt
-        // title text + 2pt body gap. Keeps the layout math in sync with
-        // what's actually drawn so the cursor advances correctly.
-        const titleH = sec.title ? 9 : 0;
-        const cellRemaining = contentBottomY - cursorY - titleH;
-        let bodyH = 0;
-        if (sec.body) {
-          if (cellRemaining > 6) {
-            bodyH = measureRichParagraphHeight(ctx, sec.body, subW, denseBodySize, lineGap, textFont);
-            // Cap bodyH to available cellRemaining (drawFittedRichParagraph shrinks).
-            if (bodyH > cellRemaining - 1) bodyH = Math.max(6, cellRemaining - 1);
-          } else {
-            bodyH = 0;
-          }
-        }
-        rowH = Math.max(rowH, titleH + bodyH + cardGap);
-      }
-      actualTotalH += rowH;
-      cursorY += rowH + cardGap;
-      drawnRows++;
-    }
-    console.log(`[DEBUG-DASH] drew ${drawnRows}/${rows} rows for ${p.item.name}, actualTotalH=${actualTotalH}, new dashY=${dashY + p.titleMetaHeight + 2 + actualTotalH + cardGap}`);
-    dashY += p.titleMetaHeight + 2 + actualTotalH + cardGap;
+    // Add card gap to the last column used.
+    columnCursors[col] += cardGap;
   }
 }
 
-function renderDashboardItem(
-  ctx: PdfRenderContext,
-  p: PreparedItem,
-  rect: { x: number; y: number; width: number },
-  options: { bodySize: number; maxBottomY: number; subColumnGap: number },
-) {
-  // Title row spans the full width. Bumped 7.2 → 8.5pt + 2pt body gap
-  // to match the compact renderItemCard layout — the user wants
-  // item titles more prominent and a visible gap before body text.
-  const titleFSize = 8.5;
-  const titleH = 10;
-  const titleBodyGap = 2;
-  const metaLine = buildItemMetadataLine(p.item);
-  const separator = metaLine ? "  —  " : "";
-  ctx.doc.save();
-  ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
-  const nameWidth = ctx.doc.widthOfString(p.item.name);
-  const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
-  const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
-  ctx.doc.restore();
-  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: titleH }, {
-    font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0, ellipsis: true,
-  });
-  if (metaLine && metaWidth > 20) {
-    if (separatorWidth > 0) {
-      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: titleH }, {
-        font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0,
-      });
-    }
-    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: titleH }, {
-      font: "Helvetica-Bold", size: titleFSize, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
-    });
-  }
-
-  const bodyY = rect.y + titleH + titleBodyGap;
-  const subW = (rect.width - options.subColumnGap) / 2;
-  let rowY = bodyY;
-  const rows = Math.ceil(p.sections.length / 2);
-  for (let r = 0; r < rows; r++) {
-    // BUGFIX: stop rendering additional rows once rowY exceeds
-    // maxBottomY. Previous version always ran all 13 rows for
-    // Prayer Beads, drawing past the content bottom and overlapping
-    // the next item.
-    if (rowY >= options.maxBottomY) break;
-    let rowH = 0;
-    for (let s = 0; s < 2; s++) {
-      const idx = r * 2 + s;
-      if (idx >= p.sections.length) break;
-      const sec = p.sections[idx];
-      const cellX = rect.x + s * (subW + options.subColumnGap);
-      let cellCursorY = rowY;
-      // BUGFIX: also stop per-cell when cellCursorY exceeds
-      // maxBottomY (a single section can be tall enough to overflow
-      // even on its first row).
-      if (cellCursorY < options.maxBottomY) {
-        if (sec.title) {
-          // Visual anchor: section title in bold uppercase, body face
-          // (Magra-Bold) so it reads as inline emphasis of the same
-          // paragraph family, not a different display face. Bumped
-          // size 6→7 + 2pt body gap below so the title sits visibly
-          // above the body (user: "titles too close to descriptions").
-          drawText(ctx, sec.title.toUpperCase(), {
-            x: cellX, y: cellCursorY, width: subW, height: 7,
-          }, {
-            font: "Magra-Bold", size: 7, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
-          });
-          cellCursorY += 9;
-        }
-        if (sec.body) {
-          const cellRemaining = options.maxBottomY - cellCursorY;
-          if (cellRemaining > 6) {
-            const h = drawFittedRichParagraph(
-              ctx,
-              sec.body,
-              { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
-              { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.2 },
-            );
-            cellCursorY += h;
-          }
-        }
-      }
-      rowH = Math.max(rowH, cellCursorY - rowY);
-    }
-    rowY += rowH + 1.5;
-  }
-}
-
-function columnHeightsSum(columns: PreparedItem[][], _col: number): number {
-  // Helper: returns the cumulative height of cards already placed in
-  // column `col`. Used by the layout pass to decide which column is
-  // the smaller one (greedy bin-packing).
-  return columns[_col].reduce((sum, p) => sum + p.totalHeight, 0);
-}
-
-function renderItemCard(
-  ctx: PdfRenderContext,
-  p: PreparedItem,
-  rect: { x: number; y: number; width: number },
-  options: { bodySize: number; maxBottomY: number },
-) {
-  // Title row: "Name — metadata" or just "Name". Bumped 7.2pt → 8.5pt
-  // for better visual weight against the body face (the user said
-  // card titles are too small). Title height 10 → 14pt and a 4pt
-  // breathing gap before the body so the body doesn't visually crash
-  // into the title (user: "titles too close to description").
-  const titleFSize = 8.5;
-  const titleH = 14;
-  const titleBodyGap = 4;
-  const metaLine = buildItemMetadataLine(p.item);
-  const separator = metaLine ? "  —  " : "";
-  ctx.doc.save();
-  ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
-  const nameWidth = ctx.doc.widthOfString(p.item.name);
-  const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
-  const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
-  ctx.doc.restore();
-  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: titleH }, {
-    font: "Helvetica-Bold",
-    size: titleFSize,
-    color: COLORS.textPrimary,
-    lineGap: 0,
-    ellipsis: true,
-  });
-  if (metaLine && metaWidth > 20) {
-    if (separatorWidth > 0) {
-      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: titleH }, {
-        font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0,
-      });
-    }
-    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: titleH }, {
-      font: "Helvetica-Bold", size: titleFSize, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
-    });
-  }
-
-  if (p.description) {
-    const bodyY = rect.y + titleH + titleBodyGap;
-    const remaining = options.maxBottomY - bodyY;
-    if (remaining > 6) {
-      drawFittedRichParagraph(
-        ctx,
-        p.description,
-        { x: rect.x, y: bodyY, width: rect.width, maxHeight: remaining },
-        { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.3 },
-      );
+function pickShortestColumn(cursors: number[]): number {
+  let bestCol = 0;
+  let bestY = cursors[0];
+  for (let c = 1; c < cursors.length; c++) {
+    if (cursors[c] < bestY) {
+      bestY = cursors[c];
+      bestCol = c;
     }
   }
-}
-
-function measureItemCardHeight(
-  ctx: PdfRenderContext,
-  p: PreparedItem,
-  width: number,
-  bodySize: number,
-): number {
-  // Bumped titleH 12→14 and titleBodyGap 2→3 so item titles sit
-  // visibly above the body description (user: "names of the features
-  // are too close to the descriptions"). The denser rendering needs
-  // a touch more breathing room when stacked in a column.
-  const titleH = 14;
-  const bodyH = p.description
-    ? measureRichParagraphHeight(ctx, p.description, width, bodySize, 0.3, "Helvetica")
-    : 0;
-  return titleH + 3 + bodyH;
-}
-
-function renderDenseItemCard(
-  ctx: PdfRenderContext,
-  p: PreparedItem,
-  rect: { x: number; y: number; width: number },
-  options: { bodySize: number; maxBottomY: number; subColumnGap: number },
-) {
-  // Title row spans the full width. Bumped titleH 10→14 and
-  // titleBodyGap 3→4 so item titles sit visibly above the body
-  // description (user: "names of the features are too close to the
-  // descriptions"). The extra padding reads as a clear visual break
-  // between the bold item name and the body prose below.
-  const titleFSize = 8.5;
-  const titleH = 14;
-  const titleBodyGap = 4;
-  const metaLine = buildItemMetadataLine(p.item);
-  const separator = metaLine ? "  —  " : "";
-  ctx.doc.save();
-  ctx.doc.font("Helvetica-Bold").fontSize(titleFSize);
-  const nameWidth = ctx.doc.widthOfString(p.item.name);
-  const separatorWidth = separator ? ctx.doc.widthOfString(separator) : 0;
-  const metaWidth = metaLine ? Math.max(0, rect.width - nameWidth - separatorWidth) : 0;
-  ctx.doc.restore();
-  drawText(ctx, p.item.name, { x: rect.x, y: rect.y, width: rect.width, height: titleH }, {
-    font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0, ellipsis: true,
-  });
-  if (metaLine && metaWidth > 20) {
-    if (separatorWidth > 0) {
-      drawText(ctx, separator, { x: rect.x + nameWidth, y: rect.y, width: separatorWidth + 1, height: titleH }, {
-        font: "Helvetica-Bold", size: titleFSize, color: COLORS.textPrimary, lineGap: 0,
-      });
-    }
-    drawText(ctx, metaLine, { x: rect.x + nameWidth + separatorWidth, y: rect.y, width: metaWidth, height: titleH }, {
-      font: "Helvetica-Bold", size: titleFSize, color: COLORS.textSecondary, lineGap: 0, ellipsis: true,
-    });
-  }
-
-  const bodyY = rect.y + titleH + titleBodyGap;
-  const remaining = options.maxBottomY - bodyY;
-  if (remaining < 6) return;
-
-  // If we have 2+ sections, render them as a 2-column sub-grid
-  // (the "dashboard grid" the user asked for). Each section is a
-  // mini-card with a bold title and its own body, giving the player
-  // a scannable visual anchor for each Mantra / Style / Face.
-  if (p.sections.length >= 2) {
-    const subW = (rect.width - options.subColumnGap) / 2;
-    const sectionsPerRow = 2;
-    const rows = Math.ceil(p.sections.length / sectionsPerRow);
-    let rowY = bodyY;
-    for (let r = 0; r < rows; r++) {
-      // BUGFIX: stop rendering additional rows once rowY exceeds
-      // maxBottomY. Without this, renderDenseItemCard renders all
-      // 13 rows for Prayer Beads even when denseY is so low (after
-      // the compact columns) that only ~57pt remain, overflowing
-      // into the next item.
-      if (rowY >= options.maxBottomY) break;
-      let rowH = 0;
-      for (let s = 0; s < sectionsPerRow; s++) {
-        const idx = r * sectionsPerRow + s;
-        if (idx >= p.sections.length) break;
-        const sec = p.sections[idx];
-        const cellX = rect.x + s * (subW + options.subColumnGap);
-        const cellY = rowY;
-        let cellCursorY = cellY;
-        // BUGFIX: also stop per-cell when cellCursorY exceeds
-        // maxBottomY (a single section can be tall enough to overflow
-        // even on its first row).
-        if (cellCursorY < options.maxBottomY) {
-          if (sec.title) {
-            // Use Magra-Bold (the body's font family in bold weight) so
-            // the section header sits on the same baseline as the body
-            // text underneath. The previous Helvetica-Bold (= Teko-Medium
-            // display face) had a different ascender bbox and rendered
-            // visibly LOWER than the body line (user: "bold items are
-            // still lower than the line of writing"). Magra-Bold shares
-            // ascender 968 with Magra body so the baselines align.
-            drawText(ctx, sec.title.toUpperCase(), {
-              x: cellX, y: cellCursorY, width: subW, height: 7,
-            }, {
-              font: "Magra-Bold", size: 6, color: COLORS.textPrimary, lineGap: 0, lineBreak: false,
-            });
-            cellCursorY += 7;
-          }
-          if (sec.body) {
-            const cellRemaining = options.maxBottomY - cellCursorY;
-            if (cellRemaining > 6) {
-              const h = drawFittedRichParagraph(
-                ctx,
-                sec.body,
-                { x: cellX, y: cellCursorY, width: subW, maxHeight: cellRemaining },
-                { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.3 },
-              );
-              cellCursorY += h;
-            }
-          }
-        }
-        rowH = Math.max(rowH, cellCursorY - cellY);
-      }
-      rowY += rowH + 4;
-    }
-    return;
-  }
-
-  // Single-section dense item (or description with no parseable
-  // paragraphs): render the body across the full width, falling
-  // back to a fitted-shrink so the text never overflows the
-  // container bounds.
-  if (p.description) {
-    drawFittedRichParagraph(
-      ctx,
-      p.description,
-      { x: rect.x, y: bodyY, width: rect.width, maxHeight: remaining },
-      { font: "Helvetica", size: options.bodySize, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.3 },
-    );
-  }
+  return bestCol;
 }
 
 function renderAttuned(
@@ -2576,30 +2194,13 @@ function renderCompanionAbilities(
       width: 40,
       height: 10,
     }));
-    // Mask the bottom baked-in bold "STR" label (y 46-52) so the
-    // code-drawn ability name (STR/DEX/CON/INT/WIS/CHA) renders
-    // cleanly. Both masks needed because the SVG is a single
-    // template with both labels baked in.
-    maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
-      x: 8,
-      y: 46,
-      width: 40,
-      height: 10,
-    }));
-    // STR/DEX/CON/INT/WIS/CHA label drawn over the masked area. The
-    // _Stat Block.svg bakes static "STR" text into the bottom of
-    // the block — wrong for the other 5 cells. Mask the baked
-    // label and draw the correct one here. Using Magra-Bold to
-    // match the front page so both pages use the same stat-block
-    // geometry (user: "These should be same fonts same sizes,
-    // because they are the same thing, only they are twice in
-    // the pdf, one for character and once for companion").
-    drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
-      font: "Helvetica-Bold",
-      maxSize: 7.5,
-      minSize: 6.4,
-      color: "#000000",
-    });
+    // NOTE: the bottom baked-in bold label (y 46-52) is NO LONGER
+    // masked and the code-drawn STR/DEX/CON/INT/WIS/CHA label is
+    // NO LONGER drawn. Round-25 user feedback: the user prefers
+    // the original SVG-baked label over a Magra-Bold overlay that
+    // produced a visible duplicate. The SVG says "STR" for every
+    // cell — that's acceptable to the user as long as no duplicate
+    // is drawn on top.
     drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
       ...valueOptions,
       maxSize: 14,
