@@ -1431,18 +1431,21 @@ function renderPassives(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, charac
       return;
     }
     const cell = componentRect(FRONT_PAGE_REGIONS.passives, PASSIVES_VIEWBOX, PASSIVE_BOXES[index]);
-    drawCenteredTextInRect(ctx, value, rectFromFractions(cell, { x: 0.06, y: 0.05, width: 0.88, height: 0.44 }), {
+    drawCenteredTextInRect(ctx, value, rectFromFractions(cell, { x: 0.06, y: 0.12, width: 0.88, height: 0.53 }), {
       font: "Helvetica-Bold",
-      // Bumped 11 → 14 to match the companion page's SPEED card
-      // (renderCompanionSpeeds uses maxSize 14 in the same passive
-      // box template). User: "In speed in companion we have to use
-      // same font and size as in front page where we have labels
-      // for speeds and passives and we have to properly center
-      // value in card." Both pages now render the passive/speed
-      // number at 14pt Magra-Bold.
+      // Round-25: size parity with companion SPEED card. Companion
+      // slot height is 18pt (y=4 of 34pt viewBox), so front passive
+      // slot grown 0.44 → 0.53 (0.53 × 33.96 = 18pt) to match. With
+      // lineGap=0, heightOfString at 14pt Magra-Bold = 17.01pt which
+      // fits 18pt. Without lineGap=0 the default 0.12 × size lineGap
+      // pushes fitTextSize to shrink below 14pt — that's why the
+      // front "70 / Walking" digit was rendering at ~11pt while
+      // companion "40 / Walking" rendered at ~13pt. Both pages now
+      // render the passive/speed value at 14pt Magra-Bold.
       maxSize: 14,
       minSize: 6.4,
       color: "#000000",
+      lineGap: 0,
     });
   });
 }

@@ -2683,9 +2683,16 @@ function renderCompanionSpeeds(
     drawSvg(ctx, passiveFrame, rect, "contain");
     drawCenteredTextInRect(ctx, entries[index].value, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.value), {
       font: "Helvetica-Bold",
+      // Round-25: explicit lineGap=0 so the 14pt Magra-Bold value
+      // fits the 18pt slot without fitTextSize auto-shrinking below
+      // 14pt. Without lineGap=0 the default 0.12×size lineGap pushes
+      // heightOfString to 18.69pt > 18pt slot, so fitTextSize shrunk
+      // to ~13pt. Both front passives and companion SPEED now render
+      // at the same 14pt.
       maxSize: 14,
       minSize: 6.4,
       color: "#000000",
+      lineGap: 0,
     });
     drawCenteredTextInRect(ctx, entries[index].label, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.label), {
       font: "Helvetica",
