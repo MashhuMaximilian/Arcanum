@@ -2876,7 +2876,7 @@ function drawTextWithBoldActionWords(
       // the descender delta on page 2 and only nudges front page to
       // -0.33pt (still inside normal cap-height tolerance). Same
       // lift mirrored in page2-renderer.ts drawRichParagraph.
-      const renderY = run.bold ? cursorY - 1.8 : cursorY;
+      const renderY = run.bold ? cursorY - 2.4 : cursorY;
       doc.save();
       doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, renderY, { lineBreak: false });
       doc.restore();

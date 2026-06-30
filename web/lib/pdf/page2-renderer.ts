@@ -478,7 +478,7 @@ function drawRichParagraph(
             ctx.doc.restore();
             drawText(ctx, " ", {
               x: cursorX,
-              y: isBold ? y - 1.8 : y,
+              y: isBold ? y - 2.4 : y,
               width: spaceWidth,
               height: options.size + options.lineGap,
             }, {
@@ -508,7 +508,7 @@ function drawRichParagraph(
             // page 2. Front page stays at -1.5 since it already
             // measured diff=0.00. Same fix mirrored in front-page
             // drawTextWithBoldActionWords (unchanged) for parity.
-            y: isBold ? y - 1.8 : y,
+            y: isBold ? y - 2.4 : y,
             width: wordWidth + 1,
             height: options.size + options.lineGap,
           }, {
@@ -1012,8 +1012,14 @@ function renderItemDescriptions(
       // columnWidth, but safety net.
       const remainingW = lineX + columnWidth - cursorX;
       if (remainingW <= 0) break;
+      // Round-25 #H: lift bold runs -2.4pt so the bold glyph's visible
+      // baseline aligns with the surrounding body face. Magra-Bold at
+      // 6.4pt has a font-metric descender area ~3.06pt below the body
+      // descender (measured via pdftotext bbox on round-25r), causing
+      // bold words to look like they "sit lower" than the body line.
+      // Lifting 2.4pt zeros the visible-baseline delta.
       drawText(ctx, run.text, {
-        x: cursorX, y: lineY, width: Math.min(runW, remainingW), height: lineH,
+        x: cursorX, y: run.bold ? lineY - 2.4 : lineY, width: Math.min(runW, remainingW), height: lineH,
       }, {
         font: runFont,
         size: bodySize,
