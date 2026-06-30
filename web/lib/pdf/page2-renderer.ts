@@ -1285,69 +1285,48 @@ function renderInventoryFooter(
     capacity: number;
   },
 ) {
-  const rect = {
-    x: PAGE2_INVENTORY_REGIONS.inventoryIndex.x + 4,
-    y: PAGE2_INVENTORY_REGIONS.inventoryIndex.y + PAGE2_INVENTORY_REGIONS.inventoryIndex.height - 43,
-    width: PAGE2_INVENTORY_REGIONS.inventoryIndex.width - 8,
-    height: 30,
-  };
-
+  // Round-25 #G: footer split into TWO rows.
+  //   Row 1 (y=321, h=20): ENCUMBRANCE (3 boxes) + ATTUNED (1 box)
+  //   Row 2 (y=343, h=20): CURRENCY (5 boxes)
+  // Boxes are smaller (boxH=14 instead of 16) so both rows fit in the
+  // 42pt footer space with a 2pt gap. Labels sit above the value in
+  // each box at 3.2pt.
   const textFont = "Magra-Bold";
-  const labelSize = 4.2;
-  const valueSize = 6.5;
+  const labelSize = 4.0;
+  const valueSize = 6.4;
   const boxW = 22;
-  const boxH = 16;
-  const groupGap = 3.5;
-  const boxGap = 1.25;
+  const boxH = 14;
+  const boxGap = 1.0;
 
-  const attunedZone = { x: rect.x, y: rect.y, width: boxW, height: rect.height };
-  const currencyZoneWidth = 5 * boxW + 4 * boxGap;
-  const encumbranceZoneWidth = 3 * boxW + 2 * boxGap;
-  const totalWidth = boxW + groupGap + currencyZoneWidth + groupGap + encumbranceZoneWidth;
-  const startX = rect.x + Math.max(0, (rect.width - totalWidth) / 2);
-  const currencyZone = { x: startX + boxW + groupGap, y: rect.y, width: currencyZoneWidth, height: rect.height };
-  const encumbranceZone = { x: currencyZone.x + currencyZone.width + groupGap, y: rect.y, width: encumbranceZoneWidth, height: rect.height };
+  const encumbranceRegion = PAGE2_INVENTORY_REGIONS.encumbrance;
+  const attunedRegion = PAGE2_INVENTORY_REGIONS.attuned;
+  const currencyRegion = PAGE2_INVENTORY_REGIONS.currency;
 
-  // Attuned
-  drawCenteredTextInRect(ctx, "ATTUNED", { x: attunedZone.x - 2, y: attunedZone.y, width: boxW + 4, height: 4 }, {
-    font: textFont,
-    maxSize: 4.9,
-    minSize: 6.4,
-    color: COLORS.textPrimary,
-    lineBreak: false,
-  });
-  const attunedBox: PdfRect = { x: attunedZone.x, y: attunedZone.y + 8, width: boxW, height: boxH };
-  drawSvg(ctx, assets.proficiencyBox1, attunedBox);
-  drawCenteredTextInRect(ctx, `${data.attunedCount}/${data.maxAttuned}`, attunedBox, {
-    font: textFont,
-    maxSize: 6.2,
-    minSize: 6.4,
-    color: COLORS.textPrimary,
-    lineBreak: false,
-  });
-
-  // Currency
-  const currencyBoxW = boxW;
-  const currencyGap = boxGap;
-  const currencyTotalW = 5 * currencyBoxW + 4 * currencyGap;
-  const currencyStartX = currencyZone.x + Math.max(0, (currencyZone.width - currencyTotalW) / 2);
-  CURRENCY_TYPES.forEach((type, index) => {
-    const boxX = currencyStartX + index * (currencyBoxW + currencyGap);
-    drawCenteredTextInRect(ctx, CURRENCY_LABELS[type], {
+  // Row 1 — Encumbrance boxes (3 across) anchored left, then Attuned.
+  const encumbranceValues: Array<{ label: string; value: string }> = [
+    { label: "CARRIED", value: `${data.carriedWeight} lb` },
+    { label: "CAPACITY", value: `${data.capacity} lb` },
+    { label: "PUSH/DRAG", value: `${data.capacity * 2} lb` },
+  ];
+  const encumbranceTotalW = 3 * boxW + 2 * boxGap;
+  encumbranceValues.forEach((entry, index) => {
+    const boxX = encumbranceRegion.x + index * (boxW + boxGap);
+    // Label sits above the box
+    drawCenteredTextInRect(ctx, entry.label, {
       x: boxX - 1,
-      y: currencyZone.y,
-      width: currencyBoxW + 2,
-      height: 3.5,
+      y: encumbranceRegion.y,
+      width: boxW + 2,
+      height: 3.2,
     }, {
       font: textFont,
       maxSize: labelSize,
-      minSize: 6.4,
+      minSize: 4.0,
       color: COLORS.textSecondary,
       lineBreak: false,
     });
-    const boxRect: PdfRect = { x: boxX, y: currencyZone.y + 8, width: currencyBoxW, height: boxH };
+    const boxRect: PdfRect = { x: boxX, y: encumbranceRegion.y + 4, width: boxW, height: boxH };
     drawSvg(ctx, assets.proficiencyBox1, boxRect);
-    drawCenteredTextInRect(ctx, String(data.currency[type]), boxRect, {
+    drawCenteredTextInRect(ctx, entry.value, boxRect, {
       font: textFont,
       maxSize: valueSize,
       minSize: 6.4,
@@ -1356,35 +1335,56 @@ function renderInventoryFooter(
     });
   });
 
-  // Encumbrance
-  const encumbranceBoxW = boxW;
-  const encumbranceGap = boxGap;
-  const encumbranceTotalW = 3 * encumbranceBoxW + 2 * encumbranceGap;
-  const encumbranceStartX = encumbranceZone.x + Math.max(0, (encumbranceZone.width - encumbranceTotalW) / 2);
-  const encumbranceValues: Array<{ label: string; value: string }> = [
-    { label: "CARRIED", value: `${data.carriedWeight} lb` },
-    { label: "CAPACITY", value: `${data.capacity} lb` },
-    { label: "PUSH/DRAG", value: `${data.capacity * 2} lb` },
-  ];
-  encumbranceValues.forEach((entry, index) => {
-    const boxX = encumbranceStartX + index * (encumbranceBoxW + encumbranceGap);
-    drawCenteredTextInRect(ctx, entry.label, {
+  // Row 1 — Attuned box (right of encumbrance)
+  const attunedBoxX = attunedRegion.x;
+  drawCenteredTextInRect(ctx, "ATTUNED", {
+    x: attunedBoxX - 1,
+    y: attunedRegion.y,
+    width: boxW + 2,
+    height: 3.2,
+  }, {
+    font: textFont,
+    maxSize: labelSize,
+    minSize: 4.0,
+    color: COLORS.textSecondary,
+    lineBreak: false,
+  });
+  const attunedBox: PdfRect = { x: attunedBoxX, y: attunedRegion.y + 4, width: boxW, height: boxH };
+  drawSvg(ctx, assets.proficiencyBox1, attunedBox);
+  drawCenteredTextInRect(ctx, `${data.attunedCount}/${data.maxAttuned}`, attunedBox, {
+    font: textFont,
+    maxSize: valueSize,
+    minSize: 6.4,
+    color: COLORS.textPrimary,
+    lineBreak: false,
+  });
+
+  // Row 2 — Currency (5 boxes across the full width of the equipped card).
+  // Use wider boxes (currencyBoxW = 36pt) so 5 boxes × 36 + 4 gaps × 1 = 184pt
+  // fills the 200pt-wide equipped card row (centered, 8pt margin each side).
+  const currencyBoxW = 36;
+  const currencyGap = 1.0;
+  const currencyTotalW = 5 * currencyBoxW + 4 * currencyGap;
+  const currencyStartX = currencyRegion.x + Math.max(0, (currencyRegion.width - currencyTotalW) / 2);
+  CURRENCY_TYPES.forEach((type, index) => {
+    const boxX = currencyStartX + index * (currencyBoxW + currencyGap);
+    drawCenteredTextInRect(ctx, CURRENCY_LABELS[type], {
       x: boxX - 1,
-      y: encumbranceZone.y,
-      width: encumbranceBoxW + 2,
-      height: 3.5,
+      y: currencyRegion.y,
+      width: currencyBoxW + 2,
+      height: 3.2,
     }, {
       font: textFont,
-      maxSize: 4.1,
-      minSize: 6.4,
+      maxSize: labelSize,
+      minSize: 4.0,
       color: COLORS.textSecondary,
       lineBreak: false,
     });
-    const boxRect: PdfRect = { x: boxX, y: encumbranceZone.y + 8, width: encumbranceBoxW, height: boxH };
+    const boxRect: PdfRect = { x: boxX, y: currencyRegion.y + 4, width: currencyBoxW, height: boxH };
     drawSvg(ctx, assets.proficiencyBox1, boxRect);
-    drawCenteredTextInRect(ctx, entry.value, boxRect, {
+    drawCenteredTextInRect(ctx, String(data.currency[type]), boxRect, {
       font: textFont,
-      maxSize: 6.0,
+      maxSize: valueSize,
       minSize: 6.4,
       color: COLORS.textPrimary,
       lineBreak: false,
