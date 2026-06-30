@@ -2511,7 +2511,14 @@ function renderCompanionAbilities(
   scores: Record<CompanionAbilityCell["key"], number>,
 ) {
   const slots = {
-    save: { x: 11, y: 7.2, width: 33, height: 9.2 },
+    // Round-25: save slot grown 9.2 → 18pt tall to match the front
+    // page and the companion modifier slot (h=18). At 14pt Magra-Bold
+    // lineGap=0, heightOfString = 17.01pt — old 9.2pt slot forced
+    // fitTextSize to shrink the save pip digit to ~7pt while the
+    // modifier rendered at full 14pt (visible 30% size discrepancy).
+    // y shifted from 7.2 → 5 to keep the digit vertically centered
+    // within the new height.
+    save: { x: 11, y: 5, width: 33, height: 18 },
     // Score slot grown 15.5 → 30pt tall (y 26.8 → 18, height 30) so
     // 28pt scores have room to render — fitTextSize was clamping
     // them to ~15pt in the old slot, making the digit look small
