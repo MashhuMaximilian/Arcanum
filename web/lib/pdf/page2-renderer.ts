@@ -949,8 +949,18 @@ function renderItemDescriptions(
         const segs = run.text.split(/(\s+|\n\n+)/).filter(Boolean);
         for (const seg of segs) {
           if (!seg) continue;
+          // Round-28 #3: inline emphasis now uses Magra-Bold
+          // (same family as body Magra-Regular) instead of
+          // Helvetica-Bold (which aliased to Teko-Medium — a
+          // different font family entirely). User feedback:
+          // 'I see in item descriptions there is another font,
+          // and in first page feature description it is the
+          // same font. In reality they have to be formatted
+          // the same'. The front page drawTextWithBoldActionWords
+          // already used Magra-Bold; this brings page-2 item
+          // descriptions in line.
           ctx.doc.save();
-          ctx.doc.font(run.bold ? "Helvetica-Bold" : textFont).fontSize(bodySize);
+          ctx.doc.font(run.bold ? "Magra-Bold" : textFont).fontSize(bodySize);
           const segW = ctx.doc.widthOfString(seg);
           ctx.doc.restore();
           if (/^\n/.test(seg)) {
@@ -1050,16 +1060,30 @@ function renderItemDescriptions(
     const lineY = columnCursors[col];
     let cursorX = lineX;
     for (const run of line.runs) {
-      const runFont = run.bold ? "Helvetica-Bold" : textFont;
+      // Round-28 #3: inline emphasis now uses Magra-Bold (same family
+      // as body Magra-Regular) instead of Helvetica-Bold (which
+      // aliased to Teko-Medium). User feedback: 'These should be
+      // formatted the same. ... same font family as the rest of
+      // description'. Mirrors the front page change.
+      const runFont = run.bold ? "Magra-Bold" : textFont;
       ctx.doc.save();
       ctx.doc.font(runFont).fontSize(bodySize);
       const runW = ctx.doc.widthOfString(run.text);
       ctx.doc.restore();
       const remainingW = lineX + columnWidth - cursorX;
       if (remainingW <= 0) break;
-      // Round-25 #H: lift bold runs -2.4pt for visible-baseline alignment.
+      // Round-28 #3: REMOVE the -2.4pt hardcoded Y lift for bold
+      // runs. User feedback: 'these bolded items should all be a bit
+      // lower to be in-line I guess, but we should not make this
+      // hardcoded, they are part of the same sentence, same text,
+      // same font, same size, same everything'. Both Magra-Regular
+      // and Magra-Bold share sTypoAscender=968 so the TTF baseline
+      // metrics align naturally — the previous lift was compensating
+      // for the FONT FAMILY SWITCH (Teko-Medium vs Magra-Regular)
+      // which had a 0.33pt ascender delta. Now that both runs use
+      // Magra, the lift is unnecessary. Trust the font metrics.
       drawText(ctx, run.text, {
-        x: cursorX, y: run.bold ? lineY - 2.4 : lineY, width: Math.min(runW, remainingW), height: lineH,
+        x: cursorX, y: lineY, width: Math.min(runW, remainingW), height: lineH,
       }, {
         font: runFont,
         size: bodySize,

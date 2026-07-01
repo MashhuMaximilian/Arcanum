@@ -2959,11 +2959,15 @@ function drawTextWithBoldActionWords(
     const words = run.text.split(/(\s+)/);
     for (const w of words) {
       if (w.length === 0) continue;
-      // Bold action words use the same Magra body face (just bold
-      // weight) so inline emphasis never switches to a different font
-      // mid-paragraph. The visual difference reads through the weight,
-      // not the typeface.
-      const wordFont = run.bold ? "Magra-Bold" : "Helvetica";
+      // Round-28 #3: body uses Magra-Regular (the same physical
+      // font as the bold runs, just the Regular weight). Both
+      // face variants share sTypoAscender=968 per TTF OS/2 so
+      // baselines align naturally — no Y offset needed. Previous
+      // 'Helvetica' alias mapped to Magra-Regular too, but the
+      // font-family switch from 'Helvetica' to 'Magra-Bold' is
+      // fine here because they are both Magra family under the
+      // hood (per generate.ts registerFont lines 215-216).
+      const wordFont = run.bold ? "Magra-Bold" : "Magra";
       doc.save();
       doc.font(wordFont).fontSize(fSize);
       const w2 = doc.widthOfString(w);
@@ -2977,32 +2981,21 @@ function drawTextWithBoldActionWords(
       }
 
 // Render this run with lineBreak: false to prevent PDFKit auto page breaks.
-      // Round-15 baseline fix: PDFKit's text() positions the baseline at `y`
-      // using the current font's ascender. Magra-Bold and Magra share
-      // sTypoAscender=968 per TTF OS/2, so they SHOULD baseline-align —
-      // but Magra-Bold's cap-height-to-ascender ratio is significantly
-      // larger (Bold ink fills more of the cap-height box), so the bold
-      // glyph's visual mass sits ~1.4pt LOWER than the surrounding Magra
-      // body. The user kept reporting 'bold is lower than the rest of
-      // the line' after the round-13 +0.5pt lift — that was insufficient.
-      // Bumped to -1.5pt so the bold word's visual centerline matches
-      // the body face's centerline. Same fix mirrored in
-      // page2-renderer.ts drawRichParagraph for parity.
+// Round-28 #3: REMOVE the -2.4pt hardcoded Y lift for bold runs.
+// User feedback: 'these bolded items should all be a bit lower to
+// be in-line I guess, but we should not make this hardcoded, they
+// are part of the same sentence, same text, same font, same size,
+// same everything'. Both Magra-Regular and Magra-Bold share the
+// same sTypoAscender=968 in TTF OS/2, so PDFKit positions their
+// baselines at the same Y — no offset needed. Previous
+// compensation was for a font-family switch (Teko-Medium vs
+// Magra-Regular) on page 2; on the front page the round-15/-21
+// lifts were unnecessary even before this round since both fonts
+// are Magra. Trust the font metrics; the bold word will sit in
+// the same visual band as the body word.
       if (cursorY > opts.y + opts.height) break;
-      // Round-21 baseline fix: lift bold glyph -1.8pt so its descender
-      // ink stops at the body baseline. Magra-Bold's ink mass extends
-      // ~0.33pt below the body baseline at 6.4pt (verified via
-      // pdftotext -bbox on round-20 PDF), making the bold word look
-      // like it's "sitting lower" than the body face. Page 2's
-      // tighter lineGap=0.2 vs front's 0.5 amplifies the effect. The
-      // round-15 -1.5pt lift was close (front page measured 0.00
-      // delta) but page 2 measured +0.33pt — lifting to -1.8pt zeros
-      // the descender delta on page 2 and only nudges front page to
-      // -0.33pt (still inside normal cap-height tolerance). Same
-      // lift mirrored in page2-renderer.ts drawRichParagraph.
-      const renderY = run.bold ? cursorY - 2.4 : cursorY;
       doc.save();
-      doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, renderY, { lineBreak: false });
+      doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
       doc.restore();
       lineX += w2;
       lineRemaining -= w2;
