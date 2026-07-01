@@ -656,9 +656,20 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     // because the old 6.4pt labelRect height was smaller than
     // PDFKit's heightOfString at 6.4pt Magra (≈7.78pt including
     // lineGap). The companion uses drawText directly — same fix.
+    //
+    // Round-26 #7: user feedback "the label to be smaller in font size
+    // so we do not overlap the line underneath the value with the
+    // label below it". 6.8pt × Magra cap-height (~6.5pt) + descender
+    // (~2pt) was visible-ink-extending past the labelRect top edge
+    // and crashing into the dashed underline below. Reduced label size
+    // 6.8 → 5.5pt (still larger than value text 6.4pt × 0.94 = 6.0pt
+    // but with more vertical breathing room above the separator).
+    // Also lifted labelRect.y 0.5pt so the ink sits closer to the
+    // separator line above the labelRect (visually hugging the top
+    // of the field card).
     drawText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
       font: "Helvetica",
-      size: 6.8,
+      size: 5.5,
       align: "left",
       color: "#777777",
       lineBreak: false,
