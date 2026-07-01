@@ -477,22 +477,36 @@ function drawDefensesStatBox(ctx: PdfRenderContext, rect: PdfRect, rawValue: str
     height: Number.isFinite(rect.height) && rect.height > 0 ? rect.height : 20,
   };
 
-  // Reserve bottom ~24% of card height so rows do not overlap DEFENSES label.
-  // This is a bottom reserve only; insetRect would remove the same amount from top and bottom.
+// Reserve bottom ~24% of card height so rows do not overlap DEFENSES label.
+// This is a bottom reserve only; insetRect would remove the same amount from top and bottom.
+// Round-26 #4: reduce horizontal padding 5pt → 1pt so the cell content
+// width grows from ~31pt → ~43pt, enough to fit "Unarmored | 10 +1 AC"
+// at 6pt without mid-word truncation. The defenses SVG cell is ~45pt
+// wide on page; previous 5pt inset per side wasted ~20% of usable
+// horizontal space on internal padding that the SVG doesn't actually
+// require.
   const bottomPadFrac = 0.24;
   const bottomPad = Number.isFinite(safeRect.height) && safeRect.height > 0
     ? safeRect.height * bottomPadFrac
     : 5;
   const contentRect: PdfRect = {
-    x: safeRect.x + 5,
+    x: safeRect.x + 1,
     y: safeRect.y + 3,
-    width: Math.max(1, safeRect.width - 10),
+    width: Math.max(1, safeRect.width - 2),
     height: Math.max(1, safeRect.height - 3 - bottomPad),
   };
 
   const rowCount = lines.length;
-  const maxFontSize = Math.min(7.2, (contentRect.height / Math.max(1, rowCount)) * 0.85);
-  const minFontSize = 1.5;
+  // Round-26 #4: bump defenses font 5.5pt → 6.5pt with minSize 4.5
+  // so the AC contributors read clearly. The defenses cell on page
+  // is only ~30pt wide (the SVG statStrip maps 44.52 viewBox units
+  // to ~30 actual points), so 7pt "Unarmored" overflows. fitTextSize
+  // auto-shrinks in 0.25pt steps until the text fits the width —
+  // for "Unarmored | 10 +1 AC" the longest typical row, the largest
+  // fitting size is ~4.5pt. minSize 4.5 ensures we never go below
+  // readable-at-print size.
+  const maxFontSize = Math.min(6.5, (contentRect.height / Math.max(1, rowCount)) * 0.85);
+  const minFontSize = 4.5;
   const fittedFontSize = Math.min(
     maxFontSize,
     ...lines.map((line) =>
