@@ -1549,35 +1549,44 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
   values.forEach((items, index) => {
     const cell = cells[index];
     drawSvg(ctx, assets.proficiencyBox0, cell);
-    // Round-26 #3: drop the bottom white mask that was clearing the
-    // SVG's decorative bubble ornament — the user wants the SVG's
-    // natural frame visible. Keep the top code-drawn label (it's the
-    // only label, not a duplicate — the user's "drop duplicate top
-    // label" referred to the SVG-baked bottom label they thought was
-    // being redrawn at the top).
-    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.04, y: 0.02, width: 0.92, height: 0.10 }), {
-      font: "Helvetica",
-      maxSize: 6.0,
-      minSize: 6.0,
-      color: "#777777",
-      lineBreak: false,
-    });
+    // Round-27 #2: drop the code-drawn top label entirely. The
+    // SVG-baked small grey label at the TOP of each box is the
+    // visual we want — but it's still baked in as the same default
+    // text on every box (so we can't trust it for variable content).
+    // Instead we code-draw the per-cell label at the BOTTOM bubble
+    // (the small rounded badge ornament that sits between y=37-47
+    // of the box viewBox), at the same 4.5pt #777 SPEED-card label
+    // size the user requested.
+    //
+    // Mask any SVG-baked top label so it doesn't collide with the
+    // value text. The top label band sits at SVG y=4-7 (8% from top).
+    maskRect(ctx, rectFromFractions(cell, { x: 0.04, y: 0.0, width: 0.92, height: 0.14 }));
     if (!items.length) {
+      // No items — still draw the bottom label so the empty card
+      // is visually consistent with the others.
+      drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.12, y: 0.80, width: 0.76, height: 0.16 }), {
+        font: "Helvetica",
+        maxSize: 4.5,
+        minSize: 4.5,
+        color: "#777777",
+        lineBreak: false,
+      });
       return;
     }
     const itemText = items.join(", ");
-    // Round-26 #3: shrink-to-fit so long values like the Ranger's
+    // Round-27 #2: dynamic font shrink. The previous fixed 5.5/4.5pt
+    // band worked for 4-5 item lists but clipped on the Ranger's
     // 6-item weapons list ("Longsword, Shortsword, Shortbow, Longbow,
-    // Simple Weapons, Martial Weapons") never clip. maxSize 6.4→5.5
-    // (per user spec — slightly smaller font); minSize 4.0→4.5 to
-    // match. The cell is 47pt tall. Label band y=0..0.10 (~4.7pt).
-    // With no bottom mask, value band now extends y=0.14..1.0 (~40pt)
-    // — fits 5-6 lines at 5.5pt Magra with lineGap=0.
-    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.14, width: 0.88, height: 0.84 });
+    // Simple Weapons, Martial Weapons"). Now we let fitTextSize pick
+    // anywhere between 6.4pt (1-2 items — matches the SPEED-card
+    // label weight) and 3.5pt (6+ items — small but readable) based
+    // on what actually fits. Aggressive shrinking lets us reclaim
+    // ~25% more vertical space for long lists without truncating.
+    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.16, width: 0.88, height: 0.62 });
     const valueSize = fitTextSize(ctx, itemText, valueRect, {
       font: "Helvetica",
-      maxSize: 5.5,
-      minSize: 4.5,
+      maxSize: 6.4,
+      minSize: 3.5,
       align: "left",
       color: "#000000",
       lineBreak: true,
@@ -1592,6 +1601,15 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
       lineBreak: true,
       ellipsis: false,
       lineGap: 0,
+    });
+    // Bottom label in the small bubble ornament at the bottom of
+    // the card. SPEED-card label style: 4.5pt #777777 Helvetica.
+    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.12, y: 0.80, width: 0.76, height: 0.16 }), {
+      font: "Helvetica",
+      maxSize: 4.5,
+      minSize: 4.5,
+      color: "#777777",
+      lineBreak: false,
     });
   });
 }
