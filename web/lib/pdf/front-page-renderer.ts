@@ -303,13 +303,20 @@ const HEADER_FIELD_SLOTS = [
   // page (6.8 × 0.94 = 6.39pt visual — matches the unscaled 6.4pt
   // companion header). Value rects shifted down 1pt to make room
   // for the taller label band and avoid colliding with the underline.
-  { key: "race", label: "RACE", labelRect: { x: 242, y: 24.5, width: 83, height: 9 }, valueRect: { x: 242, y: 34.5, width: 83, height: 9 }, lineRect: { x: 242, y: 39.5, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 24.5, width: 139, height: 9 }, valueRect: { x: 333, y: 34.5, width: 139, height: 9 }, lineRect: { x: 333, y: 39.5, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 24.5, width: 44, height: 9 }, valueRect: { x: 480.5, y: 34.5, width: 44, height: 9 }, lineRect: { x: 480.5, y: 39.5, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 41.5, width: 71.5, height: 9 }, valueRect: { x: 242, y: 51.5, width: 71.5, height: 9 }, lineRect: { x: 242, y: 56.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 41.5, width: 71.5, height: 9 }, valueRect: { x: 321.5, y: 51.5, width: 71.5, height: 9 }, lineRect: { x: 321.5, y: 56.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 41.5, width: 71.5, height: 9 }, valueRect: { x: 401, y: 51.5, width: 71.5, height: 9 }, lineRect: { x: 401, y: 56.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 41.5, width: 71.5, height: 9 }, valueRect: { x: 480.5, y: 51.5, width: 71.5, height: 9 }, lineRect: { x: 480.5, y: 56.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  //
+  // Round-27 #3: tighten label↔value gap. Old gap was 10pt between
+  // label center (y≈29) and value center (y≈39). User feedback:
+  // 'the label and value closer to each other'. Moved valueRect y
+  // 34.5 → 33 (1.5pt up), closing the visual gap to ≈8pt between
+  // centers. Also bumped lineRect up 0.5pt to keep the underline
+  // tight under the now-higher value.
+  { key: "race", label: "RACE", labelRect: { x: 242, y: 24.5, width: 83, height: 9 }, valueRect: { x: 242, y: 33, width: 83, height: 9 }, lineRect: { x: 242, y: 39, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 24.5, width: 139, height: 9 }, valueRect: { x: 333, y: 33, width: 139, height: 9 }, lineRect: { x: 333, y: 39, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 24.5, width: 44, height: 9 }, valueRect: { x: 480.5, y: 33, width: 44, height: 9 }, lineRect: { x: 480.5, y: 39, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 41, width: 71.5, height: 9 }, valueRect: { x: 242, y: 49.5, width: 71.5, height: 9 }, lineRect: { x: 242, y: 55.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 41, width: 71.5, height: 9 }, valueRect: { x: 321.5, y: 49.5, width: 71.5, height: 9 }, lineRect: { x: 321.5, y: 55.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 41, width: 71.5, height: 9 }, valueRect: { x: 401, y: 49.5, width: 71.5, height: 9 }, lineRect: { x: 401, y: 55.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 41, width: 71.5, height: 9 }, valueRect: { x: 480.5, y: 49.5, width: 71.5, height: 9 }, lineRect: { x: 480.5, y: 55.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
 ] as const;
 
 const SPELLCASTING_REGION: PdfRect = FRONT_PAGE_REGIONS.spellcasting;
