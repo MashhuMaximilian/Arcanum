@@ -229,11 +229,18 @@ const ACTION_WORD_PHRASES = [
 
 function tokenizeInlineRuns(text: string): InlineRun[] {
   const runs: InlineRun[] = [];
-  // Combined regex: **stripped** | *italic*. The `**` match captures the
-  // inner word with `bold: false` so the ** markers are removed but the
-  // word renders in the same body face as surrounding text — no visible
-  // jump, no visible asterisks.
-  const regex = /(\*\*([^*\n][^*]*?)\*\*)|((?<!\*)\*([^*\n]+)\*(?!\*))/g;
+  // Combined regex: ***bold+italic*** | **bold** | *italic*. The
+  // three-star form captures inner word with bold:true + italic:true so
+  // the user-supplied triple-marker (e.g. `* ***Praying Mantis’
+  // Swiftness*** =`) renders as a bullet line whose inner word reads in
+  // bold-italic. The `**` match captures the inner word with bold:true
+  // but we still strip the `**` markers — bold inline emphasis uses the
+  // same Magra-Bold body face, no visible asterisks. Single `*italic*`
+  // captures with italic:true.
+  //
+  // Order matters: try the longest match first (*** then ** then *) so
+  // the regex engine doesn't split `***x***` into `*` + `**x**` + `*`.
+  const regex = /\*\*\*([^*\n][^*\n]*?)\*\*\*|\*\*([^*\n][^*\n]*?)\*\*|(?<!\*)\*([^*\n][^*\n]*?)\*(?!\*)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
@@ -241,13 +248,22 @@ function tokenizeInlineRuns(text: string): InlineRun[] {
       const plain = text.slice(lastIndex, match.index);
       appendInlineRuns(runs, plain);
     }
-    if (match[2] !== undefined) {
-      // **stripped** — render inner word in body face (no bold,
-      // no italic). See doc comment above for round-13 reasoning.
-      appendInlineRuns(runs, match[2]);
-    } else if (match[4] !== undefined) {
-      // *italic*
-      runs.push({ text: match[4], bold: false, italic: true });
+    if (match[1] !== undefined) {
+      // ***bold+italic*** — emit inner word with both flags so the
+      // renderer picks Magra-Bold + oblique shear. The surrounding `***`
+      // markers are stripped (no visible asterisks).
+      runs.push({ text: match[1], bold: true, italic: true });
+    } else if (match[2] !== undefined) {
+      // **bold** — render inner word in bold body face. Markers
+      // stripped so **Bonus Action** reads as body text in the same
+      // Magra-Bold ink as the surrounding paragraph (no Teko jump).
+      // Round-26 #5: explicitly mark bold:true so the renderer lifts
+      // the baseline -2.4pt to align with body descenders.
+      runs.push({ text: match[2], bold: true, italic: false });
+    } else if (match[3] !== undefined) {
+      // *italic* — render inner word in italic body face via PDFKit's
+      // oblique shear (Magra has no italic cut).
+      runs.push({ text: match[3], bold: false, italic: true });
     }
     lastIndex = match.index + match[0].length;
   }
@@ -876,7 +892,7 @@ function renderItemDescriptions(
   // Each line carries its runs (bold vs body) so the renderer can
   // switch fonts mid-line.
   type Run = { text: string; bold: boolean; italic?: boolean };
-  type WrappedLine = { runs: Run[] };
+  type WrappedLine = { runs: Run[]; bullet?: boolean };
   type PreparedItem = {
     item: CharacterInventoryItem;
     titleMeta: string;
@@ -885,50 +901,114 @@ function renderItemDescriptions(
 
   const wrapBody = (description: string): WrappedLine[] => {
     if (!description) return [];
-    const runs = tokenizeInlineRuns(description);
     const lines: WrappedLine[] = [];
     let currentRuns: Run[] = [];
     let currentWidth = 0;
+    let pendingBullet = false;
+    let pendingIndent = 0;
 
     const flush = () => {
       if (currentRuns.length === 0) return;
-      lines.push({ runs: currentRuns });
+      lines.push({ runs: currentRuns, bullet: pendingBullet || undefined });
       currentRuns = [];
       currentWidth = 0;
+      pendingBullet = false;
     };
 
-    for (const run of runs) {
-      // Split the run on whitespace so we can preserve word boundaries
-      // for line-breaking. Whitespace tokens glue runs together but
-      // don't add a trailing space if the line ends with one.
-      // CRITICAL: also split on `\n\n` (paragraph break) so each
-      // paragraph starts on its own line in the wrap. The previous
-      // version treated `\n\n` as just whitespace which collapsed
-      // paragraph breaks into a single visual line.
-      const segs = run.text.split(/(\s+|\n\n+)/).filter(Boolean);
-      for (const seg of segs) {
-        if (!seg) continue;
-        ctx.doc.save();
-        ctx.doc.font(run.bold ? "Helvetica-Bold" : textFont).fontSize(bodySize);
-        const segW = ctx.doc.widthOfString(seg);
-        ctx.doc.restore();
-        if (/^\n/.test(seg)) {
-          // Paragraph break — flush current line and start fresh.
-          flush();
-        } else if (/^\s+$/.test(seg)) {
-          // Just a whitespace token — keep as part of current run for
-          // word spacing but don't add a new leading space on wrap.
-          currentRuns.push({ text: seg, bold: run.bold, italic: run.italic });
-          currentWidth += segW;
+    const processLine = (line: string) => {
+      // Round-26 #5: bullet detection at the start of each line.
+      // User spec:
+      //   * word        = bullet point
+      //   *word*        = italic word
+      //   * **word**    = bullet + bold
+      //   * ***word***  = bullet + bold+italic
+      // The bullet marker is `*` followed by whitespace. If the line
+      // begins with `* ` (single asterisk + space), it's a bullet and
+      // the rest is the body. If the line begins with `*** ` or `** `,
+      // it's a triple/double-asterisk inline emphasis, not a bullet
+      // (consumed by tokenizeInlineRuns).
+      const trimmed = line.trimStart();
+      const leadingWS = line.length - trimmed.length;
+      // Bullet only when the first char is `*` AND it's followed by
+      // whitespace (so `*Praying Mantis*` is NOT a bullet — it's a
+      // malformed italic), AND it's NOT a `**` or `***` triple marker.
+      let bulletPrefix = "";
+      let bodyText = trimmed;
+      if (
+        trimmed.startsWith("*") &&
+        !trimmed.startsWith("**") &&
+        trimmed.length > 1 &&
+        /\s/.test(trimmed[1])
+      ) {
+        bulletPrefix = "• ";
+        bodyText = trimmed.slice(1).trimStart();
+        pendingBullet = true;
+        pendingIndent = leadingWS;
+      }
+      // Inject bullet glyph as the first run of the line so the bullet
+      // sits in the same column as the wrapped text. Reserve width for
+      // the indent + bullet prefix so wrap calculations subtract it
+      // from columnWidth.
+      const runs = tokenizeInlineRuns(bodyText);
+      // Apply bullet prefix only to the FIRST run of the FIRST line of
+      // this logical paragraph. Subsequent wrapped lines lose the bullet
+      // (since flush() resets currentRuns).
+      if (bulletPrefix) {
+        // Replace any leading whitespace in the first run with the bullet.
+        if (runs.length > 0 && runs[0].text.startsWith(" ")) {
+          runs[0] = { ...runs[0], text: bulletPrefix + runs[0].text.trimStart() };
+        } else if (runs.length > 0) {
+          runs[0] = { ...runs[0], text: bulletPrefix + runs[0].text };
         } else {
-          // Word token. If it overflows, flush and start new line.
-          if (currentWidth + segW > columnWidth && currentRuns.length > 0) {
-            flush();
-          }
-          currentRuns.push({ text: seg, bold: run.bold, italic: run.italic });
-          currentWidth += segW;
+          runs.push({ text: bulletPrefix, bold: false, italic: false });
         }
       }
+      for (const run of runs) {
+        // Split the run on whitespace so we can preserve word boundaries
+        // for line-breaking. Whitespace tokens glue runs together but
+        // don't add a trailing space if the line ends with one.
+        // CRITICAL: also split on `\n\n` (paragraph break) so each
+        // paragraph starts on its own line in the wrap. The previous
+        // version treated `\n\n` as just whitespace which collapsed
+        // paragraph breaks into a single visual line.
+        const segs = run.text.split(/(\s+|\n\n+)/).filter(Boolean);
+        for (const seg of segs) {
+          if (!seg) continue;
+          ctx.doc.save();
+          ctx.doc.font(run.bold ? "Helvetica-Bold" : textFont).fontSize(bodySize);
+          const segW = ctx.doc.widthOfString(seg);
+          ctx.doc.restore();
+          if (/^\n/.test(seg)) {
+            // Paragraph break — flush current line and start fresh.
+            flush();
+          } else if (/^\s+$/.test(seg)) {
+            // Just a whitespace token — keep as part of current run for
+            // word spacing but don't add a new leading space on wrap.
+            currentRuns.push({ text: seg, bold: run.bold, italic: run.italic });
+            currentWidth += segW;
+          } else {
+            // Word token. If it overflows, flush and start new line.
+            if (currentWidth + segW > columnWidth && currentRuns.length > 0) {
+              flush();
+            }
+            currentRuns.push({ text: seg, bold: run.bold, italic: run.italic });
+            currentWidth += segW;
+          }
+        }
+      }
+    };
+
+    // Split description into logical lines (paragraphs). Hard `\n`
+    // starts a new wrap line. `\n\n` is a paragraph break.
+    const paragraphs = description.split(/\n\n+/);
+    for (const para of paragraphs) {
+      if (!para.trim()) continue;
+      const paraLines = para.split(/\n/);
+      for (const paraLine of paraLines) {
+        if (!paraLine.trim()) continue;
+        processLine(paraLine);
+      }
+      flush();
     }
     flush();
     // Strip trailing whitespace runs from ONLY the very last line of
