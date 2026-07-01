@@ -2268,12 +2268,20 @@ function renderCompanionAbilities(
     // Magra-Bold to match the front page) can render the correct
     // ability name for this cell.
     //
-    // Round-28 #1: nudge label UP further from y=46 to y=42. Mirrors
-    // the front-page change so companion page matches.
-    label: { x: 10, y: 42, width: 35, height: 8 },
+    // Round-29 #1: REVERT label y back to 46 (was 42 in round-28).
+    // Mirrors the front-page change. Round-28 y=42 collided with
+    // the SVG-baked divider line at y=43.04, producing strikethrough
+    // across the labels. y=46 puts the label JUST BELOW the divider
+    // (y≈44) and clears the modifier bubble at y=52 — sitting in
+    // the gap with breathing room on both sides.
+    label: { x: 10, y: 46, width: 35, height: 8 },
     // Mask slot for the SVG-baked bottom label area (y 46-52).
-    // Cleared so the code-drawn label renders without a duplicate.
-    labelMaskBottom: { x: 8, y: 46, width: 40, height: 10 },
+    // Round-29 #1: SHRUNK height 10 → 5 so the mask stops at y=51,
+    // clearing the modifier bubble (which starts at y=52.28). The
+    // previous y=46..56 height=10 was eating into the top of the
+    // modifier circle, leaving a visible white sliver above the
+    // modifier digit.
+    labelMaskBottom: { x: 8, y: 46, width: 40, height: 5 },
   } satisfies Record<string, PdfRect>;
 
   for (const cell of rects.abilityCells) {
@@ -2295,11 +2303,15 @@ function renderCompanionAbilities(
       lineGap: 0,
     } as const;
 
-    // Round-28 #1: nudge save pip UP further from -3pt to -5pt to
-    // clear the SVG-baked SAVE label with breathing room. Mirrors
-    // the front-page change.
+    // Round-29 #1: REVERT save pip y-lift to 0 (was -5pt in
+    // round-28). Mirrors the front-page change. Round-28's -5pt
+    // lift put the digit too high — above the pip center, sitting
+    // outside the save circle. Lift 0 lets drawCenteredTextInRect
+    // center the digit vertically in the saveSlot (y=5..23) at
+    // y≈14, inside the pip circle with breathing room from the
+    // baked SAVE text at y=18-22.
     const saveSlot = componentRect(cell.rect, STAT_VIEWBOX, slots.save);
-    drawCenteredTextInRect(ctx, formatModifier(modifier), { ...saveSlot, y: saveSlot.y - 5 }, {
+    drawCenteredTextInRect(ctx, formatModifier(modifier), { ...saveSlot, y: saveSlot.y }, {
       ...valueOptions,
       maxSize: 14,
     });

@@ -256,16 +256,29 @@ const STAT_VALUE_SLOTS = {
   // mask to cover BOTH label areas so only the code-drawn label
   // (rendered last at the bottom slot) is visible.
   labelMask: { x: 8, y: 14, width: 40, height: 10 },
-  labelMaskBottom: { x: 8, y: 46, width: 40, height: 10 },
-  // Round-28 #1: nudge the per-cell ability label (STR/DEX/CON/INT/
-  // WIS/CHA) UP further from y=46 to y=42. Round-27 #6 already
-  // lifted to y=46 but the label still sat at the lower half of the
-  // gap, visually crowding the modifier bubble (which starts at
-  // SVG y≈58). User feedback in round-28: 'we need to move the new
-  // label of ability up a bit'. The score `---` divider lives at
-  // SVG y≈40-44, so a label slot at y=42 with height 8 sits cleanly
-  // above the divider without colliding with the score digit band.
-  label: { x: 10, y: 42, width: 35, height: 8 },
+  // Round-29 #1: SHRINK the bottom mask — was y 46..56 (height 10).
+  // The modifier bubble starts at SVG y=52.28 (the bottom circle's
+  // top edge), so a mask extending to y=56 was eating into the top
+  // of the modifier circle, leaving a visible white sliver above
+  // the +2/+1/-1 digits. User feedback: 'the white box cuts into
+  // the modifier circle bubble'. Reduced height 10 → 5 so the
+  // mask stops at y=51, clearing the modifier bubble entirely.
+  // The label slot (code-drawn) lives in the same y range and
+  // still sits below the divider line at y=43.04.
+  labelMaskBottom: { x: 8, y: 46, width: 40, height: 5 },
+  // Round-29 #1: REVERT label y back to 46 (was 42 in round-28).
+  // Round-28 moved the label UP to y=42 to "lift above the
+  // modifier bubble" but the SVG-baked divider line at y=43.04
+  // (the horizontal stroke baked into the STR letterform glyph
+  // path) cuts right through that y, producing strikethrough
+  // across all six ability labels (DEX/STR/CON). User feedback
+  // in round-29: 'Nu stiu de ce labelul gen "DEX" este taiat cu
+  // strikethrough'. Back to y=46 puts the label JUST BELOW the
+  // divider (which ends at y≈44) and clears the modifier bubble
+  // at y=52 — sitting cleanly in the gap with breathing room on
+  // both sides. The mask above (y=46..51) covers the baked bold
+  // "STR" text behind the code-drawn label.
+  label: { x: 10, y: 46, width: 35, height: 8 },
   // Modifier slot grown 13→18pt tall so 14pt modifier digits can
   // actually fit (was clamped to ~11pt by the 13pt slot). x 12 stays
   // — the slot is wide enough for "+10" and a 14pt Magra-Bold. y
@@ -1362,17 +1375,26 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       // Bumped sizes to match the companion page so both pages use the
       // same stat-block geometry.
       //
-      // Round-28 #1: nudge save pip value UP further from -3pt to
-      // -5pt. Round-27 #6 lifted -3pt but the saved digit
-      // (+4/+3/-1/+0/+1/-1) still touches the SVG-baked "SAVE"
-      // label sitting at y≈18-22. Lifting to -5pt puts the digit
-      // slot at y=0..18 (slot height 18), so the visible digit
-      // baseline lands at y≈12 — clears the SAVE band with ~6pt of
-      // breathing room without clipping the digit top against the
-      // pip circle border at y≈-2 (digit ascent ≈5pt at 14pt
-      // Magra-Bold leaves 1pt margin).
+      // Round-29 #1: REVERT save pip y-lift to 0 (was -5pt in
+      // round-28). User feedback: 'save valoarea (+3 de ex) trebuie
+      // sa fie mai jos sa fie pe centru cumva sau putin mai sus nu
+      // neaprat centrat cat sa nu se scrie peste save'. The
+      // round-28 -5pt lift put the digit too high — visibly above
+      // the pip circle's center, sitting OUTSIDE the pip instead of
+      // inside. Setting lift to 0 lets PDFKit's drawCenteredTextInRect
+      // (which centers the digit vertically inside the saveSlot
+      // y=5..23 height=18) place the digit at slot center y=14. The
+      // SVG-baked "SAVE" text band lives at y=18-22; the digit
+      // baseline at y≈14 with a 14pt Magra-Bold ascent of ~10pt
+      // puts the digit top at y≈4 — clears the pip border at y≈-2
+      // and the baked SAVE text at y=18-22 with ~4pt breathing room
+      // on the bottom side (digit descender ≈3pt ends at y≈17).
+      // If the digit ever overlaps the baked SAVE text the fix
+      // should be to MOVE THE BAKE TEXT (delete or repaint the SVG)
+      // not to lift the digit further — that's the
+      // "no white-box mask" philosophy from R28 #2.
       const saveSlot = componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save);
-      drawCenteredTextInRect(ctx, signed(row.saveBonus), { ...saveSlot, y: saveSlot.y - 5 }, {
+      drawCenteredTextInRect(ctx, signed(row.saveBonus), { ...saveSlot, y: saveSlot.y }, {
         font: "Helvetica-Bold",
         maxSize: 14,
         minSize: 6.4,
