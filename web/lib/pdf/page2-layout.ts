@@ -33,8 +33,8 @@ export const PAGE2_INVENTORY_REGIONS = {
   // item list (above, ends around y=290) and the box bottom border
   // (y=363). Item descriptions contentBottomY is still 318 (unchanged)
   // so the 2-row footer doesn't collide with item description text.
-  encumbrance: { x: 10, y: 303, width: 70, height: 20 },
-  attuned: { x: 85, y: 303, width: 60, height: 20 },
+  encumbrance: { x: 51, y: 303, width: 70, height: 20 },
+  attuned: { x: 126, y: 303, width: 22, height: 20 },
   currency: { x: 10, y: 325, width: 200, height: 20 },
   // valuables no longer used in the footer (round-25 #G redesign);
   //   kept as a region for backwards compatibility.
