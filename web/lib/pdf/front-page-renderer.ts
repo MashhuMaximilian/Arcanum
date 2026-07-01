@@ -246,15 +246,15 @@ const STAT_VALUE_SLOTS = {
   // (rendered last at the bottom slot) is visible.
   labelMask: { x: 8, y: 14, width: 40, height: 10 },
   labelMaskBottom: { x: 8, y: 46, width: 40, height: 10 },
-  // Round-27 #6: nudge the per-cell ability label (STR/DEX/CON/INT/
-  // WIS/CHA) UP 3pt from y=49 to y=46. User feedback: 'we need to
-  // move the new label of ability up a bit'. The previous slot
-  // landed the label inside the same band as the modifier bubble
-  // (the bottom circle is at SVG y≈61.77), so the label hugged the
-  // modifier ink. Moving to y=46 lifts the label into the gap
-  // between the score `---` divider (~y=44) and the modifier bubble
-  // (~y=58) so it sits cleanly between them with breathing room.
-  label: { x: 10, y: 46, width: 35, height: 8 },
+  // Round-28 #1: nudge the per-cell ability label (STR/DEX/CON/INT/
+  // WIS/CHA) UP further from y=46 to y=42. Round-27 #6 already
+  // lifted to y=46 but the label still sat at the lower half of the
+  // gap, visually crowding the modifier bubble (which starts at
+  // SVG y≈58). User feedback in round-28: 'we need to move the new
+  // label of ability up a bit'. The score `---` divider lives at
+  // SVG y≈40-44, so a label slot at y=42 with height 8 sits cleanly
+  // above the divider without colliding with the score digit band.
+  label: { x: 10, y: 42, width: 35, height: 8 },
   // Modifier slot grown 13→18pt tall so 14pt modifier digits can
   // actually fit (was clamped to ~11pt by the 13pt slot). x 12 stays
   // — the slot is wide enough for "+10" and a 14pt Magra-Bold. y
@@ -1351,16 +1351,17 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       // Bumped sizes to match the companion page so both pages use the
       // same stat-block geometry.
       //
-      // Round-27 #1a + #6: nudge save pip value UP 3pt (was 1.5pt) so
-      // the digit sits cleanly above the SVG-baked "SAVE" label with
-      // visible breathing room. User feedback: 'Save value should also
-      // be nudged up a bit'. The save slot starts at y=5 with height
-      // 18 (so vertical center y=14). Lifting -3pt puts the visible
-      // digit baseline at y=11 which clears the baked SAVE text band
-      // around y=18-22 without clipping the top of the digit against
-      // the pip circle border at y≈-2.
+      // Round-28 #1: nudge save pip value UP further from -3pt to
+      // -5pt. Round-27 #6 lifted -3pt but the saved digit
+      // (+4/+3/-1/+0/+1/-1) still touches the SVG-baked "SAVE"
+      // label sitting at y≈18-22. Lifting to -5pt puts the digit
+      // slot at y=0..18 (slot height 18), so the visible digit
+      // baseline lands at y≈12 — clears the SAVE band with ~6pt of
+      // breathing room without clipping the digit top against the
+      // pip circle border at y≈-2 (digit ascent ≈5pt at 14pt
+      // Magra-Bold leaves 1pt margin).
       const saveSlot = componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save);
-      drawCenteredTextInRect(ctx, signed(row.saveBonus), { ...saveSlot, y: saveSlot.y - 3 }, {
+      drawCenteredTextInRect(ctx, signed(row.saveBonus), { ...saveSlot, y: saveSlot.y - 5 }, {
         font: "Helvetica-Bold",
         maxSize: 14,
         minSize: 6.4,
@@ -1570,25 +1571,25 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
   values.forEach((items, index) => {
     const cell = cells[index];
     drawSvg(ctx, assets.proficiencyBox0, cell);
-    // Round-27 #2: drop the code-drawn top label entirely. The
-    // SVG-baked small grey label at the TOP of each box is the
-    // visual we want — but it's still baked in as the same default
-    // text on every box (so we can't trust it for variable content).
-    // Instead we code-draw the per-cell label at the BOTTOM bubble
-    // (the small rounded badge ornament that sits between y=37-47
-    // of the box viewBox), at the same 4.5pt #777 SPEED-card label
-    // size the user requested.
+    // Round-27 #7: REMOVE the top-14% white-box mask entirely. The
+    // _Proficiency Box 0.svg contains NO text baked in (verified by
+    // grepping the SVG file) — only the decorative frame and the
+    // white-filled bubble ornament at the bottom. The previous mask
+    // was drawn over the empty top area, leaving a visible white
+    // rectangle that "messed up the card" per the user. No label
+    // masking is needed; just render the value text + bottom label.
     //
-    // Mask any SVG-baked top label so it doesn't collide with the
-    // value text. The top label band sits at SVG y=4-7 (8% from top).
-    maskRect(ctx, rectFromFractions(cell, { x: 0.04, y: 0.0, width: 0.92, height: 0.14 }));
+    // The bottom label is rendered INSIDE the SVG's white bubble
+    // ornament (the small rounded badge that sits at y=37-47 of the
+    // box viewBox, ~80% from top). This matches the original
+    // aesthetic intent — the bubble is meant to hold a label.
     if (!items.length) {
       // No items — still draw the bottom label so the empty card
       // is visually consistent with the others.
       drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.12, y: 0.80, width: 0.76, height: 0.16 }), {
         font: "Helvetica",
-        maxSize: 4.5,
-        minSize: 4.5,
+        maxSize: 3.5,
+        minSize: 3.5,
         color: "#777777",
         lineBreak: false,
       });
@@ -1603,7 +1604,7 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
     // label weight) and 3.5pt (6+ items — small but readable) based
     // on what actually fits. Aggressive shrinking lets us reclaim
     // ~25% more vertical space for long lists without truncating.
-    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.16, width: 0.88, height: 0.62 });
+    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.06, width: 0.88, height: 0.72 });
     const valueSize = fitTextSize(ctx, itemText, valueRect, {
       font: "Helvetica",
       maxSize: 6.4,
@@ -1623,12 +1624,15 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
       ellipsis: false,
       lineGap: 0,
     });
-    // Bottom label in the small bubble ornament at the bottom of
-    // the card. SPEED-card label style: 4.5pt #777777 Helvetica.
-    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.12, y: 0.80, width: 0.76, height: 0.16 }), {
+    // Round-27 #7: bottom label drawn INSIDE the SVG's white bubble
+    // ornament. User feedback: 'make the label smaller, to fit inside
+    // the circle/whatever that form is'. Reduced 4.5pt → 3.5pt so
+    // even 8-char labels like 'VEHICLES' fit cleanly inside the
+    // 25pt-wide bubble without crowding the rounded corners.
+    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.10, y: 0.80, width: 0.80, height: 0.14 }), {
       font: "Helvetica",
-      maxSize: 4.5,
-      minSize: 4.5,
+      maxSize: 3.5,
+      minSize: 3.5,
       color: "#777777",
       lineBreak: false,
     });
