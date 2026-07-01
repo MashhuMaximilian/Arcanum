@@ -1446,26 +1446,12 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
   values.forEach((items, index) => {
     const cell = cells[index];
     drawSvg(ctx, assets.proficiencyBox0, cell);
-    // The _Proficiency Box 0.svg bakes a small white "label bubble"
-    // ornament at the bottom of the cell. Mask the bottom 30% with a
-    // wider white rect so the baked bubble is fully cleared (it's too
-    // narrow for our labels and would clip "TOOLS & INSTR.").
-    //
-    // Round-21 layout: label sits at the TOP of the cell (header
-    // style), value fills the rest. Previously the label was at the
-    // bottom of the cell which made it visually collide with the
-    // baked ornament and read as a broken caption (user: "labels are
-    // fucked up"). The value maxSize is bumped 4.0 → 6.4 to match
-    // the rest of the sheet's body floor — long values like the
-    // weapons list will wrap to 4 lines at 6.4pt but never auto-shrink
-    // to unreadable sizes. lineBreak enabled so text wraps cleanly
-    // inside the column rather than being clipped with ellipsis.
-    // Round-24: mask the bottom 22% (was 14%) to fully clear the
-    // baked white bubble ornament that extends from y=0.78..1.0
-    // (≈10pt of the 47pt cell). The previous 14% mask left the
-    // bubble top visible, which clipped "Martial Weapons" on long
-    // proficiency lists.
-    maskRect(ctx, rectFromFractions(cell, { x: 0.0, y: 0.78, width: 1.0, height: 0.22 }));
+    // Round-26 #3: drop the bottom white mask that was clearing the
+    // SVG's decorative bubble ornament — the user wants the SVG's
+    // natural frame visible. Keep the top code-drawn label (it's the
+    // only label, not a duplicate — the user's "drop duplicate top
+    // label" referred to the SVG-baked bottom label they thought was
+    // being redrawn at the top).
     drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.04, y: 0.02, width: 0.92, height: 0.10 }), {
       font: "Helvetica",
       maxSize: 6.0,
@@ -1477,32 +1463,18 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
       return;
     }
     const itemText = items.join(", ");
-    // Round-24: shrink-to-fit so long values like the Ranger's
-    // weapons list (6 items — "Longsword, Shortsword, Shortbow,
-    // Longbow, Simple Weapons, Martial Weapons") never clip below
-    // the cell border. The cell is 47pt tall total. The label
-    // band at the top occupies y=0..0.10 (≈4.7pt), and the baked
-    // bottom label-bubble ornament occupies the bottom 0.20 of
-    // the cell (≈9.4pt). That leaves the value band y=0.10..0.78
-    // (≈32pt) for text. At 6.4pt Magra with lineGap=0, line height
-    // ≈ 7.78pt → fits ~4 lines. The full weapons list needs ~6
-    // lines, so we start at maxSize=6.4 and let fitTextSize shrink
-    // in 0.25pt steps down to minSize=4.0 (below the sheet's body
-    // floor of 6.4pt but this is a multi-line wrap value, not a
-    // slot label, and the user explicitly asked: "now it does not
-    // show full contents does not resize text ot fit all"). A 4.0pt
-    // render with lineGap=0 is still legible at print size and
-    // ensures the full proficiency list is visible. We also shrink
-    // valueRect height 0.70→0.68 (≈32pt) so the text has a little
-    // more clearance below the bottom bubble ornament, and mask
-    // the bottom 22% of the cell (instead of 14%) to fully clear
-    // the baked white bubble that would otherwise collide with the
-    // last line.
-    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.14, width: 0.88, height: 0.62 });
+    // Round-26 #3: shrink-to-fit so long values like the Ranger's
+    // 6-item weapons list ("Longsword, Shortsword, Shortbow, Longbow,
+    // Simple Weapons, Martial Weapons") never clip. maxSize 6.4→5.5
+    // (per user spec — slightly smaller font); minSize 4.0→4.5 to
+    // match. The cell is 47pt tall. Label band y=0..0.10 (~4.7pt).
+    // With no bottom mask, value band now extends y=0.14..1.0 (~40pt)
+    // — fits 5-6 lines at 5.5pt Magra with lineGap=0.
+    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.14, width: 0.88, height: 0.84 });
     const valueSize = fitTextSize(ctx, itemText, valueRect, {
       font: "Helvetica",
-      maxSize: 6.4,
-      minSize: 4.0,
+      maxSize: 5.5,
+      minSize: 4.5,
       align: "left",
       color: "#000000",
       lineBreak: true,
