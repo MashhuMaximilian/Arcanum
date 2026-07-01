@@ -91,7 +91,18 @@ const FEATURE_CARD_TYPOGRAPHY = {
   // disruptive — class feature titles should read as inline headers,
   // not as competing display anchors inside a busy column).
   title: { max: 8.5, min: 5.5 },
-  body: { max: 6.4, min: 3.6 },
+  // Round-26 #9: user feedback 'font-size in first page for features
+  // descriptions should be smaller by like 2 points, idk how big it is
+  // tbh....but it should be smaller. Readable but smaller'. Measured
+  // current rendered size via pdftotext -bbox on round-26-5b: 'Beginning'
+  // word height = 6.08pt (= bodyMaxSize 6.4 × 0.85 ≈ 5.44pt Magra
+  // ascender-to-descender ≈ 6pt at print). User asked for ~2pt smaller.
+  // Reduced body max 6.4 → 4.5pt (fitter's default 4.5 × 0.85 ≈ 3.83pt)
+  // and min 3.6 → 2.5pt to preserve shrink-to-fit flexibility for
+  // overflowing long descriptions. Paired with the bodyMaxSize ceiling
+  // drop 8.0 → 5.5 below so the breathing-room scaler doesn't bump
+  // back up.
+  body: { max: 4.5, min: 2.5 },
   // Bumped meta 5.5 → 6.4 so "Action" / "Long Rest" / "1/day" labels
   // match the smallest-font-is-feature-body floor.
   meta: { max: 6.4, min: 4.0 },
@@ -2646,11 +2657,15 @@ function computeFitConfig(
   const usageRatio = maxBottom / rect.height;
 
   // Scale up bodyMaxSize if there's breathing room (content uses < 85% of available height)
-  if (usageRatio < 0.85 && config.bodyMaxSize < 8.0) {
+  // Round-26 #9: lowered hard ceiling 8.0 → 5.5pt to keep feature
+  // bodies visually smaller per user feedback. With the breathing-room
+  // scaler still active, a feature card with very little content
+  // could otherwise balloon back up to 8pt.
+  if (usageRatio < 0.85 && config.bodyMaxSize < 5.5) {
     // How much headroom do we have?
     const headroomRatio = 1 / Math.max(0.3, usageRatio); // e.g., 0.5 → 2x headroom
     const scaledSize = Math.min(
-      8.0, // hard ceiling
+      5.5, // hard ceiling (round-26 #9)
       Math.max(config.bodyMaxSize + 0.5, config.bodyMaxSize * Math.min(1.3, headroomRatio)),
     );
     const minSize = Math.max(MIN_FEATURE_CONFIG.bodyMinSize, scaledSize - 1.0);
