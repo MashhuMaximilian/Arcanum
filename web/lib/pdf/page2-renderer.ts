@@ -494,7 +494,19 @@ function drawRichParagraph(
             ctx.doc.restore();
             drawText(ctx, " ", {
               x: cursorX,
-              y: isBold ? y - 2.4 : y,
+              // Round-29 #3: REMOVED the -2.4pt hardcoded Y lift for
+              // bold runs (matches the front-page fix from R28 #3 in
+              // `drawTextWithBoldActionWords`). User feedback: 'in
+              // item descriptions e aiurea acolo e prea sus ce e
+              // bolduit si chestii, poate acolo a ramas hardcoded
+              // -2.4pt care trebuie scos'. Bold body now uses
+              // Magra-Bold (same family as Magra-Regular body) per
+              // the font fix above, so TTF baseline metrics align
+              // naturally via sTypoAscender=968. The previous -2.4pt
+              // lift was compensating for the old Teko-Medium→Magra
+              // font-family switch (delta ~2.4pt ascender) that no
+              // longer applies. Trust the font metrics.
+              y: y,
               width: spaceWidth,
               height: options.size + options.lineGap,
             }, {
@@ -509,22 +521,12 @@ function drawRichParagraph(
 
           drawText(ctx, word, {
             x: cursorX,
-            // Round-21 baseline fix: PDFKit positions the baseline at
-            // `y` using the current font's ascender. Magra and
-            // Magra-Bold share sTypoAscender=968 (per TTF OS/2) but
-            // Magra-Bold has heavier ink that fills more of the
-            // cap-height box AND extends ~0.33pt further below the
-            // body baseline at 6.4pt (verified via pdftotext -bbox).
-            // The round-15 -1.5pt lift aligned baselines almost
-            // perfectly on the front page (diff=0.00) but page 2's
-            // tighter lineGap=0.2 vs front page's 0.5 still leaves
-            // the bold descender hanging 0.33pt below the body line
-            // — small at 400dpi but visible as "bold sits lower".
-            // Bumped to -1.8pt to fully zero the descender delta on
-            // page 2. Front page stays at -1.5 since it already
-            // measured diff=0.00. Same fix mirrored in front-page
-            // drawTextWithBoldActionWords (unchanged) for parity.
-            y: isBold ? y - 2.4 : y,
+            // Round-29 #3: REMOVED the -2.4pt hardcoded Y lift for
+            // bold runs. See comment above — bold body now uses
+            // Magra-Bold (same family as Magra-Regular body), so
+            // TTF baseline metrics align naturally. No more lift
+            // needed; trusting the font metrics.
+            y: y,
             width: wordWidth + 1,
             height: options.size + options.lineGap,
           }, {
@@ -1723,11 +1725,19 @@ function renderQuestItems(
       linesDrawn += Math.max(1, Math.round(quoteHeight / lineHeight));
     } else if (seg.kind === "list") {
       if (linesDrawn + 1 > maxLines) break;
+      // Round-29 #3: increase list lineGap from 0.4 → 0.8 for
+      // breathing room between bullet points. User feedback:
+      // 'putin mai mult spatiu intre bullet points'. Previously
+      // list lines were as tight as paragraph lines (0.4pt gap)
+      // which made bullet items feel glued together visually.
+      // 0.8pt (≈14.5% of body 5.5pt size) gives clear separation
+      // between bullet points while keeping the overall block
+      // height reasonable.
       const listHeight = drawFittedRichParagraph(
         ctx,
         seg.text,
         { x: rect.x + 4, y, width: rect.width - 8, maxHeight: availableHeight - (y - contentStartY) },
-        { font: "Helvetica", size: 5.5, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.4 },
+        { font: "Helvetica", size: 5.5, minSize: 6.4, color: COLORS.textPrimary, lineGap: 0.8 },
       );
       y += listHeight;
       linesDrawn += Math.max(1, Math.round(listHeight / lineHeight));
