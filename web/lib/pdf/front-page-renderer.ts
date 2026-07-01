@@ -1230,17 +1230,6 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       });
       if (!hasPrintedTemplate) {
         drawSvg(ctx, assets.statBlock, block);
-        // Round-25: only mask the TOP baked "BONUS" label area
-        // (around y 14-22) so the code-drawn save pip and number
-        // render cleanly. The BOTTOM baked label (around y 46-52)
-        // is kept visible as the cell's STR/DEX/CON/INT/WIS/CHA
-        // label — user prefers the original SVG-baked label over a
-        // code-drawn overlay, even though the SVG is a single
-        // template that says "STR" for every cell. The old code
-        // also masked the bottom and drew a Magra-Bold overlay
-        // which created a duplicate-label effect the user found
-        // ugly.
-        maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMask));
       }
       if (row.saveProficient) {
         const saveMarker = componentPoint(block, STAT_BLOCK_VIEWBOX, { x: 27.7, y: 3 });
@@ -1272,7 +1261,14 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       // is intentionally left visible per round-25 user feedback:
       // the user prefers the original SVG label over a code-drawn
       // Magra-Bold overlay (which produced a visible duplicate).
-      drawCenteredTextInRect(ctx, signed(row.modifier), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier), {
+      //
+      // Round-26 #1: nudge the modifier Y UP by fontSize*0.5
+      // (≈7pt for 14pt Magra-Bold) so the digit sits in the optical
+      // center of the bottom circle bubble instead of appearing to
+      // "sink" toward the descender. Same shape as the companion
+      // page fix below.
+      const modifierSlot = componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier);
+      drawCenteredTextInRect(ctx, signed(row.modifier), { ...modifierSlot, y: modifierSlot.y - 7 }, {
         font: "Helvetica-Bold",
         // Bumped 11→14 so modifier +1/+3 etc. read at the same
         // weight as the score digit. lineGap=0 so 14pt Magra-Bold

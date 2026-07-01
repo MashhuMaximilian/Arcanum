@@ -2202,14 +2202,6 @@ function renderCompanionAbilities(
       maxSize: 28,
       minSize: 12,
     });
-    // Mask the top baked-in grey "STR" save-bonus text (y 14-22)
-    // so the code-drawn save pip and number render cleanly.
-    maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, {
-      x: 8,
-      y: 14,
-      width: 40,
-      height: 10,
-    }));
     // NOTE: the bottom baked-in bold label (y 46-52) is NO LONGER
     // masked and the code-drawn STR/DEX/CON/INT/WIS/CHA label is
     // NO LONGER drawn. Round-25 user feedback: the user prefers
@@ -2217,7 +2209,14 @@ function renderCompanionAbilities(
     // produced a visible duplicate. The SVG says "STR" for every
     // cell — that's acceptable to the user as long as no duplicate
     // is drawn on top.
-    drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.modifier), {
+    //
+    // Round-26 #1: nudge the modifier Y UP by fontSize*0.5 (≈7pt
+    // for 14pt Magra-Bold) so the digit sits in the optical center
+    // of the bottom circle bubble instead of appearing to "sink"
+    // toward the descender. Same shape as the front page fix in
+    // front-page-renderer.ts:renderAbilities.
+    const modifierSlot = componentRect(cell.rect, STAT_VIEWBOX, slots.modifier);
+    drawCenteredTextInRect(ctx, formatModifier(modifier), { ...modifierSlot, y: modifierSlot.y - 7 }, {
       ...valueOptions,
       maxSize: 14,
     });
