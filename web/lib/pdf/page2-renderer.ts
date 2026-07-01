@@ -2257,10 +2257,16 @@ function renderCompanionAbilities(
     // Magra-Bold to match the front page) can render the correct
     // ability name for this cell.
     label: { x: 10, y: 49, width: 35, height: 8 },
+    // Mask slot for the SVG-baked bottom label area (y 46-52).
+    // Cleared so the code-drawn label renders without a duplicate.
+    labelMaskBottom: { x: 8, y: 46, width: 40, height: 10 },
   } satisfies Record<string, PdfRect>;
 
   for (const cell of rects.abilityCells) {
     drawSvg(ctx, assets.statBlock, cell.rect, "contain");
+    // Round-27 #1c: mask the SVG-baked bottom label ("STR" baked
+    // into every cell) before drawing the code-drawn per-cell label.
+    maskRect(ctx, componentRect(cell.rect, STAT_VIEWBOX, slots.labelMaskBottom));
     const score = scores[cell.key];
     const modifier = Math.floor((score - 10) / 2);
     const valueOptions = {
@@ -2275,7 +2281,10 @@ function renderCompanionAbilities(
       lineGap: 0,
     } as const;
 
-    drawCenteredTextInRect(ctx, formatModifier(modifier), componentRect(cell.rect, STAT_VIEWBOX, slots.save), {
+    // Round-27 #1a: nudge save pip UP 1.5pt so the digit doesn't
+    // crash into the SVG-baked "SAVE" label beneath it.
+    const saveSlot = componentRect(cell.rect, STAT_VIEWBOX, slots.save);
+    drawCenteredTextInRect(ctx, formatModifier(modifier), { ...saveSlot, y: saveSlot.y - 1.5 }, {
       ...valueOptions,
       maxSize: 14,
     });
@@ -2284,21 +2293,20 @@ function renderCompanionAbilities(
       maxSize: 28,
       minSize: 12,
     });
-    // NOTE: the bottom baked-in bold label (y 46-52) is NO LONGER
-    // masked and the code-drawn STR/DEX/CON/INT/WIS/CHA label is
-    // NO LONGER drawn. Round-25 user feedback: the user prefers
-    // the original SVG-baked label over a Magra-Bold overlay that
-    // produced a visible duplicate. The SVG says "STR" for every
-    // cell — that's acceptable to the user as long as no duplicate
-    // is drawn on top.
-    //
-    // Round-26 #1: nudge the modifier Y UP by fontSize*0.5 (≈7pt
-    // for 14pt Magra-Bold) so the digit sits in the optical center
-    // of the bottom circle bubble instead of appearing to "sink"
-    // toward the descender. Same shape as the front page fix in
-    // front-page-renderer.ts:renderAbilities.
+    // Round-27 #1c: code-draw per-cell ability label (STR/DEX/CON/
+    // INT/WIS/CHA). Matches the front page renderAbilities fix.
+    drawCenteredTextInRect(ctx, cell.label, componentRect(cell.rect, STAT_VIEWBOX, slots.label), {
+      font: "Helvetica-Bold",
+      maxSize: 7,
+      minSize: 6.4,
+      color: "#555555",
+      lineGap: 0,
+    });
+    // Round-27 #1b: revert round-26 #1 modifier Y lift — user feedback
+    // says the modifier now sits ABOVE the circle outline. Render at
+    // the original slot Y so the digit lands inside the circle.
     const modifierSlot = componentRect(cell.rect, STAT_VIEWBOX, slots.modifier);
-    drawCenteredTextInRect(ctx, formatModifier(modifier), { ...modifierSlot, y: modifierSlot.y - 7 }, {
+    drawCenteredTextInRect(ctx, formatModifier(modifier), modifierSlot, {
       ...valueOptions,
       maxSize: 14,
     });

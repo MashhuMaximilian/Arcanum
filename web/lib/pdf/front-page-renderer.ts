@@ -1315,6 +1315,13 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       });
       if (!hasPrintedTemplate) {
         drawSvg(ctx, assets.statBlock, block);
+        // Round-27 #1c: mask out the SVG-baked "STR" label at the bottom
+        // of every stat block. The _Stat Block.svg is a single template
+        // that bakes "STR" into all 6 cells, so without masking every
+        // cell showed "STR" regardless of ability. Now we mask the bottom
+        // label area and code-draw the correct label (STR/DEX/CON/INT/
+        // WIS/CHA) below the score digit.
+        maskRect(ctx, componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.labelMaskBottom));
       }
       if (row.saveProficient) {
         const saveMarker = componentPoint(block, STAT_BLOCK_VIEWBOX, { x: 27.7, y: 3 });
@@ -1328,7 +1335,11 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       // cap-tops above the save pip and descenders below the modifier.
       // Bumped sizes to match the companion page so both pages use the
       // same stat-block geometry.
-      drawCenteredTextInRect(ctx, signed(row.saveBonus), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save), {
+      //
+      // Round-27 #1a: nudge save pip value UP 1.5pt so the digit doesn't
+      // crash into the SVG-baked "SAVE" label beneath it.
+      const saveSlot = componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save);
+      drawCenteredTextInRect(ctx, signed(row.saveBonus), { ...saveSlot, y: saveSlot.y - 1.5 }, {
         font: "Helvetica-Bold",
         maxSize: 14,
         minSize: 6.4,
@@ -1341,19 +1352,26 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
         minSize: 12,
         color: "#000000",
       });
-      // NOTE: STR/DEX/CON/INT/WIS/CHA label is NO LONGER drawn here.
-      // The SVG-baked bottom label (which says "STR" for every cell)
-      // is intentionally left visible per round-25 user feedback:
-      // the user prefers the original SVG label over a code-drawn
-      // Magra-Bold overlay (which produced a visible duplicate).
-      //
-      // Round-26 #1: nudge the modifier Y UP by fontSize*0.5
-      // (≈7pt for 14pt Magra-Bold) so the digit sits in the optical
-      // center of the bottom circle bubble instead of appearing to
-      // "sink" toward the descender. Same shape as the companion
-      // page fix below.
+      // Round-27 #1c: code-draw the per-cell ability label (STR/DEX/
+      // CON/INT/WIS/CHA) at the bottom of each stat block. Previously
+      // we relied on the SVG-baked "STR" template label which showed
+      // "STR" for every cell. Magra-Bold 7pt with the same #555 color
+      // used by the companion page ability cards for visual parity.
+      drawCenteredTextInRect(ctx, row.label.toUpperCase(), componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.label), {
+        font: "Helvetica-Bold",
+        maxSize: 7,
+        minSize: 6.4,
+        color: "#555555",
+        lineGap: 0,
+      });
+      // Round-27 #1b: modifier Y was nudged UP 7pt in round-26 to
+      // optically center it in the bottom circle. User feedback
+      // ('modifiers Have to be nudged down to be inside the circle')
+      // shows the previous lift overshot — the modifier now sits
+      // ABOVE the circle outline. Revert: render at the original
+      // slot Y so the digit lands inside the circle bubble.
       const modifierSlot = componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.modifier);
-      drawCenteredTextInRect(ctx, signed(row.modifier), { ...modifierSlot, y: modifierSlot.y - 7 }, {
+      drawCenteredTextInRect(ctx, signed(row.modifier), modifierSlot, {
         font: "Helvetica-Bold",
         // Bumped 11→14 so modifier +1/+3 etc. read at the same
         // weight as the score digit. lineGap=0 so 14pt Magra-Bold
