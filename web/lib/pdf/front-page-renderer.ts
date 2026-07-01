@@ -1599,7 +1599,13 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
   const cells = splitColumns(insetRect(FRONT_PAGE_REGIONS.proficiencies, 8, 0), 5, 13);
   const groups = character.frontPage.proficiencyGroups;
   const values = [groups.weapons, groups.armor, groups.tools, groups.vehicles, groups.languages];
-  const labels = ["WEAPONS", "ARMOR", "TOOLS & INSTR.", "VEHICLES", "LANGUAGES"];
+  // Round-29 #2: shortened "TOOLS & INSTR." → "TOOLS&INSTR" (no
+  // space around ampersand). User feedback: 'TOOLS & INSTR tot
+  // face overflow. Poate ar putea fi "TOOLS&INSTR" nu
+  // "TOOLS & INSTR"'. Removing the spaces around the ampersand
+  // shrinks the label from 13 chars to 10 chars — fits cleanly
+  // inside the 25pt-wide SVG bubble ornament at 3.0pt.
+  const labels = ["WEAPONS", "ARMOR", "TOOLS&INSTR", "VEHICLES", "LANGUAGES"];
 
   values.forEach((items, index) => {
     const cell = cells[index];
@@ -1619,10 +1625,18 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
     if (!items.length) {
       // No items — still draw the bottom label so the empty card
       // is visually consistent with the others.
-      drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.12, y: 0.80, width: 0.76, height: 0.16 }), {
+      // Round-29 #2: label centered (x=0.04, width=0.92 to span
+      // full bubble width) and shrunk 3.5pt → 3.0pt with minSize
+      // also 3.0pt. User feedback: 'labels trebuie sa fie mai jos
+      // sa fie centrate calumea si sa fie si mai mici putin'. The
+      // previous 3.5pt + x=0.12 left the label slightly off-center
+      // and a touch too big to fit the bubble's rounded corners.
+      // 3.0pt + width 0.92 + y offset puts the label visually
+      // centered in the bubble.
+      drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.04, y: 0.82, width: 0.92, height: 0.14 }), {
         font: "Helvetica",
-        maxSize: 3.5,
-        minSize: 3.5,
+        maxSize: 3.0,
+        minSize: 3.0,
         color: "#777777",
         lineBreak: false,
       });
@@ -1657,15 +1671,21 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
       ellipsis: false,
       lineGap: 0,
     });
-    // Round-27 #7: bottom label drawn INSIDE the SVG's white bubble
-    // ornament. User feedback: 'make the label smaller, to fit inside
-    // the circle/whatever that form is'. Reduced 4.5pt → 3.5pt so
-    // even 8-char labels like 'VEHICLES' fit cleanly inside the
-    // 25pt-wide bubble without crowding the rounded corners.
-    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.10, y: 0.80, width: 0.80, height: 0.14 }), {
+    // Round-29 #2: bottom label drawn INSIDE the SVG's white bubble
+    // ornament. User feedback: 'labels trebuie sa fie mai jos sa
+    // fie centrate calumea si sa fie si mai mici putin'.
+    // - y: 0.80 → 0.82 (push label slightly down for visual
+    //   centering inside the bubble — bubble centerline is at
+    //   SVG y=42 of the 66x48 viewBox, i.e. fraction 0.875)
+    // - x: 0.10 → 0.04 (extend width to fill bubble)
+    // - width: 0.80 → 0.92 (full bubble width)
+    // - maxSize 3.5 → 3.0, minSize 3.5 → 3.0 (shrink to fit)
+    // Result: label visually centered in the bubble, no overflow,
+    // no crowding against the rounded corners.
+    drawCenteredTextInRect(ctx, labels[index], rectFromFractions(cell, { x: 0.04, y: 0.82, width: 0.92, height: 0.14 }), {
       font: "Helvetica",
-      maxSize: 3.5,
-      minSize: 3.5,
+      maxSize: 3.0,
+      minSize: 3.0,
       color: "#777777",
       lineBreak: false,
     });
