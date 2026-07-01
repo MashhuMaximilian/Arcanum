@@ -868,15 +868,20 @@ function renderItemDescriptions(
   const contentBottomY = 298;
   const columnGap = 6;
   const columnPadding = 4;
-  // 3-column newspaper flow (user: "we have 2 columns there which is
-  // ok, but we need to make it like a page. In column 1 we write,
-  // then what does not fit goes to second column and so on. Now that
-  // I think of it, let's make 3 columns in item description cards.").
-  // Each item is one container with its title at the top of the column
-  // it lands in; if the body is taller than the remaining column
-  // space, the overflow continues in the NEXT column (no title
-  // reprint — the container just keeps writing body text in the new
-  // column space). This is true newspaper text flow.
+  // 3-column newspaper flow (round-27 #5):
+  //   "Treat the 3 columns as a single continuous text stream.
+  //    If an item's description is too long for Column 1, let it
+  //    naturally overflow and wrap into the top of Column 2.
+  //    Start the next item immediately below where the previous
+  //    one ends, regardless of which column it falls into."
+  //
+  // Implementation: each column has its own cursor (Y position).
+  // We round-robin — fill column 0 from top down, when it fills
+  // wrap to column 1, etc. When an item's title/body doesn't fit
+  // in the current column AND there's still room in a later column,
+  // we jump to that later column instead of starting a new column
+  // (this is "continuous text stream" — not "each item gets its own
+  // shortest column").
   const columnCount = 3;
   const columnWidth = (rect.width - columnGap * (columnCount - 1) - columnPadding * 2) / columnCount;
   const textFont = "Helvetica";
@@ -885,14 +890,13 @@ function renderItemDescriptions(
   const titleSize = 8.5;
   const titleH = 14;
   const titleBodyGap = 4;
-  const cardGap = 0.5;
+  // Horizontal rule between items — small visual divider that the
+  // user spec calls out as "--- or a bold line space". Implemented
+  // as a 0.5pt line + ~2pt padding above and below.
+  const ruleH = 1.5;
+  const ruleGap = 2;
 
   // --- Phase 1: Prepare items ---------------------------------------
-  // For each item: extract the body text and pre-wrap it into lines
-  // (so we can slice body content across columns without reprinting
-  // the title). The wrap is greedy word-fit using PDFKit's widthOfString.
-  // Each line carries its runs (bold vs body) so the renderer can
-  // switch fonts mid-line.
   type Run = { text: string; bold: boolean; italic?: boolean };
   type WrappedLine = { runs: Run[]; bullet?: boolean };
   type PreparedItem = {
@@ -906,36 +910,21 @@ function renderItemDescriptions(
     const lines: WrappedLine[] = [];
     let currentRuns: Run[] = [];
     let currentWidth = 0;
-    let pendingBullet = false;
-    let pendingIndent = 0;
 
     const flush = () => {
       if (currentRuns.length === 0) return;
-      lines.push({ runs: currentRuns, bullet: pendingBullet || undefined });
+      lines.push({ runs: currentRuns });
       currentRuns = [];
       currentWidth = 0;
-      pendingBullet = false;
     };
 
     const processLine = (line: string) => {
-      // Round-26 #5: bullet detection at the start of each line.
-      // User spec:
-      //   * word        = bullet point
-      //   *word*        = italic word
-      //   * **word**    = bullet + bold
-      //   * ***word***  = bullet + bold+italic
-      // The bullet marker is `*` followed by whitespace. If the line
-      // begins with `* ` (single asterisk + space), it's a bullet and
-      // the rest is the body. If the line begins with `*** ` or `** `,
-      // it's a triple/double-asterisk inline emphasis, not a bullet
-      // (consumed by tokenizeInlineRuns).
       const trimmed = line.trimStart();
-      const leadingWS = line.length - trimmed.length;
-      // Bullet only when the first char is `*` AND it's followed by
-      // whitespace (so `*Praying Mantis*` is NOT a bullet — it's a
-      // malformed italic), AND it's NOT a `**` or `***` triple marker.
       let bulletPrefix = "";
       let bodyText = trimmed;
+      // Bullet detection: leading `*` followed by whitespace is a
+      // bullet; `**` and `***` are inline emphasis markers (handled
+      // by tokenizeInlineRuns) and do NOT count as bullets.
       if (
         trimmed.startsWith("*") &&
         !trimmed.startsWith("**") &&
@@ -944,19 +933,10 @@ function renderItemDescriptions(
       ) {
         bulletPrefix = "• ";
         bodyText = trimmed.slice(1).trimStart();
-        pendingBullet = true;
-        pendingIndent = leadingWS;
       }
-      // Inject bullet glyph as the first run of the line so the bullet
-      // sits in the same column as the wrapped text. Reserve width for
-      // the indent + bullet prefix so wrap calculations subtract it
-      // from columnWidth.
       const runs = tokenizeInlineRuns(bodyText);
-      // Apply bullet prefix only to the FIRST run of the FIRST line of
-      // this logical paragraph. Subsequent wrapped lines lose the bullet
-      // (since flush() resets currentRuns).
+      // Inject bullet glyph as the first run of the first line.
       if (bulletPrefix) {
-        // Replace any leading whitespace in the first run with the bullet.
         if (runs.length > 0 && runs[0].text.startsWith(" ")) {
           runs[0] = { ...runs[0], text: bulletPrefix + runs[0].text.trimStart() };
         } else if (runs.length > 0) {
@@ -966,13 +946,6 @@ function renderItemDescriptions(
         }
       }
       for (const run of runs) {
-        // Split the run on whitespace so we can preserve word boundaries
-        // for line-breaking. Whitespace tokens glue runs together but
-        // don't add a trailing space if the line ends with one.
-        // CRITICAL: also split on `\n\n` (paragraph break) so each
-        // paragraph starts on its own line in the wrap. The previous
-        // version treated `\n\n` as just whitespace which collapsed
-        // paragraph breaks into a single visual line.
         const segs = run.text.split(/(\s+|\n\n+)/).filter(Boolean);
         for (const seg of segs) {
           if (!seg) continue;
@@ -981,15 +954,11 @@ function renderItemDescriptions(
           const segW = ctx.doc.widthOfString(seg);
           ctx.doc.restore();
           if (/^\n/.test(seg)) {
-            // Paragraph break — flush current line and start fresh.
             flush();
           } else if (/^\s+$/.test(seg)) {
-            // Just a whitespace token — keep as part of current run for
-            // word spacing but don't add a new leading space on wrap.
             currentRuns.push({ text: seg, bold: run.bold, italic: run.italic });
             currentWidth += segW;
           } else {
-            // Word token. If it overflows, flush and start new line.
             if (currentWidth + segW > columnWidth && currentRuns.length > 0) {
               flush();
             }
@@ -1000,8 +969,6 @@ function renderItemDescriptions(
       }
     };
 
-    // Split description into logical lines (paragraphs). Hard `\n`
-    // starts a new wrap line. `\n\n` is a paragraph break.
     const paragraphs = description.split(/\n\n+/);
     for (const para of paragraphs) {
       if (!para.trim()) continue;
@@ -1013,11 +980,6 @@ function renderItemDescriptions(
       flush();
     }
     flush();
-    // Strip trailing whitespace runs from ONLY the very last line of
-    // the item (mid-line trailing whitespace is the separator between
-    // the last word on a wrapped line and the first word on the next
-    // line — stripping it would collapse "(yet)" and "Each" into
-    // "(yet)Each" with no visible space).
     if (lines.length > 0) {
       const lastLine = lines[lines.length - 1];
       while (lastLine.runs.length > 0 && /^\s+$/.test(lastLine.runs[lastLine.runs.length - 1].text)) {
@@ -1039,16 +1001,25 @@ function renderItemDescriptions(
     };
   });
 
-  // --- Phase 2: Render in 3 columns with newspaper flow -------------
-  // For each item: place the title at the top of the shortest column,
-  // then render the body lines one by one. When a column fills up,
-  // continue rendering remaining lines in the NEXT column (round-robin
-  // starting from the column after the title's column). When all 3
-  // columns are full, stop (silently truncate — no more room).
+  // --- Phase 2: Render in TRUE continuous newspaper flow ----------
+  // Single text stream. Each item has: title (1 line) + body (N lines)
+  // + horizontal rule (except the last item). We write items to the
+  // current column top-down; when the current column fills up we move
+  // to the NEXT column. Items do NOT restart at the top of a new
+  // column — they continue from wherever the previous item's text
+  // ended. This matches the user's spec:
+  //   "If an item's description is too long for Column 1, let it
+  //    naturally overflow and wrap into the top of Column 2.
+  //    Start the next item immediately below where the previous one
+  //    ends, regardless of which column it falls into."
   const lineH = bodySize + lineGap;
+  // Initial cursor: all 3 columns start at contentStartY.
   const columnCursors = Array.from({ length: columnCount }, () => contentStartY);
+  let col = 0;
 
-  const drawTitle = (col: number, item: CharacterInventoryItem, titleMeta: string) => {
+  const fitsInCurrentColumn = (h: number) => columnCursors[col] + h <= contentBottomY;
+
+  const drawTitle = (item: CharacterInventoryItem, titleMeta: string) => {
     const titleX = rect.x + columnPadding + col * (columnWidth + columnGap);
     const titleY = columnCursors[col];
     drawText(ctx, item.name, {
@@ -1073,33 +1044,20 @@ function renderItemDescriptions(
     columnCursors[col] = titleY + titleH + titleBodyGap;
   };
 
-  const drawBodyLine = (col: number, line: WrappedLine, yOverride?: number) => {
-    if (columnCursors[col] + lineH > contentBottomY) return false;
+  const drawBodyLine = (line: WrappedLine) => {
+    if (!fitsInCurrentColumn(lineH)) return false;
     const lineX = rect.x + columnPadding + col * (columnWidth + columnGap);
-    const lineY = yOverride ?? columnCursors[col];
-    // Render each run with its own font (bold runs use Helvetica-Bold
-    // = Magra-Bold after registerFont aliasing). Width is bounded by
-    // the column width.
+    const lineY = columnCursors[col];
     let cursorX = lineX;
     for (const run of line.runs) {
-      // Round-25 #F: italic runs use a serif skew so *word* markers
-      // render visibly italic. Magra has no italic glyph cut, so we
-      // rely on PDFKit's `oblique` shear to fake it.
       const runFont = run.bold ? "Helvetica-Bold" : textFont;
       ctx.doc.save();
       ctx.doc.font(runFont).fontSize(bodySize);
       const runW = ctx.doc.widthOfString(run.text);
       ctx.doc.restore();
-      // Clip if overflow — should not happen since wrapBody respects
-      // columnWidth, but safety net.
       const remainingW = lineX + columnWidth - cursorX;
       if (remainingW <= 0) break;
-      // Round-25 #H: lift bold runs -2.4pt so the bold glyph's visible
-      // baseline aligns with the surrounding body face. Magra-Bold at
-      // 6.4pt has a font-metric descender area ~3.06pt below the body
-      // descender (measured via pdftotext bbox on round-25r), causing
-      // bold words to look like they "sit lower" than the body line.
-      // Lifting 2.4pt zeros the visible-baseline delta.
+      // Round-25 #H: lift bold runs -2.4pt for visible-baseline alignment.
       drawText(ctx, run.text, {
         x: cursorX, y: run.bold ? lineY - 2.4 : lineY, width: Math.min(runW, remainingW), height: lineH,
       }, {
@@ -1117,47 +1075,76 @@ function renderItemDescriptions(
     return true;
   };
 
-  for (const p of prepared) {
-    if (p.lines.length === 0) {
-      // Item with no description — just render the title.
-      const bestCol = pickShortestColumn(columnCursors);
-      drawTitle(bestCol, p.item, p.titleMeta);
-      columnCursors[bestCol] += cardGap;
-      continue;
+  const drawHorizontalRule = () => {
+    if (!fitsInCurrentColumn(ruleH + ruleGap * 2)) return;
+    const ruleY = columnCursors[col] + ruleGap;
+    const ruleX1 = rect.x + columnPadding + col * (columnWidth + columnGap);
+    const ruleX2 = ruleX1 + columnWidth;
+    ctx.doc.save();
+    ctx.doc.lineWidth(0.5).strokeColor("#9a9a9a");
+    ctx.doc.moveTo(ruleX1, ruleY).lineTo(ruleX2, ruleY).stroke();
+    ctx.doc.restore();
+    columnCursors[col] = ruleY + ruleGap;
+  };
+
+  // Round-27 #5: TRUE continuous newspaper flow. The cursor advances
+  // column by column; when the current column fills up we move to the
+  // NEXT column and continue writing. Items do NOT restart at the top
+  // of a new column — they continue from wherever the previous item's
+  // last line ended. This matches the user spec:
+  //   "Treat the 3 columns as a single continuous text stream.
+  //    If an item's description is too long for Column 1, let it
+  //    naturally overflow and wrap into the top of Column 2.
+  //    Start the next item immediately below where the previous
+  //    one ends, regardless of which column it falls into."
+  for (let i = 0; i < prepared.length; i++) {
+    const p = prepared[i];
+    // Skip items that have no description AND no title height — they
+    // would render as a 14pt blank line. Just skip.
+    if (p.lines.length === 0) continue;
+
+    // If current column can't fit the title (14pt), jump to the next
+    // column with room. We don't wrap around — once all 3 columns are
+    // full, abort (the user has more items than the page can show).
+    if (!fitsInCurrentColumn(titleH + titleBodyGap)) {
+      let advanced = false;
+      for (let offset = 1; offset < columnCount; offset++) {
+        const c = (col + offset) % columnCount;
+        if (columnCursors[c] + titleH + titleBodyGap <= contentBottomY) {
+          col = c;
+          advanced = true;
+          break;
+        }
+      }
+      if (!advanced) break; // truly out of room
     }
 
-    // Place title in shortest column.
-    const titleCol = pickShortestColumn(columnCursors);
-    if (columnCursors[titleCol] + titleH > contentBottomY) continue; // out of space
-    drawTitle(titleCol, p.item, p.titleMeta);
-
-    // Render body lines, switching to next column when current fills up.
-    let col = titleCol;
+    drawTitle(p.item, p.titleMeta);
     for (const line of p.lines) {
-      if (!drawBodyLine(col, line)) {
-        // Current column full — try next column.
-        col = (col + 1) % columnCount;
-        if (col === titleCol) break; // cycled back, all columns full
-        // Reset cursor to start of column (skipping title row).
-        columnCursors[col] = Math.max(columnCursors[col], contentStartY);
-        if (!drawBodyLine(col, line)) break; // also full
+      const ok = drawBodyLine(line);
+      if (!ok) {
+        // Column full — jump to next column with room for one more
+        // body line.
+        let advanced = false;
+        for (let offset = 1; offset < columnCount; offset++) {
+          const c = (col + offset) % columnCount;
+          if (columnCursors[c] + lineH <= contentBottomY) {
+            col = c;
+            advanced = true;
+            break;
+          }
+        }
+        if (!advanced) break; // truly out of room
+        if (!drawBodyLine(line)) break;
       }
     }
-    // Add card gap to the last column used.
-    columnCursors[col] += cardGap;
-  }
-}
-
-function pickShortestColumn(cursors: number[]): number {
-  let bestCol = 0;
-  let bestY = cursors[0];
-  for (let c = 1; c < cursors.length; c++) {
-    if (cursors[c] < bestY) {
-      bestY = cursors[c];
-      bestCol = c;
+    // Draw horizontal rule between items (except after the last) IF
+    // there's room. If the column is too full for a rule, skip it —
+    // better no rule than clipping.
+    if (i < prepared.length - 1) {
+      drawHorizontalRule();
     }
   }
-  return bestCol;
 }
 
 function renderAttuned(
