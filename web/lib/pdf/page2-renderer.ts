@@ -860,10 +860,12 @@ function renderItemDescriptions(
   }
 
   const contentStartY = rect.y + 36;
-  // Stop content drawing at y=318 so item descriptions don't bleed into
+  // Stop content drawing at y=298 so item descriptions don't bleed into
   // the utility row strip (attuned/currency/encumbrance) in the EQUIPPED
-  // column.
-  const contentBottomY = 318;
+  // column. Round-26 #6: footer rows moved up to y=303/325, so item
+  // descriptions now stop earlier to avoid collision with the row 1
+  // encumbrance/attuned boxes.
+  const contentBottomY = 298;
   const columnGap = 6;
   const columnPadding = 4;
   // 3-column newspaper flow (user: "we have 2 columns there which is

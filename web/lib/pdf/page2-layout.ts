@@ -26,9 +26,16 @@ export const PAGE2_INVENTORY_REGIONS = {
   // x=10..78 (3 × 22pt boxes with 1pt gaps). Attuned sits at x=85
   // (just past the last encumbrance box). Currency row spans x=10..210
   // (full width of the narrowed equipped card).
-  encumbrance: { x: 10, y: 321, width: 70, height: 20 },
-  attuned: { x: 85, y: 321, width: 60, height: 20 },
-  currency: { x: 10, y: 343, width: 200, height: 20 },
+  //
+  // Round-26 #6: user feedback that the two rows sat too low in the
+  // inventory box — pushed against the bottom border. Nudged both
+  // rows up by 20pt total so they sit visually centered between the
+  // item list (above, ends around y=290) and the box bottom border
+  // (y=363). Item descriptions contentBottomY is still 318 (unchanged)
+  // so the 2-row footer doesn't collide with item description text.
+  encumbrance: { x: 10, y: 303, width: 70, height: 20 },
+  attuned: { x: 85, y: 303, width: 60, height: 20 },
+  currency: { x: 10, y: 325, width: 200, height: 20 },
   // valuables no longer used in the footer (round-25 #G redesign);
   //   kept as a region for backwards compatibility.
   valuables: { x: 465, y: 321, width: 367, height: 42 },
