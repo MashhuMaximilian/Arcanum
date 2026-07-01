@@ -595,26 +595,13 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
       .map((s) => s.trim());
     const entryLevels = character.source?.classEntries?.map((entry) => entry.level) ?? [];
     if (classes.length > 1 || (entryLevels.length > 0 && entryLevels.some((l) => l > 0 && l < totalLevel))) {
-      // Multiclass path — wrap to two lines by splitting the class list at the
-      // midpoint. The first line carries the "(Lvl X) |" header so the visual
-      // indent of the wrapping reads naturally.
-      const parts: string[] = [];
-      for (let i = 0; i < classes.length; i++) {
-        const lvl = entryLevels[i] ?? totalLevel;
-        const sub = subclasses[i] ?? "";
-        const seg = [lvl, sub, classes[i]].filter(Boolean).join(" ");
-        parts.push(seg);
-      }
-      const header = `(Lvl ${totalLevel}) |`;
-      const midpoint = Math.ceil(parts.length / 2);
-      const line1Parts = parts.slice(0, midpoint);
-      const line2Parts = parts.slice(midpoint);
-      const line1 = line2Parts.length > 0 ? `${header} ${line1Parts.join(" / ")}` : `${header} ${parts.join(" / ")}`;
-      const lines = [line1];
-      if (line2Parts.length > 0) {
-        lines.push(line2Parts.join(" / "));
-      }
-      return lines;
+      // Round-26 #8: multiclass path — user wants the header to show
+      // ONLY the total level, not the per-class breakdown. Per-class
+      // names + levels go into the SPELLCASTING card instead.
+      // "Multiclass lvl {totalLevel}" reads cleaner than the previous
+      // "(Lvl N) | Class A / Class B / Class C" which crashed the
+      // header card layout when the character has 3+ classes.
+      return [`Multiclass lvl ${totalLevel}`];
     }
     // Single-class path — fits comfortably on a single line.
     const single = classes[0] || character.classLabel || "Character";
@@ -950,6 +937,33 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     return acc;
   }, []);
 
+  // Round-26 #8: for multiclass characters, the SPELLCASTING card must
+  // list ALL classes (including non-spellcasters like Monk) — not just
+  // the classes that have `spellcasting-source-*` stats. Inject
+  // synthetic entries for any class in character.classLabel (which is
+  // already split by '/' for multiclass) that doesn't already appear
+  // in spellSources. These synthetic entries have empty bonus/dc/
+  // ability so the renderer prints blanks instead of numbers. For
+  // Monk (Ki-only), we surface the Ki Save DC + Wisdom ability from
+  // the existing kiSaveDc stat so the row reads meaningfully.
+  if (spellSources.length > 1 && character.classLabel) {
+    const knownLabels = new Set(spellSources.map((s) => normalizeKey(s.label)));
+    const allClassNames = (character.classLabel || "")
+      .split("/")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const className of allClassNames) {
+      if (knownLabels.has(normalizeKey(className))) continue;
+      const isMonkKi = /monk/i.test(className) && kiSaveDc;
+      spellSources.push({
+        label: className,
+        bonus: "",
+        dc: isMonkKi ? kiSaveDc : "",
+        ability: isMonkKi ? "Wisdom" : "",
+      });
+    }
+  }
+
   const hasSpellcasting = spellSources.length > 0;
   const hasKiDc = Boolean(kiSaveDc);
   const hasClassResource = classResources.length > 0;
@@ -1095,31 +1109,52 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
   ];
 
   // Data rows
+  // Build a parallel array of class levels by matching each spellSource
+  // (in order) to character.source.classEntries. The order matches
+  // because spellSources is built from the same per-class owner labels
+  // that flow from classLabel (split by '/' for multiclass).
+  const classLevels: number[] = (() => {
+    const entryLevels = character.source?.classEntries?.map((entry) => entry.level) ?? [];
+    return spellSources.map((src) => {
+      // Find the class entry whose classId maps to this label. We can't
+      // reverse-map classId→name easily here, so fall back to the level
+      // of the entry at the same index (best-effort positional match).
+      return entryLevels.shift() ?? character.level;
+    });
+  })();
+
   spellSources.forEach((src, idx) => {
     const rowY = dataY + idx * rowH;
-    const vals = [src.label.toUpperCase(), src.bonus, src.dc, src.ability];
+    // Round-26 #8: append class level to the class name cell so the
+    // user sees "Bard 3", "Cleric 3", "Druid 2", "Monk 2" — the
+    // explicit per-class level. Render as a single string via
+    // drawCenteredTextInRect (the drawWrappedClassName path was
+    // splitting on the embedded space and stacking "BARD" / "3" on
+    // two lines at a tiny font). Use shrink-to-fit (maxSize 5.5 →
+    // minSize 4.5) so a single line of "CLERIC 3" still fits when
+    // the CLASS column is narrow.
+    const classLevel = classLevels[idx];
+    const displayLabel = classLevel ? `${src.label.toUpperCase()} ${classLevel}` : src.label.toUpperCase();
+    const vals = [displayLabel, src.bonus, src.dc, src.ability];
     vals.forEach((val, ci) => {
       if (!val) return;
       const colOpts = {
         font: "Helvetica-Bold",
         maxSize: ci === 0 ? 5.5 : 6.0,
-        minSize: ci === 0 ? 3.0 : 3.5, color: "#000000",
+        minSize: ci === 0 ? 4.5 : 3.5, color: "#000000",
       };
       if (ci === 0) {
-        // Class name cell: single-word names fit on one line (font shrinks to fit),
-        // multi-word names wrap to one word per line.
+        // Class name cell: single line, shrink-to-fit. For multi-word
+        // class names like "FIGHTER EK" or "COLLEGE OF LORE" the
+        // embedded space stays a single space and we let PDFKit
+        // break to two lines via lineBreak=true.
         const cellRect = { x: colX[ci] + 1, y: rowY, width: colW[ci] - 1, height: rowH - 1 };
-        if (/\s/.test(val)) {
-          const words = val.split(/\s+/).filter(Boolean);
-          drawWrappedClassName(ctx, words, cellRect, { ...colOpts, align: "left" });
-        } else {
-          drawCenteredTextInRect(ctx, val, cellRect, {
-            ...colOpts,
-            align: "left",
-            lineBreak: false,
-            ellipsis: false,
-          });
-        }
+        drawCenteredTextInRect(ctx, val, cellRect, {
+          ...colOpts,
+          align: "left",
+          lineBreak: true,
+          ellipsis: true,
+        });
       } else {
         drawCenteredTextInRect(ctx, val, { x: colX[ci], y: rowY, width: colW[ci], height: rowH - 1 }, colOpts);
       }
@@ -1153,20 +1188,27 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
       x: rBox.x + 3, y: rLabelY, width: rContentW, height: rLabelH,
     }, { font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000" });
 
-    // Column headers: VALUE | RESOURCE NAME | RECHARGE
+    // Round-26 #8: column widths — added a CLASS column to surface the
+    // class name on each resource row (user: 'in CLASS RESOURCES we
+    // have resources for Ki DC, but we do not have the name of the
+    // class'). VAL stays narrow (~15%); CLASS gets ~22% for multi-word
+    // class names like "College of Lore"; RESOURCE keeps the largest
+    // share (~40%); RECHARGE shrinks to ~23% but still fits "Long Rest".
     const resourceRuleX = rBox.x + 8;
     const resourceRuleW = rBox.width - 16;
     const rv1 = resourceRuleX;
-    const rw1 = resourceRuleW * 0.19;
-    const rw2 = resourceRuleW * 0.52;
-    const rw3 = resourceRuleW * 0.29;
-    const rv2 = rv1 + rw1;
+    const rw1 = resourceRuleW * 0.15;
+    const rwClass = resourceRuleW * 0.22;
+    const rw2 = resourceRuleW * 0.40;
+    const rw3 = resourceRuleW * 0.23;
+    const rvClass = rv1 + rw1;
+    const rv2 = rvClass + rwClass;
     const rv3 = rv2 + rw2;
 
     // Column header labels
-    const rHeaderLabels = ["VAL", "RESOURCE", "RECHARGE"];
-    const rColX = [rv1, rv2, rv3];
-    const rColW = [rw1, rw2, rw3];
+    const rHeaderLabels = ["VAL", "CLASS", "RESOURCE", "RECHARGE"];
+    const rColX = [rv1, rvClass, rv2, rv3];
+    const rColW = [rw1, rwClass, rw2, rw3];
     rHeaderLabels.forEach((lbl, i) => {
       drawCenteredTextInRect(ctx, lbl, { x: rColX[i], y: rHeaderY, width: rColW[i], height: headerH }, {
         font: "Helvetica-Bold", maxSize: 6.4, minSize: 6.4, color: "#000000",
@@ -1176,13 +1218,20 @@ function renderSpellcasting(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, ch
     // Thin rule under column headers - light gray, shorter
     strokeRule(ctx, resourceRuleX, rHeaderY + headerH, resourceRuleW, "#c8c8c8");
 
-    // Data rows: VALUE | RESOURCE NAME | RECHARGE
+    // Data rows: VAL | CLASS | RESOURCE | RECHARGE
     orderedClassResources.forEach((resource, idx) => {
       const rowY = rDataY + idx * rRowH;
 
       // Value (e.g. "2d6" or "3") — matches the spellcasting card body font.
       drawCenteredTextInRect(ctx, resource.value, { x: rv1, y: rowY, width: rw1, height: rRowH - 1 }, {
         font: "Helvetica-Bold", maxSize: 6.0, minSize: 6.4, color: "#000000",
+      });
+      // Round-26 #8: Class name (e.g. "Bard", "Monk"). Fall back to
+      // empty string if the parseClassResource couldn't extract one
+      // (older data without ownerLabel metadata).
+      drawCenteredTextInRect(ctx, (resource.className || "").toUpperCase(), { x: rvClass, y: rowY, width: rwClass, height: rRowH - 1 }, {
+        font: "Helvetica-Bold", maxSize: 6.0, minSize: 4.5, color: "#000000",
+        ellipsis: false,
       });
       // Resource name (e.g. "Arcane Recovery", "Sorcery Points")
       drawCenteredTextInRect(ctx, resource.name, { x: rv2, y: rowY, width: rw2, height: rRowH - 1 }, {
