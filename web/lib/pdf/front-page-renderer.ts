@@ -111,8 +111,16 @@ const FEATURE_CARD_TYPOGRAPHY = {
   charges: { max: 6.4, min: 4.0 },
   titleRowHeight: 8.0,
   metaRowHeight: 5.4,
-  bodyTopPad: 2.5,
-  separatorGap: 7,
+  // Round-28 #4: tighter breathing room inside feature cards.
+  // User feedback: 'less padding on top and bottom, a bit less
+  // space between features'. Reduced bodyTopPad 2.5 → 1.0
+  // (the space between the title/meta row and the first body
+  // line). Reduced separatorGap 7 → 4 (the gap between
+  // consecutive feature cards in the deck). These two cuts
+  // reclaim ~5pt per card, letting us fit more cards in the
+  // same vertical space without shrinking body text.
+  bodyTopPad: 1.0,
+  separatorGap: 4,
   circleRadius: 1.45,
   circleGap: 1.55,
   metaWidth: { max: 72, min: 44 },
@@ -129,7 +137,10 @@ const RACIAL_CARD_TYPOGRAPHY = {
   meta: { max: 5.5, min: 3 },
   titleRowHeight: 13,
   metaRowHeight: 5.4,
-  bodyTopPad: 3,
+  // Round-28 #4: tighter top padding for racial/subclass/subracial/
+  // feat cards (which use this typography). Reduced 3 → 1.5 to
+  // match the ergonomic tightening on FEATURE_CARD_TYPOGRAPHY.
+  bodyTopPad: 1.5,
 } as const;
 
 type StatBoxSpec = {
@@ -2465,7 +2476,9 @@ const DEFAULT_FEATURE_CONFIG: FeatureLayoutConfig = {
   bodyMinSize: FEATURE_CARD_TYPOGRAPHY.body.min,
   lineGap: 1.2,
   featureGap: FEATURE_CARD_TYPOGRAPHY.separatorGap,
-  bottomPadding: 10,
+  // Round-28 #4: tighter bottom padding inside feature card groups.
+  // User feedback: 'less padding on top and bottom'. Reduced 10 → 6.
+  bottomPadding: 6,
   compact: false,
 };
 
@@ -2476,8 +2489,10 @@ const MIN_FEATURE_CONFIG: FeatureLayoutConfig = {
   // 3.0 was too small to render clearly on most consumer printers.
   bodyMinSize: 4.0,
   lineGap: 0.8,
-  featureGap: 5,
-  bottomPadding: 8,
+  // Round-28 #4: tighter feature gap in the emergency-min config too.
+  featureGap: 3,
+  // Round-28 #4: tighter bottom padding in emergency-min config too.
+  bottomPadding: 5,
   compact: true,
 };
 
@@ -3739,33 +3754,21 @@ function renderRail(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character:
     width: railRight - railX,
   });
 
-  // BUGFIX: racial/subracial cards were populated into
-  // character.frontPage.rightColumn.racialCards/subracialCards by
-  // buildRightColumnComposition but renderRightColumnFeatureCard was
-  // never invoked, so the FEATURES & TRAITS column only showed
-  // deck-level feature cards (PRIMEVAL AWARENESS etc.) and the
-  // racial cards (ELF SUBRACE / FEY ANCESTRY / KEEN SENSES) silently
-  // dropped. Now render the racial & subracial card box at the
-  // BOTTOM of the FEATURES & TRAITS column (below the deck cards),
-  // taking the remaining vertical space.
-  const hasRacial = rightColumn.racialCards.length || rightColumn.subracialCards.length;
-  if (hasRacial) {
-    const featuresRect = FRONT_PAGE_REGIONS.features;
-    // Estimate the deck height: max(0, height - reserved) where
-    // reserved is the space we want for racial cards. Use a floor
-    // of 80pt for the racial box (3-4 compact trait lines).
-    const racialBoxHeight = 80;
-    const racialBottom = featuresRect.y + featuresRect.height - 4;
-    const racialTop = racialBottom - racialBoxHeight;
-    if (racialTop > featuresRect.y + 40) {
-      renderRightColumnFeatureCard(ctx, assets, character, {
-        x: featuresRect.x,
-        y: racialTop,
-        width: featuresRect.width,
-        height: racialBoxHeight,
-      });
-    }
-  }
+  // Round-28 #4: REMOVE the duplicate bottom "Racial & Subracial
+  // Features" card. User feedback: 'the racial ones are weird, like
+  // card Racial & Subracial Features Is pinned on the bottom? But
+  // the one on the bottom should not be there because it is
+  // duplicated, we already have the good one at the top.'
+  //
+  // The top version is rendered by renderGroupedFeatureDeck (called
+  // from renderFeatureDeck line 3846) which includes racial,
+  // subracial, class, subclass, and feat cards in masonry layout.
+  // The bottom call here was a redundant re-render that took ~80pt
+  // of vertical space at the bottom of the FEATURES & TRAITS column.
+  //
+  // Removing the bottom call frees that space for the deck above to
+  // expand naturally — fewer cramped cards, better breathing room,
+  // and no visual duplication.
 }
 
 function collectFrontPageFeatureCards(character: ResolvedPdfCharacter) {
