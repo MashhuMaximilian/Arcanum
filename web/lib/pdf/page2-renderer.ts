@@ -2243,7 +2243,11 @@ function renderCompanionAbilities(
     // clears that baked label so this code-drawn overlay (using
     // Magra-Bold to match the front page) can render the correct
     // ability name for this cell.
-    label: { x: 10, y: 49, width: 35, height: 8 },
+    //
+    // Round-27 #6: nudge label UP 3pt from y=49 to y=46 to match
+    // the front-page change. User feedback: 'move the new label of
+    // ability up a bit'.
+    label: { x: 10, y: 46, width: 35, height: 8 },
     // Mask slot for the SVG-baked bottom label area (y 46-52).
     // Cleared so the code-drawn label renders without a duplicate.
     labelMaskBottom: { x: 8, y: 46, width: 40, height: 10 },
@@ -2268,10 +2272,11 @@ function renderCompanionAbilities(
       lineGap: 0,
     } as const;
 
-    // Round-27 #1a: nudge save pip UP 1.5pt so the digit doesn't
-    // crash into the SVG-baked "SAVE" label beneath it.
+    // Round-27 #1a + #6: nudge save pip UP 3pt (was 1.5pt) so the
+    // digit sits cleanly above the SVG-baked "SAVE" label with
+    // visible breathing room. Mirrors the front-page change.
     const saveSlot = componentRect(cell.rect, STAT_VIEWBOX, slots.save);
-    drawCenteredTextInRect(ctx, formatModifier(modifier), { ...saveSlot, y: saveSlot.y - 1.5 }, {
+    drawCenteredTextInRect(ctx, formatModifier(modifier), { ...saveSlot, y: saveSlot.y - 3 }, {
       ...valueOptions,
       maxSize: 14,
     });

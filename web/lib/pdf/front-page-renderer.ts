@@ -246,7 +246,15 @@ const STAT_VALUE_SLOTS = {
   // (rendered last at the bottom slot) is visible.
   labelMask: { x: 8, y: 14, width: 40, height: 10 },
   labelMaskBottom: { x: 8, y: 46, width: 40, height: 10 },
-  label: { x: 10, y: 49, width: 35, height: 8 },
+  // Round-27 #6: nudge the per-cell ability label (STR/DEX/CON/INT/
+  // WIS/CHA) UP 3pt from y=49 to y=46. User feedback: 'we need to
+  // move the new label of ability up a bit'. The previous slot
+  // landed the label inside the same band as the modifier bubble
+  // (the bottom circle is at SVG y≈61.77), so the label hugged the
+  // modifier ink. Moving to y=46 lifts the label into the gap
+  // between the score `---` divider (~y=44) and the modifier bubble
+  // (~y=58) so it sits cleanly between them with breathing room.
+  label: { x: 10, y: 46, width: 35, height: 8 },
   // Modifier slot grown 13→18pt tall so 14pt modifier digits can
   // actually fit (was clamped to ~11pt by the 13pt slot). x 12 stays
   // — the slot is wide enough for "+10" and a 14pt Magra-Bold. y
@@ -1343,10 +1351,16 @@ function renderAbilities(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, chara
       // Bumped sizes to match the companion page so both pages use the
       // same stat-block geometry.
       //
-      // Round-27 #1a: nudge save pip value UP 1.5pt so the digit doesn't
-      // crash into the SVG-baked "SAVE" label beneath it.
+      // Round-27 #1a + #6: nudge save pip value UP 3pt (was 1.5pt) so
+      // the digit sits cleanly above the SVG-baked "SAVE" label with
+      // visible breathing room. User feedback: 'Save value should also
+      // be nudged up a bit'. The save slot starts at y=5 with height
+      // 18 (so vertical center y=14). Lifting -3pt puts the visible
+      // digit baseline at y=11 which clears the baked SAVE text band
+      // around y=18-22 without clipping the top of the digit against
+      // the pip circle border at y≈-2.
       const saveSlot = componentRect(block, STAT_BLOCK_VIEWBOX, STAT_VALUE_SLOTS.save);
-      drawCenteredTextInRect(ctx, signed(row.saveBonus), { ...saveSlot, y: saveSlot.y - 1.5 }, {
+      drawCenteredTextInRect(ctx, signed(row.saveBonus), { ...saveSlot, y: saveSlot.y - 3 }, {
         font: "Helvetica-Bold",
         maxSize: 14,
         minSize: 6.4,
