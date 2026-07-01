@@ -1412,7 +1412,13 @@ function renderPassives(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, charac
       return;
     }
     const cell = componentRect(FRONT_PAGE_REGIONS.passives, PASSIVES_VIEWBOX, PASSIVE_BOXES[index]);
-    drawCenteredTextInRect(ctx, value, rectFromFractions(cell, { x: 0.06, y: 0.12, width: 0.88, height: 0.53 }), {
+    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.12, width: 0.88, height: 0.53 });
+    // Round-26 #2: nudge the passive/speed value Y UP by fontSize*0.3
+    // (≈4.2pt for 14pt Magra-Bold) so the digit lands in the optical
+    // center of its circle bubble. Without this lift, the digit
+    // visually sits low because Magra-Bold's tall descender makes
+    // PDFKit's geometric center calculation read as bottom-heavy.
+    drawCenteredTextInRect(ctx, value, { ...valueRect, y: valueRect.y - 4.2 }, {
       font: "Helvetica-Bold",
       // Round-25: size parity with companion SPEED card. Companion
       // slot height is 18pt (y=4 of 34pt viewBox), so front passive
