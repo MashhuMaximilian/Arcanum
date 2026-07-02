@@ -456,6 +456,13 @@ function drawRichParagraph(
         // the Teko-Medium display face. Italic reuses Magra (we have
         // no italic cut; the visual distinction still reads through
         // run separation).
+        // Round-30 #3: drop the bold run's fontSize by ~7% to fake a
+        // "medium" (500-600) ink weight. Magra only ships Regular
+        // (400) and Bold (700) — no Medium cut. A smaller bold size
+        // in the SAME family produces a visually lighter emphasis
+        // that reads like a medium weight while keeping baseline
+        // alignment perfect (same OS/2 metrics). Mirrors the front-
+        // page change in drawTextWithBoldActionWords.
         const font = isBold && isItalic
           ? "Magra-Bold"
           : isBold
@@ -463,6 +470,7 @@ function drawRichParagraph(
             : isItalic
               ? "Helvetica-Oblique"
               : options.font;
+        const runSize = isBold ? options.size * 0.93 : options.size;
 
         // Split on spaces so we can wrap. Use a non-newline split
         // since newlines are already handled at the block level above.
@@ -471,7 +479,7 @@ function drawRichParagraph(
           const word = words[wi];
           if (!word) continue;
           ctx.doc.save();
-          ctx.doc.font(font).fontSize(options.size);
+          ctx.doc.font(font).fontSize(runSize);
           const wordWidth = ctx.doc.widthOfString(word);
           ctx.doc.restore();
 
@@ -489,7 +497,7 @@ function drawRichParagraph(
           // single space-width gap using a single space character.
           if (cursorX > rect.x && lineHasContent) {
             ctx.doc.save();
-            ctx.doc.font(font).fontSize(options.size);
+            ctx.doc.font(font).fontSize(runSize);
             const spaceWidth = ctx.doc.widthOfString(" ");
             ctx.doc.restore();
             drawText(ctx, " ", {
@@ -511,7 +519,7 @@ function drawRichParagraph(
               height: options.size + options.lineGap,
             }, {
               font,
-              size: options.size,
+              size: runSize,
               color: options.color,
               lineBreak: false,
               lineGap: 0,
@@ -531,7 +539,7 @@ function drawRichParagraph(
             height: options.size + options.lineGap,
           }, {
             font,
-            size: options.size,
+            size: runSize,
             color: options.color,
             lineBreak: false,
             lineGap: 0,
@@ -606,11 +614,15 @@ function measureRichParagraphHeight(
             : run.italic
               ? "Helvetica-Oblique"
               : baseFont;
+        // Round-30 #3: bold runs render at ~93% of base size to fake
+        // a medium weight. Measure at the SAME size the renderer
+        // draws at so the wrap accounting matches the actual width.
+        const runSize = run.bold ? size * 0.93 : size;
         const words = run.text.split(/[ \t]+/);
         for (const word of words) {
           if (!word) continue;
           ctx.doc.save();
-          ctx.doc.font(font).fontSize(size);
+          ctx.doc.font(font).fontSize(runSize);
           const wordWidth = ctx.doc.widthOfString(word);
           ctx.doc.restore();
 
@@ -622,7 +634,7 @@ function measureRichParagraphHeight(
           // Account for the inter-word space the renderer emits.
           if (cursorX > 0 && lineHasContent) {
             ctx.doc.save();
-            ctx.doc.font(font).fontSize(size);
+            ctx.doc.font(font).fontSize(runSize);
             const spaceWidth = ctx.doc.widthOfString(" ");
             ctx.doc.restore();
             cursorX += spaceWidth;
@@ -961,8 +973,17 @@ function renderItemDescriptions(
           // the same'. The front page drawTextWithBoldActionWords
           // already used Magra-Bold; this brings page-2 item
           // descriptions in line.
+          // Round-30 #3: drop the bold run's fontSize by ~7% to
+          // fake a "medium" (500-600) ink weight. Magra only
+          // ships Regular (400) and Bold (700) — no Medium cut.
+          // A smaller bold size in the SAME family produces a
+          // visually lighter emphasis that reads like a medium
+          // weight while keeping baseline alignment perfect
+          // (same OS/2 metrics). Mirrors the front-page change.
+          const segFont = run.bold ? "Magra-Bold" : textFont;
+          const segSize = run.bold ? bodySize * 0.93 : bodySize;
           ctx.doc.save();
-          ctx.doc.font(run.bold ? "Magra-Bold" : textFont).fontSize(bodySize);
+          ctx.doc.font(segFont).fontSize(segSize);
           const segW = ctx.doc.widthOfString(seg);
           ctx.doc.restore();
           if (/^\n/.test(seg)) {
@@ -1068,8 +1089,16 @@ function renderItemDescriptions(
       // formatted the same. ... same font family as the rest of
       // description'. Mirrors the front page change.
       const runFont = run.bold ? "Magra-Bold" : textFont;
+      // Round-30 #3: drop bold run's fontSize by ~7% to fake a
+      // "medium" (500-600) ink weight. Magra only ships Regular
+      // (400) and Bold (700) — no Medium cut. A smaller bold size
+      // in the SAME family produces a visually lighter emphasis
+      // that reads like a medium weight while keeping baseline
+      // alignment perfect (same OS/2 metrics). Mirrors the front-
+      // page change in drawTextWithBoldActionWords.
+      const runSize = run.bold ? bodySize * 0.93 : bodySize;
       ctx.doc.save();
-      ctx.doc.font(runFont).fontSize(bodySize);
+      ctx.doc.font(runFont).fontSize(runSize);
       const runW = ctx.doc.widthOfString(run.text);
       ctx.doc.restore();
       const remainingW = lineX + columnWidth - cursorX;
@@ -1088,7 +1117,7 @@ function renderItemDescriptions(
         x: cursorX, y: lineY, width: Math.min(runW, remainingW), height: lineH,
       }, {
         font: runFont,
-        size: bodySize,
+        size: runSize,
         color: COLORS.textPrimary,
         lineBreak: false,
         ellipsis: false,

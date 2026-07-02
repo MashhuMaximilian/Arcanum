@@ -3023,9 +3023,18 @@ function drawTextWithBoldActionWords(
       // font-family switch from 'Helvetica' to 'Magra-Bold' is
       // fine here because they are both Magra family under the
       // hood (per generate.ts registerFont lines 215-216).
+      // Round-30 #3: drop the bold run's fontSize by ~7% to fake
+      // a "medium" (500-600) ink weight. Magra only ships
+      // Regular (400) and Bold (700) — no Medium cut. A smaller
+      // bold size in the SAME family produces a visually lighter
+      // emphasis that reads like a medium weight while keeping
+      // baseline alignment perfect (same OS/2 metrics). User
+      // feedback: 'we now probably use bold or 800 or 900 but we
+      // need like 500 or 600 font weight (medium)'.
       const wordFont = run.bold ? "Magra-Bold" : "Magra";
+      const wordSize = run.bold ? fSize * 0.93 : fSize;
       doc.save();
-      doc.font(wordFont).fontSize(fSize);
+      doc.font(wordFont).fontSize(wordSize);
       const w2 = doc.widthOfString(w);
       doc.restore();
 
@@ -3051,7 +3060,7 @@ function drawTextWithBoldActionWords(
 // the same visual band as the body word.
       if (cursorY > opts.y + opts.height) break;
       doc.save();
-      doc.font(wordFont).fontSize(fSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
+      doc.font(wordFont).fontSize(wordSize).fillColor(opts.color).text(w, lineX, cursorY, { lineBreak: false });
       doc.restore();
       lineX += w2;
       lineRemaining -= w2;
