@@ -2255,7 +2255,7 @@ function renderCompanionAbilities(
     // modifier rendered at full 14pt (visible 30% size discrepancy).
     // y shifted from 7.2 → 5 to keep the digit vertically centered
     // within the new height.
-    save: { x: 11, y: 5, width: 33, height: 18 },
+    save: { x: 11, y: 3, width: 33, height: 18 },
     // Score slot grown 15.5 → 30pt tall (y 26.8 → 18, height 30) so
     // 28pt scores have room to render — fitTextSize was clamping
     // them to ~15pt in the old slot, making the digit look small
@@ -2278,20 +2278,23 @@ function renderCompanionAbilities(
     // Magra-Bold to match the front page) can render the correct
     // ability name for this cell.
     //
-    // Round-29 #1: REVERT label y back to 46 (was 42 in round-28).
-    // Mirrors the front-page change. Round-28 y=42 collided with
-    // the SVG-baked divider line at y=43.04, producing strikethrough
-    // across the labels. y=46 puts the label JUST BELOW the divider
-    // (y≈44) and clears the modifier bubble at y=52 — sitting in
-    // the gap with breathing room on both sides.
-    label: { x: 10, y: 46, width: 35, height: 8 },
-    // Mask slot for the SVG-baked bottom label area (y 46-52).
-    // Round-29 #1: SHRUNK height 10 → 5 so the mask stops at y=51,
-    // clearing the modifier bubble (which starts at y=52.28). The
-    // previous y=46..56 height=10 was eating into the top of the
-    // modifier circle, leaving a visible white sliver above the
-    // modifier digit.
-    labelMaskBottom: { x: 8, y: 46, width: 40, height: 5 },
+    // Round-30 #1: SHIFT label UP 2pt (y 46 → 44). User feedback:
+    // 'label for ability score has to be nudged up a bit'. The label
+    // now sits just below the SVG-baked divider line (y=43.04) with
+    // ~1pt breathing room, in the gap between the divider and the
+    // modifier bubble starting at y=52.28. Mirrors the front-page
+    // R30 #1 change.
+    label: { x: 10, y: 44, width: 35, height: 8 },
+    // Round-30 #1: SHIFT bottom mask UP 4pt + EXTEND height 5 → 8
+    // (y 42..50, was 46..51). Same rationale as the front page
+    // R30 #1 change — the SVG-baked bottom "STR" letterforms
+    // extend from y=46..50 and a h=5 mask only covered y=46..47,
+    // leaving the bottom half visible behind the code-drawn
+    // label (producing strikethrough effect like "SOIR" instead
+    // of "CON"). Extending to y=42..50 covers both the divider
+    // line and the full baked label letterforms. Stops at y=50
+    // to clear the modifier bubble starting at y=52.28.
+    labelMaskBottom: { x: 8, y: 42, width: 40, height: 8 },
   } satisfies Record<string, PdfRect>;
 
   for (const cell of rects.abilityCells) {

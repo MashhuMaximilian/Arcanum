@@ -242,7 +242,7 @@ const STAT_VALUE_SLOTS = {
   // at 14pt Magra-Bold lineGap=0 = 17.01pt > 14pt). y 7.2 → 5 to keep
   // the digit vertically centered against the new height without
   // colliding with the score slot below.
-  save: { x: 11, y: 5, width: 33, height: 18 },
+  save: { x: 11, y: 3, width: 33, height: 18 },
   // Score slot grown 15.5 → 30pt tall (y 26.8 → 18, height 30) so
   // 28pt scores have room to render — see companion page2-renderer
   // comment for the same change. Modifier slot y 57.2 → 56 to stay
@@ -256,29 +256,28 @@ const STAT_VALUE_SLOTS = {
   // mask to cover BOTH label areas so only the code-drawn label
   // (rendered last at the bottom slot) is visible.
   labelMask: { x: 8, y: 14, width: 40, height: 10 },
-  // Round-29 #1: SHRINK the bottom mask — was y 46..56 (height 10).
-  // The modifier bubble starts at SVG y=52.28 (the bottom circle's
-  // top edge), so a mask extending to y=56 was eating into the top
-  // of the modifier circle, leaving a visible white sliver above
-  // the +2/+1/-1 digits. User feedback: 'the white box cuts into
-  // the modifier circle bubble'. Reduced height 10 → 5 so the
-  // mask stops at y=51, clearing the modifier bubble entirely.
-  // The label slot (code-drawn) lives in the same y range and
-  // still sits below the divider line at y=43.04.
-  labelMaskBottom: { x: 8, y: 46, width: 40, height: 5 },
-  // Round-29 #1: REVERT label y back to 46 (was 42 in round-28).
-  // Round-28 moved the label UP to y=42 to "lift above the
-  // modifier bubble" but the SVG-baked divider line at y=43.04
-  // (the horizontal stroke baked into the STR letterform glyph
-  // path) cuts right through that y, producing strikethrough
-  // across all six ability labels (DEX/STR/CON). User feedback
-  // in round-29: 'Nu stiu de ce labelul gen "DEX" este taiat cu
-  // strikethrough'. Back to y=46 puts the label JUST BELOW the
-  // divider (which ends at y≈44) and clears the modifier bubble
-  // at y=52 — sitting cleanly in the gap with breathing room on
-  // both sides. The mask above (y=46..51) covers the baked bold
-  // "STR" text behind the code-drawn label.
-  label: { x: 10, y: 46, width: 35, height: 8 },
+  // Round-30 #1: SHIFT bottom mask UP 4pt + EXTEND height 5 → 8
+  // (y 42..50, was 46..51). The SVG-baked bottom "STR" label
+  // (path 5) extends from y=46..50 with the letterform glyphs.
+  // A mask with height 5 only covered y=42..47, leaving the
+  // bottom half of the baked "STR" letterforms (y=48..50)
+  // visible behind the code-drawn label — producing a
+  // strikethrough effect where the user saw "SOIR" instead of
+  // "CON" or similar. Extending the mask to y=42..50 covers
+  // BOTH the divider line at y=43.04 AND the full bottom STR
+  // baked glyphs. The mask stops at y=50 to clear the modifier
+  // bubble starting at y=52.28. The code-drawn label (y=44..52)
+  // renders ON TOP of this white area.
+  labelMaskBottom: { x: 8, y: 42, width: 40, height: 8 },
+  // Round-30 #1: SHIFT label UP 2pt (y 46 → 44). User feedback:
+  // 'label for ability score has to be nudged up a bit'. The label
+  // now sits just below the SVG-baked divider line (y=43.04) with
+  // ~1pt breathing room, in the gap between the divider and the
+  // modifier bubble starting at y=52.28. The mask above (y=42..47)
+  // covers the baked bold "STR" text behind the code-drawn label
+  // AND the divider line so the label appears cleanly without
+  // strikethrough.
+  label: { x: 10, y: 44, width: 35, height: 8 },
   // Modifier slot grown 13→18pt tall so 14pt modifier digits can
   // actually fit (was clamped to ~11pt by the 13pt slot). x 12 stays
   // — the slot is wide enough for "+10" and a 14pt Magra-Bold. y
