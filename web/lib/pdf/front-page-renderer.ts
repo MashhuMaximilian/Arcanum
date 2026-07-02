@@ -3418,32 +3418,44 @@ function buildFeatureDeckGroups(cards: PdfPageCard[]) {
       // Result: multiclass characters see "DRUID" / "RANGER"
       // chunk titles instead of "CLASS 1" / "CLASS 2".
       //
-      // For non-class groups (race/subrace/feat/additional/other)
-      // we keep the existing chunk-by-weight behavior because
-      // those groups don't have class identity — they're broken
-      // up purely by content weight.
+      // Round-30 #4: same logic now applies to race/subrace
+      // groups, reading from the parallel `pdf-raceName:<NAME>`
+      // tag. Characters with a race + subrace see "HIGH ELF"
+      // (single combined chunk) instead of "RACIAL FEATURES" +
+      // "SUBRACIAL FEATURES".
+      //
+      // For non-identity groups (feat/additional/other) we keep
+      // the existing chunk-by-weight behavior because those
+      // groups don't have race/class identity — they're broken up
+      // purely by content weight.
       const isClassLike = group.id === "class" || group.id === "subclass";
-      if (isClassLike) {
-        // Group cards by className tag
-        const byClass = new Map<string, PdfPageCard[]>();
+      const isRaceLike = group.id === "race" || group.id === "subrace";
+      if (isClassLike || isRaceLike) {
+        // Group cards by identity tag. Class-like reads
+        // `pdf-className:`; race-like reads `pdf-raceName:`.
+        const tagPrefix = isClassLike ? "pdf-className:" : "pdf-raceName:";
+        const byIdentity = new Map<string, PdfPageCard[]>();
         const orderOfFirstAppearance: string[] = [];
         for (const card of group.cards) {
-          const tag = card.tags.find((t) => t.startsWith("pdf-className:"));
-          const classKey = tag ? tag.slice("pdf-className:".length) : "_unknown";
-          if (!byClass.has(classKey)) {
-            byClass.set(classKey, []);
-            orderOfFirstAppearance.push(classKey);
+          const tag = card.tags.find((t) => t.startsWith(tagPrefix));
+          const identityKey = tag ? tag.slice(tagPrefix.length) : "_unknown";
+          if (!byIdentity.has(identityKey)) {
+            byIdentity.set(identityKey, []);
+            orderOfFirstAppearance.push(identityKey);
           }
-          byClass.get(classKey)!.push(card);
+          byIdentity.get(identityKey)!.push(card);
         }
-        return orderOfFirstAppearance.map((classKey) => ({
+        return orderOfFirstAppearance.map((identityKey) => ({
           ...group,
-          id: `${group.id}-${classKey}`,
-          // Use class name (e.g. "DRUID") as the title so
-          // getFeatureGroupDisplayTitle returns it directly
-          // (no " FEATURES" strip needed — already stripped)
-          title: classKey === "_unknown" ? group.title : classKey.toUpperCase(),
-          cards: byClass.get(classKey)!,
+          id: `${group.id}-${identityKey}`,
+          // Use class/race name (e.g. "DRUID" or "HIGH ELF") as
+          // the title so getFeatureGroupDisplayTitle returns it
+          // directly (no " FEATURES" strip needed — already
+          // stripped). Round-30 #4: subclass + subrace suffixes
+          // are already baked into the identity string upstream
+          // (e.g. "College of Lore Bard", "Wood Elf").
+          title: identityKey === "_unknown" ? group.title : identityKey.toUpperCase(),
+          cards: byIdentity.get(identityKey)!,
         }));
       }
       // Non-class groups: existing weight-based chunking

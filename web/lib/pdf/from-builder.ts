@@ -724,14 +724,25 @@ function isLowSignalFeatureElement(element: BuiltInElement) {
   return false;
 }
 
-function withPdfGroupTag(card: ReturnType<typeof toPdfCardFromElement> | ReturnType<typeof toPdfCardFromGrant>, group: string, className?: string) {
+function withPdfGroupTag(card: ReturnType<typeof toPdfCardFromElement> | ReturnType<typeof toPdfCardFromGrant>, group: string, className?: string, raceName?: string) {
   // Round-29 #4: optional `className` param — when set, adds a
   // `pdf-className:<NAME>` tag so buildFeatureDeckGroups can chunk
   // class features by their actual class identity (instead of
   // fallback "CLASS 1" / "CLASS 2" labels). User feedback: 'la
   // multiclass in loc de "class 1", "class 2" etc ar trebui
   // numele clasei'.
-  const extraTags = className ? [`pdf-className:${className}`] : [];
+  // Round-30 #4: optional `raceName` param — adds a parallel
+  // `pdf-raceName:<NAME>` tag for race/subrace groups. Used by
+  // buildFeatureDeckGroups to label chunks "HIGH ELF" instead of
+  // "RACIAL FEATURES" / "SUBRACIAL FEATURES". Both className and
+  // raceName can be present (e.g. a feature marked with both
+  // identities), but in practice a card only belongs to one group
+  // identity axis. Subclass suffix ("College of Lore Bard") and
+  // subrace suffix ("High Elf") are baked into the displayed name
+  // upstream before this function is called.
+  const extraTags: string[] = [];
+  if (className) extraTags.push(`pdf-className:${className}`);
+  if (raceName) extraTags.push(`pdf-raceName:${raceName}`);
   return {
     ...card,
     tags: [...card.tags, `pdf-group:${group}`, ...extraTags],
@@ -2058,26 +2069,59 @@ function buildFeatureCards(args: BuilderPdfSourceArgs) {
   // "RANGER", etc. instead of "CLASS 1" / "CLASS 2"). For each
   // class entry, find which features it granted (class + subclass
   // combined) and map each feature's id to that class's name.
+  // Round-30 #4: when the class entry has a subclass selected,
+  // bake the subclass name into the displayed label — e.g.
+  // "College of Lore Bard" instead of bare "Bard". User feedback:
+  // 'IN first page we should say in a card if class or subclass
+  // in title. So a card from class should be for example either
+  // "Bard" or "College of Lore Bard"'.
   const classNameByElementId = new Map<string, string>();
   args.classRecordsByEntry.forEach((record, index) => {
     const entry = args.draft.classEntries[index];
     if (!record || !entry?.classId) return;
     const className = resolveClassName(args.classRecordsByEntry[index], entry);
     if (!className) return;
-    const classFeatureIds = collectGrantedIdsAtLevel(record.class.rules, "Class Feature", entry.level);
     const selectedSubclass =
       record.subclassSteps.flatMap((step) => step.options).find((option) => option.archetype.id === entry.subclassId) ?? null;
+    // Round-30 #4: build the full display name. If a subclass
+    // exists, prefix the class name with "<Subclass> <Class>"
+    // (e.g. "College of Lore" + " Bard" = "College of Lore Bard").
+    // Otherwise use the bare class name.
+    const displayName = selectedSubclass
+      ? `${selectedSubclass.archetype.name} ${className}`.trim()
+      : className;
+    const classFeatureIds = collectGrantedIdsAtLevel(record.class.rules, "Class Feature", entry.level);
     const subclassFeatureIds = selectedSubclass
       ? collectGrantedIdsAtLevel(selectedSubclass.archetype.rules, "Archetype Feature", entry.level)
       : [];
     const grantedFeatureIds = new Set([...classFeatureIds, ...subclassFeatureIds]);
     record.features.forEach((feature) => {
-      if (grantedFeatureIds.has(feature.id)) classNameByElementId.set(feature.id, className);
+      if (grantedFeatureIds.has(feature.id)) classNameByElementId.set(feature.id, displayName);
     });
     selectedSubclass?.features.forEach((feature) => {
-      if (grantedFeatureIds.has(feature.id)) classNameByElementId.set(feature.id, className);
+      if (grantedFeatureIds.has(feature.id)) classNameByElementId.set(feature.id, displayName);
     });
   });
+  // Round-30 #4: build a lookup map from elementId → race display
+  // name (race + subrace combined when a subrace is selected) so
+  // race and subrace feature groups can label their chunks
+  // "HIGH ELF" / "WOOD ELF" etc. instead of "RACIAL FEATURES" /
+  // "SUBRACIAL FEATURES". User feedback: 'Same for race and
+  // subrace'. Map every racial trait to the combined name — the
+  // chunker reads whichever tag is present per card.
+  const raceDisplayName = (() => {
+    const raceName = args.selectedRace?.race.name ?? "";
+    const subraceName = args.selectedSubrace?.name ?? "";
+    if (raceName && subraceName) return `${subraceName}`;
+    if (raceName) return raceName;
+    return "";
+  })();
+  const raceNameByElementId = new Map<string, string>();
+  if (raceDisplayName) {
+    args.selectedRacialTraitElements.forEach((element) => {
+      raceNameByElementId.set(element.id, raceDisplayName);
+    });
+  }
   const classFeatures = args.selectedClassFeatureElements.filter((element) => !/archetype/i.test(element.type) && !isLowSignalFeatureElement(element));
   const subclassFeatures = args.selectedClassFeatureElements.filter((element) => /archetype/i.test(element.type) && !isLowSignalFeatureElement(element));
   const backgroundFeatures = args.selectedBackgroundFeatureElements.filter((element) => !isLowSignalFeatureElement(element));
@@ -2087,13 +2131,34 @@ function buildFeatureCards(args: BuilderPdfSourceArgs) {
 
   const cards = [
     ...racialTraits.map((element) =>
-      withPdfGroupTag(withPdfTags(toPdfCardFromElement(element, { kind: "trait", summary: getFrontPageSummary(element, args) }), getPassiveNoteTags(element)), "race"),
+      withPdfGroupTag(
+        withPdfTags(toPdfCardFromElement(element, { kind: "trait", summary: getFrontPageSummary(element, args) }), getPassiveNoteTags(element)),
+        "race",
+        undefined,
+        // Round-30 #4: tag race traits with the race display name
+        // so buildFeatureDeckGroups can chunk them as "HIGH ELF"
+        // etc.
+        raceNameByElementId.get(element.id),
+      ),
     ),
     ...subracialTraits.map((element) =>
-      withPdfGroupTag(withPdfTags(toPdfCardFromElement(element, { kind: "trait", summary: getFrontPageSummary(element, args) }), getPassiveNoteTags(element)), "subrace"),
+      withPdfGroupTag(
+        withPdfTags(toPdfCardFromElement(element, { kind: "trait", summary: getFrontPageSummary(element, args) }), getPassiveNoteTags(element)),
+        "subrace",
+        undefined,
+        // Round-30 #4: tag subrace traits with the same race display
+        // name — the chunker reads either tag and they collapse to
+        // one chunk per race+subrace combination.
+        raceNameByElementId.get(element.id),
+      ),
     ),
     ...unscopedTraits.map((element) =>
-      withPdfGroupTag(withPdfTags(toPdfCardFromElement(element, { kind: "trait", summary: getFrontPageSummary(element, args) }), getPassiveNoteTags(element)), "race"),
+      withPdfGroupTag(
+        withPdfTags(toPdfCardFromElement(element, { kind: "trait", summary: getFrontPageSummary(element, args) }), getPassiveNoteTags(element)),
+        "race",
+        undefined,
+        raceNameByElementId.get(element.id),
+      ),
     ),
     ...classFeatures.map((element) =>
       withPdfGroupTag(
