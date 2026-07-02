@@ -2426,8 +2426,16 @@ function renderCompanionSpeeds(
 ) {
   drawCenteredTextInRect(ctx, "SPEED", rects.speedLabel, {
     font: "Helvetica",
-    maxSize: 4.5,
-    minSize: 6.4,
+    // Round-30 #2: shrunk 6.4pt → 4.0pt. User feedback: 'In
+    // companion the speed label has to be smaller'. The label
+    // was rendering at minSize=6.4 (the previous maxSize=4.5
+    // minSize=6.4 inversion always returned minSize). Now the
+    // SPEED caption reads at half the size — matches the visual
+    // weight of the small "Passive Wisdom" label in the
+    // passives column and doesn't compete with the speed values
+    // (e.g. '40') in the boxes below.
+    maxSize: 4.0,
+    minSize: 3.5,
     color: "#777777",
   });
   const entries = parseMovementSpeeds(speed);
