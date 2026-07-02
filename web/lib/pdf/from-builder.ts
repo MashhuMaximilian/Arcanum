@@ -1452,9 +1452,50 @@ function getFrontPageSummary(element: BuiltInElement, args: BuilderPdfSourceArgs
   // back to the full description here can silently replace intentionally short
   // XML <sheet> text with several paragraphs of rules text.
   if (element.sheet) {
-    return getSheetSummary(element, args) ?? "—";
+    const sheetSummary = getSheetSummary(element, args);
+    if (sheetSummary) return sheetSummary;
+    // Round-30 #5: when the sheet is suppressed (display=false or no
+    // descriptions), don't fall through to "—" — derive a body from
+    // either the FEATURE_ACTION_RULES mapping or the element's full
+    // description. Many features like Jack of All Trades, Magical
+    // Secrets, and Additional Magical Secrets are intentionally
+    // marked sheet.display=false because their sheet copy is just
+    // flavor, but the actual rules text IS the description. User
+    // feedback: 'Idk why some features do not have descriptions at
+    // all (like magical secrets or jack of all trades, ELF WEAPON
+    // TRAINING, FLEET OF FOOT, keen senses) ... I do need to see
+    // if those proficiencies are part of the description of
+    // feature not if they are the title'.
+    const playSummary = getPlaySurfaceSummary(element);
+    if (playSummary) return playSummary;
+    return deriveDescriptionPreview(element);
   }
-  return getPlaySurfaceSummary(element);
+  const playSummary = getPlaySurfaceSummary(element);
+  if (playSummary) return playSummary;
+  return deriveDescriptionPreview(element);
+}
+
+/**
+ * Round-30 #5: derive a body string from an element's description
+ * when neither its sheet nor its FEATURE_ACTION_RULES mapping is
+ * available. Strips HTML tags and returns a trimmed single-line
+ * preview so the feature card shows the actual rules text instead
+ * of a "—" placeholder.
+ */
+function deriveDescriptionPreview(element: BuiltInElement): string {
+  const raw = element.descriptionHtml ?? element.description ?? "";
+  if (!raw) return "—";
+  const text = raw
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text || "—";
 }
 
 function getPassiveNoteTags(element: BuiltInElement) {
