@@ -3404,6 +3404,41 @@ function buildFeatureDeckGroups(cards: PdfPageCard[]) {
   return [...groups.values()]
     .filter((group) => group.cards.length)
     .flatMap((group) => {
+      // Round-29 #4: for class/subclass groups, split chunks BY
+      // class identity (the `pdf-className:<NAME>` tag set in
+      // buildFeatureCards) so each chunk represents ONE class.
+      // Result: multiclass characters see "DRUID" / "RANGER"
+      // chunk titles instead of "CLASS 1" / "CLASS 2".
+      //
+      // For non-class groups (race/subrace/feat/additional/other)
+      // we keep the existing chunk-by-weight behavior because
+      // those groups don't have class identity — they're broken
+      // up purely by content weight.
+      const isClassLike = group.id === "class" || group.id === "subclass";
+      if (isClassLike) {
+        // Group cards by className tag
+        const byClass = new Map<string, PdfPageCard[]>();
+        const orderOfFirstAppearance: string[] = [];
+        for (const card of group.cards) {
+          const tag = card.tags.find((t) => t.startsWith("pdf-className:"));
+          const classKey = tag ? tag.slice("pdf-className:".length) : "_unknown";
+          if (!byClass.has(classKey)) {
+            byClass.set(classKey, []);
+            orderOfFirstAppearance.push(classKey);
+          }
+          byClass.get(classKey)!.push(card);
+        }
+        return orderOfFirstAppearance.map((classKey) => ({
+          ...group,
+          id: `${group.id}-${classKey}`,
+          // Use class name (e.g. "DRUID") as the title so
+          // getFeatureGroupDisplayTitle returns it directly
+          // (no " FEATURES" strip needed — already stripped)
+          title: classKey === "_unknown" ? group.title : classKey.toUpperCase(),
+          cards: byClass.get(classKey)!,
+        }));
+      }
+      // Non-class groups: existing weight-based chunking
       const chunks: PdfPageCard[][] = [];
       let current: PdfPageCard[] = [];
       let currentWeight = 0;
@@ -3446,7 +3481,10 @@ function renderGroupedFeatureDeck(ctx: PdfRenderContext, assets: PdfSvgAssetBund
   if (!groups.length) {
     return;
   }
-  const gap = 7;
+  // Round-29 #4: tighter gap between feature card groups.
+  // User feedback: 'Mai putin spatiu intre ele ... e prea mult
+  // padding sus si jos'. Reduced 7 → 4.
+  const gap = 4;
   const columnCount = Math.min(2, groups.length);
   const totalGapWidth = (columnCount - 1) * gap;
   const cellWidth = Math.floor((rect.width - totalGapWidth) / columnCount);
@@ -3485,7 +3523,13 @@ function renderGroupedFeatureDeck(ctx: PdfRenderContext, assets: PdfSvgAssetBund
     maskRect(ctx, groupRect);
     drawSvg(ctx, assets.generalContainer, groupRect);
 
-    const titleY = groupRect.y + 12;
+    // Round-29 #4: less top padding above the group title. User
+    // feedback: 'sus deasupra titlului "Class" sau "Class 2" e
+    // prea mult padding'. Reduced titleY offset 12 → 7 (and
+    // corresponding listRect y 18 → 13) so the title sits closer
+    // to the top of the card. Tightens vertical rhythm and
+    // reduces wasted space at the top of each card.
+    const titleY = groupRect.y + 7;
     const displayTitle = getFeatureGroupDisplayTitle(group);
     drawFittedText(ctx, displayTitle.toUpperCase(), { x: groupRect.x + 5, y: titleY, width: groupRect.width - 10, height: 6 }, {
       font: "Helvetica-Bold",
@@ -3496,9 +3540,14 @@ function renderGroupedFeatureDeck(ctx: PdfRenderContext, assets: PdfSvgAssetBund
 
     const listRect = {
       x: groupRect.x + 5,
-      y: groupRect.y + 18,
+      y: groupRect.y + 13,
+      // Round-29 #4: less bottom padding below the body list.
+      // User feedback: 'prea mult padding ... sub feature/ultimul
+      // feature la unele'. Reduced the -15 → -10 reserved
+      // bottom space inside the list rect so the last feature
+      // sits closer to the bottom edge of the card.
       width: groupRect.width - 10,
-      height: groupRect.height - fitCfg.bottomPadding - 15,
+      height: groupRect.height - fitCfg.bottomPadding - 10,
     };
     renderFeatureList(ctx, group.cards, listRect, getAdaptiveFeatureColumnCount(group.cards, listRect.width), fitCfg, level);
   });
@@ -3960,3 +4009,4 @@ export function renderFrontPage(ctx: PdfRenderContext, assets: PdfSvgAssetBundle
 
   doc.restore();
 }
+

@@ -724,10 +724,17 @@ function isLowSignalFeatureElement(element: BuiltInElement) {
   return false;
 }
 
-function withPdfGroupTag(card: ReturnType<typeof toPdfCardFromElement> | ReturnType<typeof toPdfCardFromGrant>, group: string) {
+function withPdfGroupTag(card: ReturnType<typeof toPdfCardFromElement> | ReturnType<typeof toPdfCardFromGrant>, group: string, className?: string) {
+  // Round-29 #4: optional `className` param — when set, adds a
+  // `pdf-className:<NAME>` tag so buildFeatureDeckGroups can chunk
+  // class features by their actual class identity (instead of
+  // fallback "CLASS 1" / "CLASS 2" labels). User feedback: 'la
+  // multiclass in loc de "class 1", "class 2" etc ar trebui
+  // numele clasei'.
+  const extraTags = className ? [`pdf-className:${className}`] : [];
   return {
     ...card,
-    tags: [...card.tags, `pdf-group:${group}`],
+    tags: [...card.tags, `pdf-group:${group}`, ...extraTags],
   };
 }
 
@@ -2045,6 +2052,32 @@ function buildFeatureCards(args: BuilderPdfSourceArgs) {
   const unscopedTraits = args.selectedRacialTraitElements.filter(
     (element) => !raceGrantedTraitIds.has(element.id) && !subraceGrantedTraitIds.has(element.id),
   );
+  // Round-29 #4: build a lookup map from elementId → className so
+  // class features can be tagged with their actual class identity
+  // (used by buildFeatureDeckGroups to label chunks "DRUID",
+  // "RANGER", etc. instead of "CLASS 1" / "CLASS 2"). For each
+  // class entry, find which features it granted (class + subclass
+  // combined) and map each feature's id to that class's name.
+  const classNameByElementId = new Map<string, string>();
+  args.classRecordsByEntry.forEach((record, index) => {
+    const entry = args.draft.classEntries[index];
+    if (!record || !entry?.classId) return;
+    const className = resolveClassName(args.classRecordsByEntry[index], entry);
+    if (!className) return;
+    const classFeatureIds = collectGrantedIdsAtLevel(record.class.rules, "Class Feature", entry.level);
+    const selectedSubclass =
+      record.subclassSteps.flatMap((step) => step.options).find((option) => option.archetype.id === entry.subclassId) ?? null;
+    const subclassFeatureIds = selectedSubclass
+      ? collectGrantedIdsAtLevel(selectedSubclass.archetype.rules, "Archetype Feature", entry.level)
+      : [];
+    const grantedFeatureIds = new Set([...classFeatureIds, ...subclassFeatureIds]);
+    record.features.forEach((feature) => {
+      if (grantedFeatureIds.has(feature.id)) classNameByElementId.set(feature.id, className);
+    });
+    selectedSubclass?.features.forEach((feature) => {
+      if (grantedFeatureIds.has(feature.id)) classNameByElementId.set(feature.id, className);
+    });
+  });
   const classFeatures = args.selectedClassFeatureElements.filter((element) => !/archetype/i.test(element.type) && !isLowSignalFeatureElement(element));
   const subclassFeatures = args.selectedClassFeatureElements.filter((element) => /archetype/i.test(element.type) && !isLowSignalFeatureElement(element));
   const backgroundFeatures = args.selectedBackgroundFeatureElements.filter((element) => !isLowSignalFeatureElement(element));
@@ -2066,12 +2099,20 @@ function buildFeatureCards(args: BuilderPdfSourceArgs) {
       withPdfGroupTag(
         withPdfTags(toPdfCardFromElement(element, { kind: "feature", summary: getFrontPageSummary(element, args) }), getPassiveNoteTags(element)),
         "class",
+        // Round-29 #4: tag with the actual class name so multiclass
+        // chunks label as "DRUID" / "RANGER" instead of "CLASS 1".
+        classNameByElementId.get(element.id),
       ),
     ),
     ...subclassFeatures.map((element) =>
       withPdfGroupTag(
         withPdfTags(toPdfCardFromElement(element, { kind: "feature", summary: getFrontPageSummary(element, args) }), getPassiveNoteTags(element)),
         "subclass",
+        // Round-29 #4: tag subclass with the class name too
+        // ("RANGER - Hunter" style would be nice but we just use
+        // class name for simplicity; subclass identity already
+        // appears in the feature title "Hunter's Prey").
+        classNameByElementId.get(element.id),
       ),
     ),
     ...backgroundFeatures.map((element) =>
