@@ -1650,7 +1650,16 @@ function renderProficiencies(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, c
     // label weight) and 3.5pt (6+ items — small but readable) based
     // on what actually fits. Aggressive shrinking lets us reclaim
     // ~25% more vertical space for long lists without truncating.
-    const valueRect = rectFromFractions(cell, { x: 0.06, y: 0.06, width: 0.88, height: 0.72 });
+    // Round-31 #4: bumped L/R inset 0.06→0.10 / 0.88→0.80 to add
+    // a few pt of horizontal padding inside the value text area.
+    // User feedback: 'in proficiencies boxes I just want a biit
+    // of padding left and right a few points'. The card itself
+    // already has its SVG frame; the text was previously hugging
+    // the inner edges. 10% padding on each side (~3-4pt on a
+    // typical cell) gives a calmer reading rhythm without making
+    // long lists overflow vertically — fitTextSize still shrinks
+    // down to 3.5pt if needed.
+    const valueRect = rectFromFractions(cell, { x: 0.10, y: 0.06, width: 0.80, height: 0.72 });
     const valueSize = fitTextSize(ctx, itemText, valueRect, {
       font: "Helvetica",
       maxSize: 6.4,
