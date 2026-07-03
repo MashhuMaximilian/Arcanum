@@ -2513,13 +2513,16 @@ function renderCompanionSpeeds(
     });
     drawCenteredTextInRect(ctx, entries[index].label, componentRect(rect, PASSIVE_BOX_VIEWBOX, PASSIVE_BOX_SLOTS.label), {
       font: "Helvetica",
-      // Fixed inverted maxSize/minSize — was 3.8 / 6.4 which made
-      // the label clamp to 3.8pt (just above minSize floor is
-      // unreachable since minSize > maxSize). Set maxSize 6.4 to
-      // match the front page passive labels (also Magra 6.4pt) so
-      // both pages render Walking/Flying/Climbing at the same size.
-      maxSize: 6.4,
-      minSize: 6.4,
+      // Round-31 #3: shrink further 6.4pt → 4.5pt so the longest
+      // mode label 'Burrowing' fits inside the 27pt label slot
+      // without ellipsis. User feedback: 'In companion in speed
+      // we should make the labels even smaller so full "Burrowing"
+      // for example fits inside not "Burrow..."'. 4.5pt keeps the
+      // label readable and matches the small caption size of
+      // 'SPEED' / 'LANG' labels in the same column. Front-page
+      // passive labels stay at 6.4pt (they have wider slots).
+      maxSize: 4.5,
+      minSize: 4.0,
       color: "#333333",
       lineGap: 0,
     });
