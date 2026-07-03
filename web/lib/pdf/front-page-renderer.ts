@@ -3983,28 +3983,25 @@ function formatPactSlotSummary(pactSlots: { level: number; slots: number }[]) {
 
 function formatSpellEntriesForFrontPage(
   spells: Array<{ name: string; level: number; sourceLabel?: string; page1DisplaySummary?: string }>,
-  mode: keyof typeof SPELL_SUMMARY_MAX_CHARS,
+  _mode: keyof typeof SPELL_SUMMARY_MAX_CHARS,
 ) {
+  // Round-31 #2: Spell List on page 1 is now NAMES ONLY. We were
+  // appending a truncated page1DisplaySummary to each spell name
+  // ("Minor Illusion — You create a...; Prestidigitation — This
+  // spell is..."), which made the list hard to scan and ate
+  // vertical space better used for slot circles and the
+  // cantrips row. User feedback: 'In spell list in first page it
+  // should only list all spells and only their names. Idk why you
+  // wrote description too...'. The page1DisplaySummary is still
+  // attached to the spell entry for any other surface (e.g.
+  // spell-card detail page) but is intentionally NOT rendered
+  // here. Joining character is "; " so multi-spell rows still
+  // read as a list. We accept the unused mode + page1DisplaySummary
+  // args to keep the function signature stable.
   if (!spells.length) {
     return "—";
   }
-
-  const summaryBudget =
-    spells.length === 1
-      ? SPELL_SUMMARY_MAX_CHARS[mode].single
-      : spells.length === 2
-        ? SPELL_SUMMARY_MAX_CHARS[mode].pair
-        : SPELL_SUMMARY_MAX_CHARS[mode].many;
-
-  return spells
-    .map((spell) => {
-      const summary = spell.page1DisplaySummary;
-      if (!summary) {
-        return spell.name;
-      }
-      return `${spell.name} — ${compactSpellSummary(summary, summaryBudget)}`;
-    })
-    .join("; ");
+  return spells.map((spell) => spell.name).join("; ");
 }
 
 export function renderFrontPage(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, character: ResolvedPdfCharacter) {
