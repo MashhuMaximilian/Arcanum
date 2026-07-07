@@ -341,13 +341,13 @@ const HEADER_FIELD_SLOTS = [
   // 34.5 → 33 (1.5pt up), closing the visual gap to ≈8pt between
   // centers. Also bumped lineRect up 0.5pt to keep the underline
   // tight under the now-higher value.
-  { key: "race", label: "RACE", labelRect: { x: 242, y: 24.5, width: 83, height: 9 }, valueRect: { x: 242, y: 33, width: 83, height: 9 }, lineRect: { x: 242, y: 39, width: 83, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 24.5, width: 139, height: 9 }, valueRect: { x: 333, y: 33, width: 139, height: 9 }, lineRect: { x: 333, y: 39, width: 139, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 24.5, width: 44, height: 9 }, valueRect: { x: 480.5, y: 33, width: 44, height: 9 }, lineRect: { x: 480.5, y: 39, width: 44, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 41, width: 71.5, height: 9 }, valueRect: { x: 242, y: 49.5, width: 71.5, height: 9 }, lineRect: { x: 242, y: 55.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 41, width: 71.5, height: 9 }, valueRect: { x: 321.5, y: 49.5, width: 71.5, height: 9 }, lineRect: { x: 321.5, y: 55.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 41, width: 71.5, height: 9 }, valueRect: { x: 401, y: 49.5, width: 71.5, height: 9 }, lineRect: { x: 401, y: 55.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
-  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 41, width: 71.5, height: 9 }, valueRect: { x: 480.5, y: 49.5, width: 71.5, height: 9 }, lineRect: { x: 480.5, y: 55.5, width: 71.5, height: 5.0 }, maxSize: 6.4, minSize: 6.4 },
+  { key: "race", label: "RACE", labelRect: { x: 242, y: 24.6, width: 83, height: 7.5 }, valueRect: { x: 242, y: 31.5, width: 83, height: 8 }, lineRect: { x: 242, y: 36.8, width: 83, height: 4.5 }, maxSize: 6.1, minSize: 5.4 },
+  { key: "class", label: "CLASS & LEVEL", labelRect: { x: 333, y: 24.6, width: 139, height: 7.5 }, valueRect: { x: 333, y: 31.5, width: 139, height: 8 }, lineRect: { x: 333, y: 36.8, width: 139, height: 4.5 }, maxSize: 6.1, minSize: 5.4 },
+  { key: "exp", label: "EXP", labelRect: { x: 480.5, y: 24.6, width: 44, height: 7.5 }, valueRect: { x: 480.5, y: 31.5, width: 44, height: 8 }, lineRect: { x: 480.5, y: 36.8, width: 44, height: 4.5 }, maxSize: 6.1, minSize: 5.4 },
+  { key: "background", label: "BACKGROUND", labelRect: { x: 242, y: 43.5, width: 71.5, height: 7.5 }, valueRect: { x: 242, y: 50, width: 71.5, height: 8 }, lineRect: { x: 242, y: 55.4, width: 71.5, height: 4.5 }, maxSize: 6.1, minSize: 5.4 },
+  { key: "alignment", label: "ALIGNMENT", labelRect: { x: 321.5, y: 43.5, width: 71.5, height: 7.5 }, valueRect: { x: 321.5, y: 50, width: 71.5, height: 8 }, lineRect: { x: 321.5, y: 55.4, width: 71.5, height: 4.5 }, maxSize: 6.1, minSize: 5.4 },
+  { key: "deity", label: "DEITY", labelRect: { x: 401, y: 43.5, width: 71.5, height: 7.5 }, valueRect: { x: 401, y: 50, width: 71.5, height: 8 }, lineRect: { x: 401, y: 55.4, width: 71.5, height: 4.5 }, maxSize: 6.1, minSize: 5.4 },
+  { key: "player", label: "PLAYER NAME", labelRect: { x: 480.5, y: 43.5, width: 71.5, height: 7.5 }, valueRect: { x: 480.5, y: 50, width: 71.5, height: 8 }, lineRect: { x: 480.5, y: 55.4, width: 71.5, height: 4.5 }, maxSize: 6.1, minSize: 5.4 },
 ] as const;
 
 const SPELLCASTING_REGION: PdfRect = FRONT_PAGE_REGIONS.spellcasting;
@@ -705,7 +705,7 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
     // of the field card).
     drawText(ctx, field.label.toUpperCase(), headerRect(field.labelRect), {
       font: "Helvetica",
-      size: 5.5,
+      size: 5,
       align: "left",
       color: "#777777",
       lineBreak: false,
@@ -731,7 +731,7 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
       // helper.
       drawText(ctx, lines[0], headerRect(field.valueRect), {
         font: "Helvetica",
-        size: 6.8,
+        size: field.maxSize,
         align: "left",
         color: "#000000",
         lineBreak: false,
@@ -750,7 +750,7 @@ function renderHeader(ctx: PdfRenderContext, assets: PdfSvgAssetBundle, characte
       const lineRect = { x: fullRect.x, y: fullRect.y + idx * perLineH, width: fullRect.width, height: perLineH };
       drawText(ctx, lineText, lineRect, {
         font: "Helvetica",
-        size: 6.8,
+        size: field.maxSize,
         align: "left",
         color: "#000000",
         lineBreak: false,
@@ -4035,4 +4035,3 @@ export function renderFrontPage(ctx: PdfRenderContext, assets: PdfSvgAssetBundle
 
   doc.restore();
 }
-

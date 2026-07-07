@@ -456,23 +456,13 @@ function drawRichParagraph(
         // the Teko-Medium display face. Italic reuses Magra (we have
         // no italic cut; the visual distinction still reads through
         // run separation).
-        // Round-31 #1: REVERT the R30 #3 fontSize * 0.93 hack on the
-        // page-2 item description path. The size reduction made
-        // PDFKit's per-word baseline drift — bold runs ended up a
-        // couple pixels higher than the body baseline, producing the
-        // "ugly" misaligned look in the R30 PDF. Front page was fine
-        // because it draws via doc.text (not drawText) and lets
-        // PDFKit's layout engine keep baselines locked; the page-2
-        // path explicitly positions each word and exposes the drift.
-        //
-        // Now we keep ALL runs at the SAME font size (options.size)
-        // and fake the lighter weight via a horizontal+vertical
-        // scale transform around the bold runs. Baseline alignment
-        // is perfect (PDFKit sees one font size across the line)
-        // and the bold ink density still reads as "medium" because
-        // the transform shrinks the glyph strokes. User feedback:
-        // 'almost perfect, but in item descriptions, the bolded
-        // things are still not properly aligned and it's ugly'.
+        // Keep bold and regular runs on the exact same baseline.
+        // Earlier passes tried to make bold read as "medium" by
+        // scaling glyphs, but PDFKit's per-run transforms made bold
+        // words look vertically misaligned inside dense inventory
+        // descriptions. Page 1 reads cleanly because it uses one
+        // stable line box; mirror that here by drawing Magra-Bold at
+        // the same size with no per-word transform.
         const font = isBold && isItalic
           ? "Magra-Bold"
           : isBold
@@ -481,11 +471,6 @@ function drawRichParagraph(
               ? "Helvetica-Oblique"
               : options.font;
         const runSize = options.size;
-        // Scale factor for the bold "medium" feel. Magra-Bold at
-        // 0.92 of body width and height reads as ~500-600 weight.
-        // Mirrors the visual effect of the previous 0.93x fontSize
-        // trick but without breaking baseline alignment.
-        const boldScale = isBold ? 0.92 : 1;
 
         // Split on spaces so we can wrap. Use a non-newline split
         // since newlines are already handled at the block level above.
@@ -526,19 +511,6 @@ function drawRichParagraph(
             cursorX += ctx.doc.widthOfString(" ");
           }
 
-          // Apply the bold scale transform BEFORE the actual word
-          // draw, then restore. Scale is applied around the word's
-          // top-left so the glyph shrinks in place; the cursorX
-          // advance uses the unscaled width so the next word sits
-          // in the right spot.
-          if (isBold) {
-            ctx.doc.save();
-            // Translate to the word's top-left, scale, then translate
-            // back. PDFKit's doc.text uses the top-left of the line,
-            // so scaling around the draw origin shrinks the word
-            // visually without shifting its draw position.
-            ctx.doc.scale(boldScale, boldScale, { origin: [cursorX, y] });
-          }
           drawText(ctx, word, {
             x: cursorX,
             // Round-29 #3: REMOVED the -2.4pt hardcoded Y lift for
@@ -564,9 +536,6 @@ function drawRichParagraph(
             // cut).
             oblique: isItalic ? 12 : undefined,
           });
-          if (isBold) {
-            ctx.doc.restore();
-          }
           cursorX += wordWidth;
           lineHasContent = true;
         }
@@ -632,12 +601,10 @@ function measureRichParagraphHeight(
             : run.italic
               ? "Helvetica-Oblique"
               : baseFont;
-        // Round-31 #1: all runs measure at the same size (no
-        // 0.93x). The renderer now uses a transform scale for
-        // the "medium" feel — the unscaled width is what matters
-        // for wrap accounting.
+        // Measure rich body text with the same size used by the
+        // renderer so bold/regular wrapping and baselines stay in
+        // lockstep.
         const runSize = size;
-        const boldScale = run.bold ? 0.92 : 1;
         const words = run.text.split(/[ \t]+/);
         for (const word of words) {
           if (!word) continue;
@@ -997,15 +964,8 @@ function renderItemDescriptions(
           // the same'. The front page drawTextWithBoldActionWords
           // already used Magra-Bold; this brings page-2 item
           // descriptions in line.
-          // Round-30 #3: drop the bold run's fontSize by ~7% to
-          // fake a "medium" (500-600) ink weight. Magra only
-          // ships Regular (400) and Bold (700) — no Medium cut.
-          // A smaller bold size in the SAME family produces a
-          // visually lighter emphasis that reads like a medium
-          // weight while keeping baseline alignment perfect
-          // (same OS/2 metrics). Mirrors the front-page change.
           const segFont = run.bold ? "Magra-Bold" : textFont;
-          const segSize = run.bold ? bodySize * 0.93 : bodySize;
+          const segSize = bodySize;
           ctx.doc.save();
           ctx.doc.font(segFont).fontSize(segSize);
           const segW = ctx.doc.widthOfString(seg);
@@ -1107,38 +1067,23 @@ function renderItemDescriptions(
     const lineY = columnCursors[col];
     let cursorX = lineX;
     for (const run of line.runs) {
-      // Round-28 #3: inline emphasis now uses Magra-Bold (same family
-      // as body Magra-Regular) instead of Helvetica-Bold (which
-      // aliased to Teko-Medium). User feedback: 'These should be
-      // formatted the same. ... same font family as the rest of
-      // description'. Mirrors the front page change.
+      // Magra-Bold has a slightly lower optical baseline than Magra
+      // regular in PDFKit. Lift only the ink, not the measurement, so
+      // bold words sit on the same visual line as surrounding prose.
       const runFont = run.bold ? "Magra-Bold" : textFont;
-      // Round-31 #1: REVERT the R30 #3 fontSize * 0.93 hack.
-      // The 0.93x font size made PDFKit's per-word baseline drift
-      // — bold runs ended up a couple pixels higher than the body
-      // baseline. Now all runs use the SAME font size (bodySize)
-      // and bold runs are visually "lightened" via a transform
-      // scale around the word's draw origin. Baseline alignment
-      // is perfect because PDFKit sees a single font size across
-      // the line. Mirrors the drawRichParagraph fix above.
       const runSize = bodySize;
-      const boldScale = run.bold ? 0.92 : 1;
+      const baselineLift = run.bold ? -Math.max(1.6, bodySize * 0.2) : 0;
       ctx.doc.save();
       ctx.doc.font(runFont).fontSize(runSize);
       const runW = ctx.doc.widthOfString(run.text);
       ctx.doc.restore();
       const remainingW = lineX + columnWidth - cursorX;
       if (remainingW <= 0) break;
-      // Round-31 #1: apply the bold scale transform around the
-      // word's draw origin so the bold glyph shrinks in place.
-      // cursorX advance uses the unscaled width so the next word
-      // sits in the right spot.
-      if (run.bold) {
-        ctx.doc.save();
-        ctx.doc.scale(boldScale, boldScale, { origin: [cursorX, lineY] });
-      }
       drawText(ctx, run.text, {
-        x: cursorX, y: lineY, width: Math.min(runW, remainingW), height: lineH,
+        x: cursorX,
+        y: lineY + baselineLift,
+        width: Math.min(runW, remainingW),
+        height: lineH - baselineLift,
       }, {
         font: runFont,
         size: runSize,
@@ -1148,9 +1093,6 @@ function renderItemDescriptions(
         lineGap,
         oblique: run.italic ? 12 : undefined,
       });
-      if (run.bold) {
-        ctx.doc.restore();
-      }
       cursorX += runW;
     }
     columnCursors[col] = lineY + lineH;
